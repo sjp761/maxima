@@ -331,9 +331,8 @@ where
     ERR_SUCCESS
 }
 
-#
-
-#[no_mangle]
+// TODO: Need to find a good way to do this
+/* #[no_mangle]
 pub extern "C" fn maxima_service_layer_get_user_player(
     runtime: *mut *mut Runtime,
     mx: *mut *const c_void,
@@ -362,7 +361,7 @@ macro_rules! define_native_service_request {
             }
         }
     };
-}
+} */
 
 unsafe fn parse_raw_string(buf: *const c_char) -> String {
     let c_str = CStr::from_ptr(buf);
