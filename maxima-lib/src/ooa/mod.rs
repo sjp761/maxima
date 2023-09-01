@@ -1,11 +1,13 @@
-use core::slice::SlicePattern;
-use std::{fs::{File, create_dir_all}, io::Write};
+use std::{
+    fs::{create_dir_all, File},
+    io::Write,
+};
 
 use anyhow::{bail, Result};
 
 use base64::{engine::general_purpose, Engine};
 use openssl::symm::{decrypt, encrypt, Cipher};
-use reqwest::{Client, StatusCode};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use std::io::Read;
@@ -60,10 +62,7 @@ pub async fn request_license(
         bail!("License request failed");
     }
 
-    let signature = res
-        .header("x-signature")
-        .unwrap()
-        .to_owned();
+    let signature = res.header("x-signature").unwrap().to_owned();
     let mut body: Vec<u8> = vec![];
     res.into_reader()
         .take((4096 + 1) as u64)

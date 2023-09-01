@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose, Engine};
 use log::info;
-use std::{path::PathBuf, sync::Arc, vec::Vec, env};
-use tokio::{sync::Mutex, process::Command, io::AsyncBufReadExt};
+use std::{env, path::PathBuf, sync::Arc, vec::Vec};
+use tokio::{process::{Command, Child}, sync::Mutex};
 
 use anyhow::Result;
 
@@ -53,7 +53,7 @@ pub async fn start_game(
     game_path_override: Option<String>,
     mut game_args: Vec<String>,
     maxima_arc: Arc<Mutex<Maxima>>,
-) -> Result<()> {
+) -> Result<Child> {
     let mut maxima = maxima_arc.lock().await;
     info!("Retrieving data about '{}'...", offer_id);
 
@@ -76,7 +76,7 @@ pub async fn start_game(
     )
     .await
     .unwrap();
-    //save_licenses(&license).unwrap();
+    save_licenses(&license).unwrap();
 
     let software = offer.publishing.software_list.unwrap().software[0]
         .fulfillment_attributes
@@ -144,15 +144,8 @@ pub async fn start_game(
 
     drop(maxima);
 
-    // TODO store handle somewhere
-    let mut child = child.spawn().expect("Failed to start child");
-
-    //let stdout = child.stdout.take().expect("no stdout");
-    // Can do the same for stderr
-
-    child.wait().await?;
-
-    Ok(())
+    let child = child.spawn().expect("Failed to start child");
+    Ok(child)
 }
 
 pub fn parse_arguments(input: &str) -> Vec<String> {

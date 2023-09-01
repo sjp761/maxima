@@ -2,9 +2,11 @@
 
 use anyhow::{bail, Result};
 
-use reqwest::{Client, StatusCode};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2_const::Sha256;
+use ureq::OrAnyStatus;
 
 use super::{endpoints::API_SERVICE_AGGREGATION_LAYER, locale::Locale};
 
@@ -21,67 +23,110 @@ pub struct ServiceExtensions {
     pub persisted_query: PersistedQuery,
 }
 
-pub const SERVICE_REQUEST_PLAYERBYPD: (&str, &str) = (
-    "GetBasicPlayer",
-    "b60b22e2071548c4c87ed1ebf7fba2a653f7cf9a7b62bf742bf30caba95d6346",
-);
-pub const SERVICE_REQUEST_GETUSERPLAYER: (&str, &str) = (
-    "GetUserPlayer",
-    "387cef4a793043a4c76c92ff4f2bceb7b25c3438f9c3c4fd5eb67eea18272657",
-);
-pub const SERVICE_REQUEST_GAMEIMAGES: (&str, &str) = (
-    "GameImages",
-    "ea5448b2ef84b418d150d66a13ba32a34559966c3c7bd30e506d26456a316be8", //5ab5a2453cd970cb95e39d9d8a96251584a432c39bc47093a1304ff7b8ca3f03
-);
-pub const SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES: (&str, &str) = (
-    "getPreloadedOwnedGames",
-    "0c19ffbc5858eae560d8a6928cf0e0b0040b876bd96ceb39c6cf85a827caa270",
-);
-
-pub const SERVICE_REQUEST_GETGAME: (&str, &str) = (
-    "getGame",
-    include_str!("graphql/game.graphql")
-);
-
-struct GraphQLRequest {
-    pub query_source: String,
-    pub hash: String,
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullServiceRequest<'a, T: Serialize> {
+    pub extensions: ServiceExtensions,
+    pub variables: T,
+    pub operation_name: &'a str,
+    pub query: &'static str,
 }
 
-struct ServiceExecutor {
-
+pub struct GraphQLRequest {
+    query: &'static str,
+    operation: &'static str,
+    hash: [u8; 32],
 }
+
+macro_rules! load_graphql_request {
+    ($operation:expr) => {{
+        let content = include_str!(concat!("graphql/", $operation, ".gql"));
+        let hash = Sha256::new().update(content.as_bytes()).finalize();
+        GraphQLRequest { query: content, operation: $operation, hash }
+    }}
+}
+
+macro_rules! define_graphql_request {
+    ($operation:expr) => { paste::paste! {
+        pub const [<SERVICE_REQUEST_ $operation:upper>]: &GraphQLRequest = &load_graphql_request!(stringify!($operation));
+    }}
+}
+
+define_graphql_request!(GetBasicPlayer);
+define_graphql_request!(GetUserPlayer);
+define_graphql_request!(GameImages);
+define_graphql_request!(getPreloadedOwnedGames);
 
 pub async fn send_service_request<T, R>(
     access_token: &str,
-    (operation, hash): (&str, &str),
+    operation: &GraphQLRequest,
     variables: T,
 ) -> Result<R>
 where
     T: Serialize,
     R: for<'a> Deserialize<'a>,
 {
-    let extensions = serde_json::to_string(&ServiceExtensions {
+    let mut result = send_service_request2(access_token, operation, &variables, false).await;
+
+    // On first error, try sending the full query
+    if result.is_err() {
+        result = send_service_request2(access_token, operation, variables, true).await;
+    }
+
+    result
+}
+
+async fn send_service_request2<T, R>(
+    access_token: &str,
+    operation: &GraphQLRequest,
+    variables: T,
+    full_query: bool,
+) -> Result<R>
+where
+    T: Serialize,
+    R: for<'a> Deserialize<'a>,
+{
+    let extensions = ServiceExtensions {
         persisted_query: PersistedQuery {
             version: 1,
-            sha256_hash: hash.to_string(),
+            sha256_hash: hex::encode(operation.hash),
         },
-    })
-    .unwrap();
+    };
 
-    let variable_json = serde_json::to_string(&variables).unwrap();
-    let query = vec![
-        ("extensions", extensions.as_str()),
-        ("operationName", operation),
-        ("variables", variable_json.as_str()),
-    ];
+    let mut request = if full_query {
+        ureq::post(API_SERVICE_AGGREGATION_LAYER)
+    } else {
+        ureq::get(API_SERVICE_AGGREGATION_LAYER)
+    };
 
-    let res = ureq::get(API_SERVICE_AGGREGATION_LAYER)
-        .query_pairs(query)
-        .set("Authorization", &("Bearer ".to_string() + access_token))
-        .call()?;
+    request = request.set("Authorization", &("Bearer ".to_string() + access_token));
+
+    let res = if full_query {
+        let data = FullServiceRequest {
+            extensions,
+            variables,
+            operation_name: operation.operation,
+            query: operation.query,
+        };
+
+        request
+            .set("Content-Type", "application/json")
+            .send_string(&serde_json::to_string(&data)?)
+    } else {
+        request
+            .query("extensions", &serde_json::to_string(&extensions)?)
+            .query("operationName", operation.operation)
+            .query("variables", &serde_json::to_string(&variables)?)
+            .call()
+    }
+    .or_any_status()?;
+
     if res.status() != StatusCode::OK {
-        bail!("Service request '{}' failed: {}", operation, res.into_string()?);
+        bail!(
+            "Service request '{}' failed: {}",
+            operation.operation,
+            res.into_string()?
+        );
     }
 
     let text = res.into_string()?;
@@ -104,6 +149,7 @@ macro_rules! service_layer_type {
         paste::paste! {
             #[derive(Debug, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
+            #[repr(C)]
             pub struct [<Service $name>] {
                 $($field)*
             }
@@ -116,6 +162,7 @@ macro_rules! service_layer_enum {
         paste::paste! {
             #[derive(Debug, Serialize, Deserialize, PartialEq)]
             #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+            #[repr(C)]
             pub enum [<Service $name>] {
                 $($field)*
             }
@@ -125,7 +172,7 @@ macro_rules! service_layer_enum {
 
 // Requests
 
-service_layer_type!(PlayerByPlayerIdRequest, {
+service_layer_type!(GetBasicPlayerRequest, {
     pub pd: String,
 });
 

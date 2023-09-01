@@ -20,13 +20,22 @@ async fn main() -> Result<()> {
         println!("Args: {:?}", &args);
 
         let str_result = result
-            .map_err(|e| e.to_string())
+            .map_err(|e| {
+                let source = e.source();
+                let error_str = if source.is_some() {
+                    source.unwrap().to_string()
+                } else {
+                    e.to_string()
+                };
+
+                error_str + &e.backtrace().to_string()
+            })
             .err()
             .unwrap_or("Success".to_string());
         println!("Result: {}", str_result);
 
         // Pause terminal
-        //std::io::Read::read(&mut std::io::stdin(), &mut [0]).unwrap();
+        std::io::Read::read(&mut std::io::stdin(), &mut [0]).unwrap();
     }
 
     Ok(())
@@ -42,7 +51,7 @@ async fn run(args: &Vec<String>) -> Result<()> {
         } else if arg.starts_with("origin2") {
             let url = Url::parse(arg)?;
             let query = querystring::querify(url.query().unwrap());
-            let offer_id = query.iter().find(|(x, _)| *x == "offerIds").unwrap().1;
+            let _offer_id = query.iter().find(|(x, _)| *x == "offerIds").unwrap().1;
             let cmd_params = query.iter().find(|(x, _)| *x == "cmdParams").unwrap().1;
             
             let mut child = Command::new(current_exe()?.with_file_name("maxima-cli.exe"));

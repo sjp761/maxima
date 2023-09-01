@@ -7,7 +7,7 @@ pub static LOGGER: SimpleLogger = SimpleLogger;
 impl log::Log for SimpleLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         let log_level = if cfg!(debug_assertions) {
-            Level::Debug
+            Level::Info
         } else {
             Level::Info
         };

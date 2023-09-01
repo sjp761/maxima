@@ -45,7 +45,7 @@ pub async fn handle_license_request(
     //         ).await.unwrap();
     //     }
     // });
-    if let Err(_) = std::env::var("MAXIMA_DISABLE_KYBER") {
+    if let Ok(_) = std::env::var("MAXIMA_ENABLE_KYBER") {
         ureq::get(&format!("http://127.0.0.1:{}/initialize", std::env::var("KYBER_INTERFACE_PORT")?)).call()?;
     }
 

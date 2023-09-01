@@ -8,6 +8,7 @@ use anyhow::Result;
 use dll_syringe::process::OwnedProcess;
 use dll_syringe::Syringe;
 use maxima::util::registry::set_up_registry;
+use maxima::util::service::SERVICE_NAME;
 use std::ffi::OsString;
 use std::path::Path;
 use std::thread;
@@ -23,15 +24,15 @@ use windows_service::{
 
 use maxima::core::background_service::{ServiceLibraryInjectionRequest, BACKGROUND_SERVICE_PORT};
 
-define_windows_service!(ffi_service_main, my_service_main);
+define_windows_service!(ffi_service_main, service_main);
 
-fn my_service_main(arguments: Vec<OsString>) {
+fn service_main(arguments: Vec<OsString>) {
     if let Err(_e) = bootstrap_service(arguments) {
         // Handle error in some way.
     }
 }
 
-fn bootstrap_service(arguments: Vec<OsString>) -> windows_service::Result<()> {
+fn bootstrap_service(_arguments: Vec<OsString>) -> windows_service::Result<()> {
     let event_handler = move |control_event| -> ServiceControlHandlerResult {
         match control_event {
             ServiceControl::Stop | ServiceControl::Interrogate => {
@@ -43,7 +44,7 @@ fn bootstrap_service(arguments: Vec<OsString>) -> windows_service::Result<()> {
 
     // Register system service event handler
     let status_handle =
-        service_control_handler::register("MaximaBackgroundService", event_handler)?;
+        service_control_handler::register(SERVICE_NAME, event_handler)?;
 
     let next_status = ServiceStatus {
         // Should match the one from system service registry
@@ -104,10 +105,10 @@ fn run_service() -> Result<()> {
 
     log::info!("Started Background Service");
 
-    let server_thread = thread::spawn(|| {
+    thread::spawn(|| {
         actix_web::rt::System::new().block_on(async {
             // Import your actix_web::App here
-            use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+            use actix_web::{App, HttpServer};
 
             HttpServer::new(|| {
                 App::new()

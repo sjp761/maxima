@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use log::{info, debug};
 use std::ffi::{CString, OsStr, OsString};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -19,20 +20,13 @@ use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
 use is_elevated::is_elevated;
 
+use super::native::get_module_path;
 use super::registry::launch_bootstrap;
 
-const SERVICE_NAME: &str = "MaximaBackgroundService";
+pub const SERVICE_NAME: &str = "MaximaBackgroundService";
 
 pub fn register_service() -> Result<()> {
     let service_manager = get_service_manager(true)?;
-
-    // Delete the existing service, if it exists
-    let existing_service = service_manager.open_service(SERVICE_NAME, ServiceAccess::DELETE);
-    if existing_service.is_ok() {
-        let service = existing_service.unwrap();
-        service.stop()?;
-        service.delete()?;
-    }
 
     let service_info = ServiceInfo {
         name: OsString::from(SERVICE_NAME),
@@ -46,6 +40,29 @@ pub fn register_service() -> Result<()> {
         account_name: None,
         account_password: None,
     };
+
+    // Update the existing service, if it exists
+    let existing_service = service_manager.open_service(
+        OsString::from(SERVICE_NAME),
+        ServiceAccess::START | ServiceAccess::STOP |
+        ServiceAccess::CHANGE_CONFIG | ServiceAccess::QUERY_STATUS,
+    );
+    if existing_service.is_ok() {
+        info!("Updating existing service...");
+        let service = existing_service.unwrap();
+        
+        let state = service.query_status()?.current_state;
+        if state == ServiceState::Running {
+            let result = service.stop();
+            if result.is_err() {
+                // Noop
+            }
+        }
+
+        service.change_config(&service_info)?;
+        service.start(&[OsStr::new("")])?;
+        return Ok(());
+    }
 
     let service = service_manager.create_service(&service_info, ServiceAccess::CHANGE_CONFIG)?;
     service.set_description("Maxima Background Service")?;
@@ -185,12 +202,16 @@ pub fn is_service_valid() -> Result<bool> {
         return Ok(false);
     }
 
-    log::debug!("Verifying service config");
+    debug!("Verifying service config");
 
     let service = result.unwrap();
     let config = service.query_config()?;
     if config.executable_path != get_service_path()? {
-        log::debug!("Service config invalid: {:?}/{:?}", config.executable_path, get_service_path()?);
+        debug!(
+            "Service config invalid: {:?}/{:?}",
+            config.executable_path,
+            get_service_path()?
+        );
         return Ok(false);
     }
 
@@ -216,7 +237,7 @@ pub async fn start_service() -> Result<()> {
         bail!("Failed to start background service! {}", code);
     }
 
-    service_result.unwrap().start(&[OsStr::new("test")])?;
+    service_result.unwrap().start(&[OsStr::new("")])?;
 
     while !is_service_running()? {
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -249,5 +270,5 @@ fn get_service_manager(create: bool) -> Result<ServiceManager> {
 }
 
 fn get_service_path() -> Result<PathBuf> {
-    Ok(std::env::current_exe()?.with_file_name("maxima-service.exe"))
+    Ok(get_module_path()?.with_file_name("maxima-service.exe"))
 }

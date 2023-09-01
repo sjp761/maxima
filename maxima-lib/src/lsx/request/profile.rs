@@ -2,7 +2,6 @@ use anyhow::Result;
 use log::{debug, info};
 
 use crate::{
-    core::background_service::request_library_injection,
     lsx::{
         connection::Connection,
         types::{
@@ -64,7 +63,7 @@ pub async fn handle_presence_request(
 }
 
 pub async fn handle_set_presence_request(
-    connection: &mut Connection,
+    _: &mut Connection,
     request: LSXSetPresence,
 ) -> Result<Option<LSXResponseType>> {
     info!(
@@ -76,8 +75,12 @@ pub async fn handle_set_presence_request(
             .unwrap()
     );
 
-    if let Err(_) = std::env::var("MAXIMA_DISABLE_KYBER") {
-        ureq::get(&format!("http://127.0.0.1:{}/initialize_renderer", std::env::var("KYBER_INTERFACE_PORT")?)).call()?;
+    if let Ok(_) = std::env::var("MAXIMA_ENABLE_KYBER") {
+        ureq::get(&format!(
+            "http://127.0.0.1:{}/initialize_renderer",
+            std::env::var("KYBER_INTERFACE_PORT")?
+        ))
+        .call()?;
     }
 
     make_lsx_handler_response!(Response, ErrorSuccess, { attr_Code: 0, attr_Description: String::new() })

@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use serde::{Deserialize, Serialize};
+use strum_macros::IntoStaticStr;
 
 use crate::core::{settings::MaximaSetting, ecommerce::{CommerceEntitlementType, CommerceEntitlementSource}};
 
@@ -89,7 +90,7 @@ pub enum LSXEventType {
     Challenge(LSXChallenge),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, IntoStaticStr)]
 pub enum LSXRequestType {
     ChallengeResponse(LSXChallengeResponse),
     GetConfig(LSXGetConfig),

@@ -13,7 +13,7 @@ use sysinfo::{System, SystemExt, ProcessExt, PidExt};
 use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
-    core::{ecommerce::CommerceOffer, Maxima},
+    core::{ecommerce::CommerceOffer, Maxima, MaximaEvent},
     lsx::types::LSXRequestType,
     util::simple_crypto::{simple_decrypt, simple_encrypt},
 };
@@ -260,6 +260,11 @@ impl Connection {
         &mut self,
         message: LSXRequest,
     ) -> Result<Option<LSXMessageType>> {
+        {
+            let mut maxima = self.maxima.lock().await;
+            maxima.call_event(MaximaEvent::ReceivedLSXRequest(message.value.clone()));
+        }
+
         let result = lsx_message_matcher!(
             self, message.value, LSXRequestType;
 

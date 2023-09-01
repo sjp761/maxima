@@ -1,2 +1,6 @@
 /target
 /.vscode
+
+maxima-native/bindings.h
+maxima-native/test/*
+!maxima-native/test/example.c

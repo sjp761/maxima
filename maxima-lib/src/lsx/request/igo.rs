@@ -3,8 +3,8 @@ use log::info;
 
 use crate::{
     core::service_layer::{
-        send_service_request, ServicePlayer, ServicePlayerByPlayerIdRequest,
-        SERVICE_REQUEST_PLAYERBYPD,
+        send_service_request, ServicePlayer, ServiceGetBasicPlayerRequest,
+        SERVICE_REQUEST_GETBASICPLAYER,
     },
     lsx::{
         connection::Connection,
@@ -19,8 +19,8 @@ pub async fn handle_show_igo_window_request(
     info!("Got request to show user {}", request.target_id);
     let data: ServicePlayer = send_service_request(
         &connection.get_access_token().await,
-        SERVICE_REQUEST_PLAYERBYPD,
-        ServicePlayerByPlayerIdRequest {
+        SERVICE_REQUEST_GETBASICPLAYER,
+        ServiceGetBasicPlayerRequest {
             pd: request.target_id.to_string(),
         },
     )

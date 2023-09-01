@@ -1,5 +1,3 @@
-use std::env::current_exe;
-
 use anyhow::{bail, Result};
 use log::debug;
 
@@ -9,7 +7,10 @@ use crate::{
         types::{LSXChallengeAccepted, LSXChallengeResponse, LSXResponseType},
     },
     make_lsx_handler_response,
-    util::simple_crypto::{check_challenge_response, get_lsx_key, make_challenge_response},
+    util::{
+        native::get_module_path,
+        simple_crypto::{check_challenge_response, get_lsx_key, make_challenge_response},
+    },
 };
 
 pub async fn handle_challenge_response(
@@ -26,19 +27,27 @@ pub async fn handle_challenge_response(
     let seed = match message.attr_version.as_str() {
         "2" => 0,
         "3" => ((accept_key_bytes[0] as u16) << 8) | (accept_key_bytes[1]) as u16,
-        _ => bail!("Unknown LSX encryption version!")
+        _ => bail!("Unknown LSX encryption version!"),
     };
 
     let encryption_key = get_lsx_key(seed);
     connection.enable_encryption(encryption_key);
 
-    if let Err(_) = std::env::var("MAXIMA_DISABLE_KYBER") {
+    if let Ok(_) = std::env::var("MAXIMA_ENABLE_KYBER") {
         crate::core::background_service::request_library_injection(
             connection.get_process_id(),
-            current_exe()?.with_file_name("Kyber.dll").to_str().unwrap(),
-        ).await?;
+            get_module_path()?
+                .with_file_name("Kyber.dll")
+                .to_str()
+                .unwrap(),
+        )
+        .await?;
     }
 
-    debug!("Encryption key: {}, version: {}", hex::encode(encryption_key), message.attr_version);
+    debug!(
+        "Encryption key: {}, version: {}",
+        hex::encode(encryption_key),
+        message.attr_version
+    );
     make_lsx_handler_response!(Response, ChallengeAccepted, { attr_response: accept_key })
 }

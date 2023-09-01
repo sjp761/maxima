@@ -10,15 +10,14 @@ pub mod settings;
 use std::{
     env,
     fs::{create_dir_all, File},
-    {io, io::Read},
     path::PathBuf,
+    {io, io::Read}, os::raw::c_char,
 };
 
 use anyhow::{bail, Result};
 use directories::ProjectDirs;
 use log::error;
-
-use core::slice::SlicePattern;
+use strum_macros::IntoStaticStr;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -31,16 +30,20 @@ use self::{
     service_layer::{
         send_service_request, ServiceGameType, ServiceGetPreloadedOwnedGamesRequest,
         ServiceGetUserPlayerRequest, ServiceImage, ServicePlatform, ServicePlayer,
-        ServicePlayerByPlayerIdRequest, ServiceStorefront, ServiceUser,
+        ServiceGetBasicPlayerRequest, ServiceStorefront, ServiceUser,
         SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES, SERVICE_REQUEST_GETUSERPLAYER,
-        SERVICE_REQUEST_PLAYERBYPD,
+        SERVICE_REQUEST_GETBASICPLAYER,
     },
 };
 
-#[derive(Clone)]
+#[derive(Clone, IntoStaticStr)]
 pub enum MaximaEvent {
     ReceivedLSXRequest(LSXRequestType),
+    /// To fix erroneous warning in maxima-native, remove once there are more events
+    Unknown,
 }
+
+pub type MaximaLSXEventCallback = extern "C" fn(*const c_char);
 
 pub struct Maxima {
     pub locale: Locale,
@@ -48,6 +51,7 @@ pub struct Maxima {
     pub access_token: String,
     pub playing: Option<ActiveGameContext>,
     pub project_dir: ProjectDirs,
+    pub lsx_event_callback: Option<MaximaLSXEventCallback>,
     pending_events: Vec<MaximaEvent>,
 }
 
@@ -67,13 +71,14 @@ impl Maxima {
             access_token: String::new(),
             playing: None,
             project_dir: dirs.expect("Failed to create Maxima config directories!"),
+            lsx_event_callback: None,
             pending_events: Vec::new(),
         }
     }
 
     pub async fn start_lsx(&self, arc: Arc<Mutex<Maxima>>) -> Result<()> {
         let lsx_port = self.lsx_port;
-        let _server_handle = tokio::spawn(async move {
+        tokio::spawn(async move {
             if let Err(e) = lsx::service::start_server(lsx_port, arc).await {
                 error!("Error starting LSX server: {}", e);
             }
@@ -130,8 +135,8 @@ impl Maxima {
     pub async fn get_player_by_id(&self, id: &str) -> Result<ServicePlayer> {
         let data: ServicePlayer = send_service_request(
             self.access_token.as_str(),
-            SERVICE_REQUEST_PLAYERBYPD,
-            ServicePlayerByPlayerIdRequest { pd: id.to_string() },
+            SERVICE_REQUEST_GETBASICPLAYER,
+            ServiceGetBasicPlayerRequest { pd: id.to_string() },
         )
         .await?;
 
@@ -154,7 +159,8 @@ impl Maxima {
 
         let response = ureq::get(&image.path).call()?;
         let mut body: Vec<u8> = vec![];
-        response.into_reader()
+        response
+            .into_reader()
             .take((1024 + 1) as u64)
             .read_to_end(&mut body)?;
 

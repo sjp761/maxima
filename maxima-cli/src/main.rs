@@ -5,25 +5,28 @@ use inquire::Select;
 use log::{debug, error, info, warn};
 use tokio::{sync::Mutex, time::sleep};
 
-use std::{sync::Arc, vec::Vec, time::Duration};
+use std::{sync::Arc, time::Duration, vec::Vec};
 
 use is_elevated::is_elevated;
 
 use maxima::{
     core::{
         self,
+        auth::get_auth_code,
+        background_service::request_registry_setup,
         ecommerce::request_offer_data,
         launch,
         service_layer::{
             send_service_request, ServiceGetUserPlayerRequest, ServiceUser, ServiceUserGameProduct,
             SERVICE_REQUEST_GETUSERPLAYER,
         },
-        Maxima, MaximaEvent, background_service::request_registry_setup, auth::get_auth_code,
+        Maxima, MaximaEvent,
     },
     util::{
         log::init_logger,
         native::take_foreground_focus,
-        registry::check_registry_validity, service::{is_service_running, start_service, is_service_valid, register_service_user},
+        registry::check_registry_validity,
+        service::{is_service_running, is_service_valid, register_service_user, start_service},
     },
 };
 
@@ -72,14 +75,14 @@ async fn startup() -> Result<()> {
     init_logger()?;
 
     info!("Starting Maxima...");
-    
+
     if !is_elevated() {
         if !is_service_valid()? {
             info!("Installing service...");
             register_service_user()?;
             sleep(Duration::from_secs(1)).await;
         }
-    
+
         if !is_service_running()? {
             info!("Starting service...");
             start_service().await?;
@@ -97,7 +100,7 @@ async fn startup() -> Result<()> {
     } else {
         core::auth::login::execute().await.unwrap()
     };
-    
+
     if token.is_none() {
         error!("Login failed!");
         return Ok(());
@@ -237,7 +240,7 @@ async fn list_games(maxima_arc: Arc<Mutex<Maxima>>) -> Result<()> {
 async fn start_game(
     offer_id: &str,
     game_path_override: Option<String>,
-    mut game_args: Vec<String>,
+    game_args: Vec<String>,
     maxima_arc: Arc<Mutex<Maxima>>,
 ) -> Result<()> {
     {
@@ -245,23 +248,19 @@ async fn start_game(
         maxima.start_lsx(maxima_arc.clone()).await?;
     }
 
-    //game_args.push("-dataPath".to_string());
-    //game_args.push("/mnt/battlefront/ModData/CollectionUnlocker".to_string());
-
     launch::start_game(offer_id, game_path_override, game_args, maxima_arc.clone()).await?;
 
-    // loop {
-    //     let mut maxima = maxima_arc.lock().await;
+    loop {
+        let mut maxima = maxima_arc.lock().await;
 
-    //     for event in maxima.consume_pending_events() {
-    //         match event {
-    //             MaximaEvent::ReceivedLSXRequest(_request) => (),
-    //         }
-    //     }
+        for event in maxima.consume_pending_events() {
+            match event {
+                MaximaEvent::ReceivedLSXRequest(_request) => (),
+                MaximaEvent::Unknown => todo!(),
+            }
+        }
 
-    //     drop(maxima);
-    //     std::thread::sleep(std::time::Duration::from_secs(1));
-    // }
-
-    Ok(())
+        drop(maxima);
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 }

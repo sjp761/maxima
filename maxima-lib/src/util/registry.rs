@@ -2,7 +2,7 @@
 extern crate winapi;
 
 use anyhow::{bail, Result};
-use std::{env::current_exe, path::PathBuf};
+use std::path::PathBuf;
 
 #[cfg(target_family = "windows")]
 use winapi::{
@@ -18,6 +18,8 @@ use winreg::{
     enums::{HKEY_CLASSES_ROOT, HKEY_LOCAL_MACHINE, KEY_WRITE},
     RegKey,
 };
+
+use super::native::get_module_path;
 
 #[cfg(target_pointer_width = "64")]
 pub const REG_ARCH_PATH: &str = "SOFTWARE\\WOW6432Node";
@@ -71,7 +73,7 @@ pub fn read_game_path(name: String) -> Result<PathBuf> {
 
 #[cfg(target_family = "windows")]
 pub fn get_bootstrap_path() -> Result<PathBuf> {
-    let path = current_exe()?
+    let path = get_module_path()?
         .parent()
         .unwrap()
         .join("maxima-bootstrap.exe");
