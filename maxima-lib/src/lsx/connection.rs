@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 
 use log::{debug, error, info, warn};
 use regex::Regex;
@@ -184,7 +184,7 @@ impl Connection {
                     return Ok(());
                 }
 
-                panic!("Internal error in LSX connection: {}", kind);
+                bail!("Internal error in LSX connection: {}", kind);
             }
         };
 
@@ -262,7 +262,7 @@ impl Connection {
     ) -> Result<Option<LSXMessageType>> {
         {
             let mut maxima = self.maxima.lock().await;
-            maxima.call_event(MaximaEvent::ReceivedLSXRequest(message.value.clone()));
+            maxima.call_event(MaximaEvent::ReceivedLSXRequest(self.pid, message.value.clone()));
         }
 
         let result = lsx_message_matcher!(

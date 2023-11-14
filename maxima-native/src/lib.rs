@@ -288,7 +288,7 @@ pub extern "C" fn maxima_mx_consume_lsx_events(
 
     let mut c_strings = Vec::with_capacity(events.len());
     for event in events.iter() {
-        let lsx_request = if let MaximaEvent::ReceivedLSXRequest(r) = event {
+        let lsx_request = if let MaximaEvent::ReceivedLSXRequest(_pid, r) = event {
             r
         } else {
             continue;

@@ -273,7 +273,7 @@ async fn start_game(
 
         for event in maxima.consume_pending_events() {
             match event {
-                MaximaEvent::ReceivedLSXRequest(_request) => (),
+                MaximaEvent::ReceivedLSXRequest(_pid, _request) => (),
                 MaximaEvent::Unknown => todo!(),
             }
         }

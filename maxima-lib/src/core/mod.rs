@@ -1,11 +1,15 @@
 pub mod auth;
-pub mod background_service;
 pub mod ecommerce;
 pub mod endpoints;
 pub mod launch;
 pub mod locale;
 pub mod service_layer;
 pub mod settings;
+
+#[cfg(target_os = "windows")]
+pub mod background_service {
+    include!("background_service_win.rs");
+}
 
 use std::{
     env,
@@ -38,7 +42,8 @@ use self::{
 
 #[derive(Clone, IntoStaticStr)]
 pub enum MaximaEvent {
-    ReceivedLSXRequest(LSXRequestType),
+    /// PID, Request Type
+    ReceivedLSXRequest(u32, LSXRequestType),
     /// To fix erroneous warning in maxima-native, remove once there are more events
     Unknown,
 }

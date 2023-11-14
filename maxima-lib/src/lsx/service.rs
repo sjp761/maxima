@@ -3,7 +3,7 @@ use std::{io::ErrorKind, net::TcpListener, sync::Arc};
 
 use anyhow::Result;
 
-use log::info;
+use log::{info, warn};
 use tokio::{sync::Mutex, time::sleep};
 
 use crate::{core::Maxima, lsx::connection::Connection};
@@ -19,8 +19,16 @@ pub async fn start_server(port: u16, maxima: Arc<Mutex<Maxima>>) -> Result<()> {
 
     loop {
         let new_maxima = maxima.clone();
-        for conn in &mut connections {
-            conn.listen().await.unwrap();
+
+        let mut idx = 0 as usize;
+        while idx < connections.len() {
+            let result = connections[idx].listen().await;
+            if result.is_err() {
+                warn!("LSX connection closed");
+                connections.remove(idx);
+                continue;
+            }
+            idx = idx + 1;
         }
 
         let (socket, addr) = match listener.accept() {

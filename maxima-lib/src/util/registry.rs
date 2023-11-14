@@ -181,7 +181,7 @@ pub fn check_registry_validity() -> Result<()> {
 }
 
 #[cfg(target_family = "unix")]
-pub fn read_game_path(name: String) -> Result<PathBuf> {
+pub fn read_game_path(name: &str) -> Result<PathBuf> {
     todo!();
 }
 

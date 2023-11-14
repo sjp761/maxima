@@ -7,10 +7,7 @@ use crate::{
         types::{LSXChallengeAccepted, LSXChallengeResponse, LSXResponseType},
     },
     make_lsx_handler_response,
-    util::{
-        native::get_module_path,
-        simple_crypto::{check_challenge_response, get_lsx_key, make_challenge_response},
-    },
+    util::simple_crypto::{check_challenge_response, get_lsx_key, make_challenge_response},
 };
 
 pub async fn handle_challenge_response(
@@ -32,17 +29,6 @@ pub async fn handle_challenge_response(
 
     let encryption_key = get_lsx_key(seed);
     connection.enable_encryption(encryption_key);
-
-    if let Ok(_) = std::env::var("MAXIMA_ENABLE_KYBER") {
-        crate::core::background_service::request_library_injection(
-            connection.get_process_id(),
-            get_module_path()?
-                .with_file_name("Kyber.dll")
-                .to_str()
-                .unwrap(),
-        )
-        .await?;
-    } 
 
     debug!(
         "Encryption key: {}, version: {}",

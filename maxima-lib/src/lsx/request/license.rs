@@ -35,23 +35,5 @@ pub async fn handle_license_request(
     info!("Successfully retrieved license tokens");
     save_licenses(&license)?;
 
-    // let process_id = connection.get_process_id();
-    // tokio::spawn({
-    //     async move {
-    //         tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
-    //         crate::core::background_service::request_library_injection(
-    //             process_id,
-    //             "E:\\A-Programming\\C++\\OpenKyber\\Kyber\\out\\build\\x64-Debug\\Kyber.dll",
-    //         ).await.unwrap();
-    //     }
-    // });
-    if let Ok(_) = std::env::var("MAXIMA_ENABLE_KYBER") {
-        ureq::get(&format!(
-            "http://127.0.0.1:{}/initialize",
-            std::env::var("KYBER_INTERFACE_PORT")?
-        ))
-        .call()?;
-    }
-
     make_lsx_handler_response!(Response, RequestLicenseResponse, { attr_License: license.game_token.unwrap() })
 }
