@@ -1,6 +1,5 @@
 use std::env;
 
-use anyhow::Result;
 use log::{Record, Level, Metadata, LevelFilter};
 
 pub struct SimpleLogger;

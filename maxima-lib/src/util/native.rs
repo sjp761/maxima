@@ -1,8 +1,4 @@
-use std::{
-    ffi::{CString, OsString},
-    path::PathBuf,
-    ptr::null_mut,
-};
+use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 
@@ -21,6 +17,8 @@ use winapi::{
         },
     },
 };
+
+use std::fs;
 
 #[cfg(windows)]
 unsafe extern "system" fn enum_windows_proc(
@@ -72,7 +70,8 @@ pub fn take_foreground_focus() -> Result<()> {
 
 #[cfg(unix)]
 pub fn take_foreground_focus() -> Result<()> {
-    todo!();
+    // TODO
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -107,6 +106,11 @@ pub fn get_module_path() -> Result<PathBuf> {
 }
 
 #[cfg(unix)]
-pub fn get_module_path() -> Option<String> {
-    todo!();
+pub fn get_module_path() -> Result<PathBuf> {
+    let path = fs::read_link("/proc/self/exe");
+    if path.is_err() {
+        bail!("Invalid module path!");
+    }
+
+    Ok(path.unwrap())
 }

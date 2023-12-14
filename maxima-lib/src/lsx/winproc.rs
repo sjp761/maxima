@@ -1,5 +1,3 @@
-use std::ptr;
-
 #[cfg(windows)]
 use winapi::{
     shared::{

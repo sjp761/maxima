@@ -5,9 +5,9 @@ use inquire::Select;
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
 use regex::Regex;
-use tokio::{sync::Mutex, time::sleep};
+use tokio::sync::Mutex;
 
-use std::{sync::Arc, time::Duration, vec::Vec};
+use std::{sync::Arc, vec::Vec};
 
 #[cfg(windows)]
 use is_elevated::is_elevated;
@@ -80,7 +80,7 @@ async fn main() {
 }
 
 #[cfg(windows)]
-async fn windows_setup() -> Result<()> {
+async fn native_setup() -> Result<()> {
     if !is_elevated() {
         if !is_service_valid()? {
             info!("Installing service...");
@@ -103,7 +103,14 @@ async fn windows_setup() -> Result<()> {
 }
 
 #[cfg(not(windows))]
-async fn windows_setup() -> Result<()> {
+async fn native_setup() -> Result<()> {
+    use maxima::util::registry::set_up_registry;
+
+    if let Err(err) = check_registry_validity() {
+        warn!("{}, fixing...", err);
+        set_up_registry()?;
+    }
+
     Ok(())
 }
 
@@ -114,10 +121,10 @@ async fn startup() -> Result<()> {
 
     info!("Starting Maxima...");
 
-    windows_setup().await?;
+    native_setup().await?;
 
-    debug!("Logging in...");
-    let token = if let Some(access_token) = args.login {
+    info!("Logging in...");
+    let token = if let Some(access_token) = &args.login {
         if let Some(captures) = MANUAL_LOGIN_PATTERN.captures(&access_token) {
             let persona = &captures[1];
             let password = &captures[2];
@@ -130,7 +137,7 @@ async fn startup() -> Result<()> {
 
             Some(login_result.unwrap())
         } else {
-            Some(access_token)
+            Some(access_token.to_owned())
         }
     } else {
         begin_oauth_login_flow().await.unwrap()
@@ -139,6 +146,10 @@ async fn startup() -> Result<()> {
     if token.is_none() {
         error!("Login failed!");
         return Ok(());
+    }
+
+    if args.login.is_none() {
+        info!("Received login...");
     }
 
     let user: ServiceUser = send_service_request(

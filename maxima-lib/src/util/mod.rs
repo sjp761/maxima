@@ -9,6 +9,7 @@ pub mod service {
 }
 
 #[cfg(target_os = "linux")]
+#[allow(dead_code)]
 mod my_module {
     include!("service_nix.rs");
 }

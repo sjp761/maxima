@@ -69,6 +69,7 @@ pub async fn execute_auth_exchange(
     Ok(token.to_owned())
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,

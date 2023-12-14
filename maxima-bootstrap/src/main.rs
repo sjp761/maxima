@@ -55,7 +55,7 @@ fn service_setup() -> Result<()> {
     Ok()
 }
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 fn service_setup() -> Result<()> {
     unimplemented!();
 }

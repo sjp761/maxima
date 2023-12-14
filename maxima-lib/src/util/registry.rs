@@ -19,6 +19,8 @@ use winreg::{
     RegKey,
 };
 
+use std::{collections::HashMap, fs};
+
 use super::native::get_module_path;
 
 #[cfg(target_pointer_width = "64")]
@@ -128,22 +130,22 @@ pub fn set_up_registry() -> Result<()> {
 
     // Hijack Qt's protocol for our login redirection
     register_custom_protocol(
-        "qrc".to_string(),
-        "Maxima Protocol".to_string(),
+        "qrc",
+        "Maxima Protocol",
         bootstrap_path,
     )?;
 
     // We link2maxima now
     register_custom_protocol(
-        "link2ea".to_string(),
-        "Maxima Launcher".to_string(),
+        "link2ea",
+        "Maxima Launcher",
         bootstrap_path,
     )?;
 
     // maxima2
     register_custom_protocol(
-        "origin2".to_string(),
-        "Maxima Launcher".to_string(),
+        "origin2",
+        "Maxima Launcher",
         bootstrap_path,
     )?;
 
@@ -151,7 +153,7 @@ pub fn set_up_registry() -> Result<()> {
 }
 
 #[cfg(windows)]
-fn register_custom_protocol(protocol: String, name: String, executable: &str) -> Result<()> {
+fn register_custom_protocol(protocol: &str, name: &str, executable: &str) -> Result<()> {
     let hkcr = RegKey::predef(HKEY_CLASSES_ROOT);
     let (protocol, _) = hkcr.create_subkey_with_flags(protocol, KEY_WRITE)?;
 
@@ -166,18 +168,101 @@ fn register_custom_protocol(protocol: String, name: String, executable: &str) ->
 
 #[cfg(unix)]
 pub fn set_up_registry() -> Result<()> {
-    todo!()
+    let bootstrap_path = &get_bootstrap_path()?.to_str().unwrap().to_string();
+
+    // Hijack Qt's protocol for our login redirection
+    register_custom_protocol(
+        "qrc",
+        "Maxima Launcher",
+        bootstrap_path,
+    )?;
+
+    Ok(())
 }
 
 #[cfg(unix)]
-fn register_custom_protocol(protocol: String, name: String, executable: &str) -> Result<()> {
-    todo!()
+fn register_custom_protocol(protocol: &str, name: &str, executable: &str) -> Result<()> {
+    use std::env;
+
+    let mut parts = HashMap::<&str, String>::new();
+    parts.insert("Type", "Application".to_owned());
+    parts.insert("Name", name.to_owned());
+    parts.insert("MimeType", format!("x-scheme-handler/{}", protocol));
+    parts.insert("Exec", format!("{} %u", executable));
+    parts.insert("NoDisplay", "true".to_owned());
+    parts.insert("StartupNotify", "true".to_owned());
+
+    let mut desktop_file = String::from("[Desktop Entry]\n");
+    for part in parts {
+        desktop_file += &(part.0.to_owned() + "=" + &part.1 + "\n");
+    }
+
+    let home = env::var("HOME")?;
+    let desktop_file_name = format!("maxima-{}.desktop", protocol);
+    let desktop_file_path = format!("{}/.local/share/applications/{}", home, desktop_file_name);
+    fs::write(desktop_file_path, desktop_file)?;
+
+    set_mime_type(&format!("x-scheme-handler/{}", protocol), &desktop_file_name)?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_mime_type(mime_type: &str, desktop_file_path: &str) -> Result<()> {
+    use std::process::Command;
+
+    let xdg_mime_check = Command::new("xdg-mime").arg("--version").output();
+    if xdg_mime_check.is_err() {
+        bail!("xdg-mime command is not available. Please install xdg-utils.");
+    }
+    
+    let output = Command::new("xdg-mime")
+        .arg("default")
+        .arg(desktop_file_path)
+        .arg(mime_type)
+        .output()?;
+    
+    if !output.status.success() {
+        bail!(
+            "Failed to set MIME type association for {}: {}",
+            mime_type,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    Ok(())
 }
 
 #[cfg(unix)]
 pub fn check_registry_validity() -> Result<()> {
-    println!("[DONOTSHIP] make sure to fix the xdg handler before release!");
+    if !verify_protocol_handler("qrc")? {
+        bail!("Protocol is not registered");
+    }
+    
     Ok(())
+}
+
+#[cfg(unix)]
+fn verify_protocol_handler(protocol: &str) -> Result<bool> {
+    use std::process::Command;
+
+    let output = Command::new("xdg-mime")
+        .arg("query")
+        .arg("default")
+        .arg(format!("x-scheme-handler/{}", protocol))
+        .output()
+        .expect("Failed to execute xdg-mime");
+
+    if !output.status.success() {
+        bail!("Failed to query mime status");
+    }
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    if output_str.is_empty() {
+        return Ok(false);
+    }
+
+    let expected = format!("maxima-{}.desktop\n", protocol);
+    return Ok(output_str == expected);
 }
 
 #[cfg(unix)]
@@ -187,7 +272,12 @@ pub fn read_game_path(name: &str) -> Result<PathBuf> {
 
 #[cfg(unix)]
 pub fn get_bootstrap_path() -> Result<PathBuf> {
-    todo!()
+    let path = get_module_path()?
+        .parent()
+        .unwrap()
+        .join("maxima-bootstrap");
+
+    Ok(path)
 }
 
 #[cfg(unix)]
