@@ -26,7 +26,7 @@ use strum_macros::IntoStaticStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::lsx::{self, types::LSXRequestType};
+use crate::{lsx::{self, types::LSXRequestType}, util::native::get_maxima_dir};
 
 use self::{
     launch::ActiveGameContext,
@@ -55,15 +55,12 @@ pub struct Maxima {
     pub lsx_port: u16,
     pub access_token: String,
     pub playing: Option<ActiveGameContext>,
-    pub project_dir: ProjectDirs,
     pub lsx_event_callback: Option<MaximaLSXEventCallback>,
     pending_events: Vec<MaximaEvent>,
 }
 
 impl Maxima {
     pub fn new() -> Self {
-        let dirs = ProjectDirs::from("com", "Maxima", "Maxima");
-
         let lsx_port = if let Ok(lsx_port) = env::var("MAXIMA_LSX_PORT") {
             lsx_port.parse::<u16>().unwrap()
         } else {
@@ -75,7 +72,6 @@ impl Maxima {
             lsx_port,
             access_token: String::new(),
             playing: None,
-            project_dir: dirs.expect("Failed to create Maxima config directories!"),
             lsx_event_callback: None,
             pending_events: Vec::new(),
         }
@@ -189,7 +185,7 @@ impl Maxima {
     }
 
     pub fn get_cached_avatar_path(&self, id: &str, width: u16, height: u16) -> Result<PathBuf> {
-        let dir = self.project_dir.cache_dir().join("Avatars");
+        let dir = get_maxima_dir()?.join("cache/avatars");
         create_dir_all(&dir)?;
 
         Ok(dir.join(format!("{}_{}x{}.jpg", id, width, height)))

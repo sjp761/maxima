@@ -9,18 +9,21 @@ concurrency:
 jobs:
   build:
     name: Maxima
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
 
+    continue-on-error: ${{ matrix.experimental }}  
     strategy:
       matrix:
         rust-version: [nightly]
+        os: [ubuntu-latest, windows-latest]
+        experimental: [false]
 
     steps:
     - name: Checkout the repo
       uses: actions/checkout@v2
 
     - name: Cache Rust ${{ matrix.rust-version }}
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}\rust\.rustup
         key: rust-${{ matrix.rust-version }}-${{ hashFiles('**/rust-toolchain') }}
@@ -35,20 +38,34 @@ jobs:
 
     - name: Cache OpenSSL
       id: cache-openssl
-      uses: actions/cache@v2
+      if: matrix.os == "windows-latest"
+      uses: actions/cache@v3
       with:
         path: |
           ${{ github.workspace }}\vcpkg\installed\x64-windows-static-md
         key: ${{ runner.os }}-vcpkg-openssl
 
     - name: Clone vcpkg and compile OpenSSL
-      if: steps.cache-openssl.outputs.cache-hit != 'true'
+      if: matrix.os == "windows-latest" && steps.cache-openssl.outputs.cache-hit != 'true'
       run: |
         git clone https://github.com/microsoft/vcpkg.git
         cd vcpkg
         [Environment]::SetEnvironmentVariable("VCPKG_DEFAULT_BINARY_CACHE", "${{ github.workspace }}/vcpkg/cache/", "User")
         .\bootstrap-vcpkg.bat
         .\vcpkg install openssl:x64-windows-static-md
+
+    - name: Install dependencies
+      if: matrix.os == "ubuntu-latest"
+      run: |
+        
+
+    - name: Save OpenSSL Cache
+      id: cache-openssl-save
+      uses: actions/cache/save@v3
+      with:
+        path: |
+          ${{ github.workspace }}\vcpkg\installed\x64-windows-static-md
+        key: ${{ runner.os }}-vcpkg-openssl
 
     - name: Cache Rust Dependencies
       id: cache-rust-deps
@@ -63,6 +80,7 @@ jobs:
         key: ${{ runner.os }}-rust-deps
 
     - name: Build Maxima
+      if: matrix.os == "windows-latest"
       run: |
         cargo build --release
       env:
@@ -70,10 +88,16 @@ jobs:
         OPENSSL_DIR: ${{ github.workspace }}\vcpkg\installed\x64-windows-static-md
         OPENSSL_STATIC: "1"
 
+    - name: Build Maxima
+      if: matrix.os == "ubuntu-latest"
+      run: |
+        cargo build --release --target x86_64-unknown-linux-gnu
+      env:
+        RUSTFLAGS="-C target-feature=+crt-static"
+
     - uses: actions/upload-artifact@v3
       with:
         name: maxima-binaries
         path: |
-          target/release/maxima-cli.exe
-          target/release/maxima-bootstrap.exe
-          target/release/maxima-service.exe
+          target/release/maxima-cli
+          target/release/maxima-bootstrap

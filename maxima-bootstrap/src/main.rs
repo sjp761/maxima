@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
                     e.to_string()
                 };
 
-                error_str + &e.backtrace().to_string()
+                error_str + "\n" + &e.backtrace().to_string()
             })
             .err()
             .unwrap_or("Success".to_string());
@@ -58,6 +58,31 @@ fn service_setup() -> Result<()> {
 #[cfg(not(windows))]
 fn service_setup() -> Result<()> {
     unimplemented!();
+}
+
+#[cfg(windows)]
+fn platform_launch(args: BootstrapLaunchArgs) -> Result<()> {
+    let mut child = Command::new(args.path)
+        .args(args.args);
+
+    let status = child.spawn()?.wait()?;
+    bail!("{}", status.code().unwrap());
+}
+
+#[cfg(unix)]
+fn platform_launch(args: BootstrapLaunchArgs) -> Result<()> {
+    use maxima::{unix::wine::get_wine_prefix_dir, util::native::get_maxima_dir};
+
+    let wine_path = get_maxima_dir()?.join("wine/bin/wine64");
+    let mut binding = Command::new(wine_path);
+    let child = binding
+        .env("WINEPREFIX", get_wine_prefix_dir()?)
+        .env("WINEDLLOVERRIDES", "dxgi,d3d11,d3d12,d3d12core=n,b")
+        .arg(args.path)
+        .args(args.args);
+    
+    let status = child.spawn()?.wait()?;
+    bail!("{}", status.code().unwrap());
 }
 
 async fn run(args: &Vec<String>) -> Result<()> {
@@ -92,10 +117,7 @@ async fn run(args: &Vec<String>) -> Result<()> {
             "launch" => {
                 let decoded = general_purpose::STANDARD.decode(&args[2])?;
                 let launch_args: BootstrapLaunchArgs = serde_json::from_slice(&decoded)?;
-                let mut child = Command::new(launch_args.path);
-                child.args(launch_args.args);
-                let status = child.spawn()?.wait()?;
-                bail!("{}", status.code().unwrap());
+                platform_launch(launch_args)?;
             }
             _ => (),
         }

@@ -71,7 +71,7 @@ pub async fn execute_auth_exchange(
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct TokenResponse {
+pub struct TokenResponse {
     access_token: String,
     token_type: String,
     expires_in: u32,

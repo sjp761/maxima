@@ -2,6 +2,7 @@ pub mod native;
 pub mod log;
 pub mod registry;
 pub mod simple_crypto;
+pub mod github;
 
 #[cfg(target_os = "windows")]
 pub mod service {
@@ -10,6 +11,6 @@ pub mod service {
 
 #[cfg(target_os = "linux")]
 #[allow(dead_code)]
-mod my_module {
+pub mod service {
     include!("service_nix.rs");
 }

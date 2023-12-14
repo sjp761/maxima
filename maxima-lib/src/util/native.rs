@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use anyhow::{bail, Result};
 
 #[cfg(windows)]
-use std::os::windows::prelude::{OsStrExt, OsStringExt};
+use std::{
+    os::windows::prelude::{OsStrExt, OsStringExt},
+    ffi::OsString,
+};
 
 #[cfg(windows)]
 use winapi::{
@@ -113,4 +116,23 @@ pub fn get_module_path() -> Result<PathBuf> {
     }
 
     Ok(path.unwrap())
+}
+
+#[cfg(not(unix))]
+pub fn get_maxima_dir() -> Result<PathBuf> {
+    use directories::ProjectDirs;
+
+    let dirs = ProjectDirs::from("com", "Maxima", "Maxima");
+    Ok(dirs.unwrap().data_dir().to_path_buf())
+}
+
+#[cfg(unix)]
+pub fn get_maxima_dir() -> Result<PathBuf> {
+    use std::{env, fs::create_dir_all};
+
+    let home = env::var("HOME")?;
+    let path = PathBuf::from(format!("{}/.maxima", home));
+
+    create_dir_all(&path)?;
+    Ok(path)
 }

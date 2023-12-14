@@ -33,7 +33,11 @@ impl log::Log for SimpleLogger {
                 Level::Trace => "33", // yellow
             };
 
-            println!("\u{001b}[{}m{}\u{001b}[37m - [{}] - {}", color, level, record.module_path().unwrap(), record.args());
+            if level == Level::Error {
+                println!("\u{001b}[{}m{}\u{001b}[37m - [{}:{}] - {}", color, level, record.file_static().unwrap(), record.line().unwrap(), record.args());
+            } else {
+                println!("\u{001b}[{}m{}\u{001b}[37m - [{}] - {}", color, level, record.module_path().unwrap(), record.args());
+            }
         }
     }
 

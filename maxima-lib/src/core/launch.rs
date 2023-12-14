@@ -57,6 +57,8 @@ pub async fn start_game(
     mut game_args: Vec<String>,
     maxima_arc: Arc<Mutex<Maxima>>,
 ) -> Result<Child> {
+    linux_setup().await?;
+
     let mut maxima = maxima_arc.lock().await;
     info!("Retrieving data about '{}'...", offer_id);
 
@@ -88,23 +90,22 @@ pub async fn start_game(
     .unwrap();
     save_licenses(&license).unwrap();
 
-    let software = offer.publishing.software_list.unwrap().software[0]
-        .fulfillment_attributes
-        .installation_directory
-        .as_ref()
-        .unwrap()
-        .to_owned();
-
-    let user = maxima.get_local_user().await?;
-
     // Need to move this into Maxima and have a "current game" system
     let path = if game_path_override.is_some() {
         PathBuf::from(game_path_override.as_ref().unwrap())
     } else {
+        let software = offer.publishing.software_list.unwrap().software[0]
+            .fulfillment_attributes
+            .installation_directory
+            .as_ref()
+            .unwrap()
+            .to_owned();
+
         read_game_path(&software)
             .expect("Failed to find game path")
             .join("starwarsbattlefrontii.exe")
     };
+
     let path = path.to_str().unwrap();
     info!("Game path: {}", path);
 
@@ -123,6 +124,8 @@ pub async fn start_game(
 
     let b64 = general_purpose::STANDARD.encode(serde_json::to_string(&bootstrap_args).unwrap());
     child.arg(b64);
+
+    let user = maxima.get_local_user().await?;
 
     child
         .current_dir(PathBuf::from(path).parent().unwrap())
@@ -156,6 +159,32 @@ pub async fn start_game(
 
     let child = child.spawn().expect("Failed to start child");
     Ok(child)
+}
+
+#[cfg(unix)]
+pub async fn linux_setup() -> Result<()> {
+    use crate::unix::wine::{check_dxvk_validity, wine_install_dxvk, install_wine, wine_install_vkd3d, check_wine_validity, check_vkd3d_validity, setup_wine_registry};
+    
+    if !check_wine_validity()? {
+        install_wine().await?;
+    }
+
+    setup_wine_registry()?;
+
+    if !check_dxvk_validity()? {
+        wine_install_dxvk().await?;
+    }
+
+    if !check_vkd3d_validity()? {
+        wine_install_vkd3d().await?;
+    }
+
+    Ok(())
+}
+
+#[cfg(not(unix))]
+pub async fn linux_setup() -> Result<()> {
+    Ok(())
 }
 
 pub fn parse_arguments(input: &str) -> Vec<String> {

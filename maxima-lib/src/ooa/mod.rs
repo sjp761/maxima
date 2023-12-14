@@ -18,7 +18,7 @@ const CRYPTO_KEY: [u8; 16] = [
     65, 50, 114, 45, 208, 130, 239, 176, 220, 100, 87, 197, 118, 104, 202, 9,
 ];
 
-const LICENSE_PATH: &str = "C:\\ProgramData\\Electronic Arts\\EA Services\\License";
+const LICENSE_PATH: &str = "ProgramData/Electronic Arts/EA Services/License";
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -100,20 +100,30 @@ pub fn save_license(license: &License, path: String) -> Result<()> {
 }
 
 pub fn save_licenses(license: &License) -> Result<()> {
-    let path = get_license_path()?;
+    let path = get_license_dir()?;
 
-    save_license(&license, format!("{}\\{}.dlf", path, license.content_id))?;
+    save_license(&license, format!("{}/{}.dlf", path, license.content_id))?;
     save_license(
         &license,
-        format!("{}\\{}_cached.dlf", path, license.content_id),
+        format!("{}/{}_cached.dlf", path, license.content_id),
     )?;
 
     Ok(())
 }
 
+#[cfg(windows)]
 fn get_license_path() -> Result<String> {
-    // TODO dynamically retrieve this
-    let path = LICENSE_PATH.to_string();
+    let path = format!("C:/{}", LICENSE_PATH.to_string());
     create_dir_all(&path)?;
+    Ok(path)
+}
+
+#[cfg(unix)]
+fn get_license_dir() -> Result<String> {
+    use crate::unix::wine::get_wine_prefix_dir;
+
+    let path = format!("{}/drive_c/{}", get_wine_prefix_dir()?.to_str().unwrap(), LICENSE_PATH.to_string());
+    create_dir_all(&path)?;
+
     Ok(path)
 }
