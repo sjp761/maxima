@@ -9,12 +9,18 @@ use tokio::{sync::Mutex, time::sleep};
 
 use std::{sync::Arc, time::Duration, vec::Vec};
 
+#[cfg(windows)]
 use is_elevated::is_elevated;
+
+#[cfg(windows)]
+use maxima::{
+    core::background_service::request_registry_setup,
+    util::service::{is_service_running, is_service_valid, register_service_user, start_service}
+};
 
 use maxima::{
     core::{
         auth::{execute_auth_exchange, login::{begin_oauth_login_flow, manual_login}},
-        background_service::request_registry_setup,
         ecommerce::request_offer_data,
         launch,
         service_layer::{
@@ -27,7 +33,6 @@ use maxima::{
         log::init_logger,
         native::take_foreground_focus,
         registry::check_registry_validity,
-        service::{is_service_running, is_service_valid, register_service_user, start_service},
     },
 };
 
@@ -74,13 +79,8 @@ async fn main() {
     }
 }
 
-async fn startup() -> Result<()> {
-    let args = Args::parse();
-
-    init_logger()?;
-
-    info!("Starting Maxima...");
-
+#[cfg(windows)]
+async fn windows_setup() -> Result<()> {
     if !is_elevated() {
         if !is_service_valid()? {
             info!("Installing service...");
@@ -98,6 +98,23 @@ async fn startup() -> Result<()> {
         warn!("{}, fixing...", err);
         request_registry_setup().await?;
     }
+
+    Ok(())
+}
+
+#[cfg(not(windows))]
+async fn windows_setup() -> Result<()> {
+    Ok(())
+}
+
+async fn startup() -> Result<()> {
+    let args = Args::parse();
+
+    init_logger();
+
+    info!("Starting Maxima...");
+
+    windows_setup().await?;
 
     debug!("Logging in...");
     let token = if let Some(access_token) = args.login {

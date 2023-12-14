@@ -1,10 +1,10 @@
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 extern crate winapi;
 
 use anyhow::{bail, Result};
 use std::path::PathBuf;
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 use winapi::{
     shared::winerror::ERROR_CANCELLED,
     um::{
@@ -13,7 +13,7 @@ use winapi::{
     },
 };
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 use winreg::{
     enums::{HKEY_CLASSES_ROOT, HKEY_LOCAL_MACHINE, KEY_WRITE},
     RegKey,
@@ -28,7 +28,7 @@ pub const REG_ARCH_PATH: &str = "SOFTWARE";
 
 pub const REG_EAX32_PATH: &str = "SOFTWARE\\Electronic Arts\\EA Desktop";
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn check_registry_validity() -> Result<()> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let origin = hklm.open_subkey(format!("{}\\Origin", REG_ARCH_PATH))?;
@@ -54,7 +54,7 @@ pub fn check_registry_validity() -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn read_game_path(name: &str) -> Result<PathBuf> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
 
@@ -71,7 +71,7 @@ pub fn read_game_path(name: &str) -> Result<PathBuf> {
     Ok(PathBuf::from(path))
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn get_bootstrap_path() -> Result<PathBuf> {
     let path = get_module_path()?
         .parent()
@@ -81,7 +81,7 @@ pub fn get_bootstrap_path() -> Result<PathBuf> {
     Ok(path)
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn launch_bootstrap() -> Result<()> {
     let path = get_bootstrap_path()?;
 
@@ -114,7 +114,7 @@ pub fn launch_bootstrap() -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn set_up_registry() -> Result<()> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let (origin, _) =
@@ -150,7 +150,7 @@ pub fn set_up_registry() -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 fn register_custom_protocol(protocol: String, name: String, executable: &str) -> Result<()> {
     let hkcr = RegKey::predef(HKEY_CLASSES_ROOT);
     let (protocol, _) = hkcr.create_subkey_with_flags(protocol, KEY_WRITE)?;
@@ -164,33 +164,33 @@ fn register_custom_protocol(protocol: String, name: String, executable: &str) ->
     Ok(())
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn set_up_registry() -> Result<()> {
     todo!()
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 fn register_custom_protocol(protocol: String, name: String, executable: &str) -> Result<()> {
     todo!()
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn check_registry_validity() -> Result<()> {
     println!("[DONOTSHIP] make sure to fix the xdg handler before release!");
     Ok(())
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn read_game_path(name: &str) -> Result<PathBuf> {
     todo!();
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn get_bootstrap_path() -> Result<PathBuf> {
     todo!()
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn launch_bootstrap() -> Result<()> {
     todo!()
 }

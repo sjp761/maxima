@@ -8,17 +8,23 @@ use std::{
 use anyhow::{bail, Error, Result};
 
 use maxima::{
-    core::{auth::login, background_service::request_registry_setup, launch, Maxima, MaximaEvent},
+    core::{auth::login, launch, Maxima, MaximaEvent},
     util::{
         log::init_logger,
         native::take_foreground_focus,
         registry::{check_registry_validity, read_game_path},
-        service::{
-            is_service_running, is_service_valid, register_service_user, start_service,
-            stop_service,
-        },
     },
 };
+
+#[cfg(windows)]
+use maxima::{
+    core::background_service::request_registry_setup,
+    util::service::{
+        is_service_running, is_service_valid, register_service_user, start_service,
+        stop_service,
+    },
+};
+
 use tokio::{runtime::Runtime, sync::Mutex};
 
 pub const ERR_SUCCESS: usize = 0;
@@ -52,12 +58,7 @@ fn set_last_error_from_result<T>(result: Result<T>) {
 /// Set up Maxima's logging.
 #[no_mangle]
 pub extern "C" fn maxima_init_logger() -> usize {
-    let result = init_logger();
-    if result.is_err() {
-        set_last_error(result.err().unwrap().into());
-        return ERR_CHECK_LE;
-    }
-
+    init_logger();
     ERR_SUCCESS
 }
 
@@ -78,6 +79,7 @@ pub extern "C" fn maxima_create_runtime(runtime_out: *mut *mut c_void) -> usize 
 
 /// Check if the Maxima Background Service is installed and valid.
 #[no_mangle]
+#[cfg(windows)]
 pub extern "C" fn maxima_is_service_valid(out: *mut bool) -> usize {
     let result = is_service_valid();
     if result.is_err() {
@@ -91,6 +93,7 @@ pub extern "C" fn maxima_is_service_valid(out: *mut bool) -> usize {
 
 /// Check if the Maxima Background Service is running.
 #[no_mangle]
+#[cfg(windows)]
 pub extern "C" fn maxima_is_service_running(out: *mut bool) -> usize {
     let result = is_service_running();
     if result.is_err() {
@@ -104,6 +107,7 @@ pub extern "C" fn maxima_is_service_running(out: *mut bool) -> usize {
 
 /// Register the Maxima Background Service. Runs maxima-bootstrap for admin access.
 #[no_mangle]
+#[cfg(windows)]
 pub extern "C" fn maxima_register_service() -> usize {
     let result = register_service_user();
     if result.is_err() {
@@ -116,6 +120,7 @@ pub extern "C" fn maxima_register_service() -> usize {
 
 /// Start the Maxima Background Service.
 #[no_mangle]
+#[cfg(windows)]
 pub extern "C" fn maxima_start_service(runtime: *mut *mut Runtime) -> usize {
     let rt = unsafe { Box::from_raw(*runtime) };
 
@@ -134,6 +139,7 @@ pub extern "C" fn maxima_start_service(runtime: *mut *mut Runtime) -> usize {
 
 /// Stop the Maxima Background Service.
 #[no_mangle]
+#[cfg(windows)]
 pub extern "C" fn maxima_stop_service(runtime: *mut *mut Runtime) -> usize {
     let rt = unsafe { Box::from_raw(*runtime) };
 
@@ -158,6 +164,7 @@ pub extern "C" fn maxima_check_registry_validity() -> bool {
 
 /// Request the Maxima Background Service to set up the Windows Registry.
 #[no_mangle]
+#[cfg(windows)]
 pub extern "C" fn maxima_request_registry_setup(runtime: *mut *mut Runtime) -> usize {
     let rt = unsafe { Box::from_raw(*runtime) };
     let result = rt.block_on(async { request_registry_setup().await });

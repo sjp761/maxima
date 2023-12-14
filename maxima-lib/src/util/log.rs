@@ -41,11 +41,10 @@ impl log::Log for SimpleLogger {
     fn flush(&self) {}
 }
 
-pub fn init_logger() -> Result<()> {
+pub fn init_logger() {
     if enable_ansi_support::enable_ansi_support().is_err() {
         println!("ANSI Colors are unsupported in your terminal, things might look a bit off!");
     }
 
-    log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Trace))?;
-    Ok(())
+    log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Trace)).ok();
 }

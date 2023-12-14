@@ -1,14 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-extern crate windows_service;
+//extern crate windows_service;
 
 use std::{env::{self, current_exe}, process::Command};
 
 use anyhow::{bail, Result};
 
 use base64::{engine::general_purpose, Engine};
-use maxima::{core::launch::BootstrapLaunchArgs, util::service::{register_service, is_service_valid}};
+use maxima::core::launch::BootstrapLaunchArgs;
 use url::Url;
+
+#[cfg(windows)]
+use maxima::util::service::{register_service, is_service_valid};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,6 +42,22 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(windows)]
+fn service_setup() -> Result<()> {
+    if is_service_valid()? {
+        return Ok();
+    }
+
+    register_service()?;
+
+    Ok()
+}
+
+#[cfg(unix)]
+fn service_setup() -> Result<()> {
+    unimplemented!();
 }
 
 async fn run(args: &Vec<String>) -> Result<()> {
@@ -83,9 +102,7 @@ async fn run(args: &Vec<String>) -> Result<()> {
         return Ok(());
     }
     
-    if !is_service_valid()? {
-        register_service()?;
-    }
+    service_setup()?;
 
     Ok(())
 }

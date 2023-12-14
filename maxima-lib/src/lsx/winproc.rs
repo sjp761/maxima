@@ -1,6 +1,6 @@
 use std::ptr;
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 use winapi::{
     shared::{
         minwindef::{FALSE, DWORD},
@@ -11,7 +11,7 @@ use winapi::{
 };
 
 /// Finds a process that has an open TCP connection from local_port.
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn get_process_id(local_port: u16) -> Option<u32> {
     unsafe {
         let mut table_size: DWORD = 0;
@@ -61,7 +61,7 @@ pub fn get_process_id(local_port: u16) -> Option<u32> {
     }
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn get_process_id(local_port: u16) -> Option<u32> {
     todo!()
 }

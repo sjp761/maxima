@@ -6,10 +6,10 @@ use std::{
 
 use anyhow::{bail, Result};
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 use std::os::windows::prelude::{OsStrExt, OsStringExt};
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 use winapi::{
     shared::windef::HWND,
     um::{
@@ -22,7 +22,7 @@ use winapi::{
     },
 };
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 unsafe extern "system" fn enum_windows_proc(
     hwnd: HWND,
     _l_param: winapi::shared::minwindef::LPARAM,
@@ -41,7 +41,7 @@ unsafe extern "system" fn enum_windows_proc(
 
     winapi::shared::minwindef::TRUE
 }
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn get_hwnd() -> Result<HWND> {
     unsafe {
         EnumWindows(Some(enum_windows_proc), 0);
@@ -61,7 +61,7 @@ pub fn get_hwnd() -> Result<HWND> {
     }
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn take_foreground_focus() -> Result<()> {
     unsafe {
         EnumWindows(Some(enum_windows_proc), 0);
@@ -70,12 +70,12 @@ pub fn take_foreground_focus() -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn take_foreground_focus() -> Result<()> {
     todo!();
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(windows)]
 pub fn get_module_path() -> Result<PathBuf> {
     // Get a handle to the DLL
     let mut maxima_mod_name = OsString::from("maxima.dll")
@@ -106,7 +106,7 @@ pub fn get_module_path() -> Result<PathBuf> {
     Ok(os_string.to_string_lossy().into_owned().into())
 }
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub fn get_module_path() -> Option<String> {
     todo!();
 }
