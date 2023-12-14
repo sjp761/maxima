@@ -82,7 +82,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    init_logger().unwrap();
+    init_logger();
     let args = Args::parse();
 
     let native_options = eframe::NativeOptions {
@@ -106,9 +106,6 @@ async fn main() {
                         println!("{}, fixing...", err);
                         launch_bootstrap().expect("Failed to launch installer");
                     }
-                    app.backend
-                        .tx
-                        .send(interact_thread::MaximaLibRequest::GetGamesRequest).unwrap();
                 }
                 app
             })
@@ -126,6 +123,12 @@ enum PageType {
     Settings,
     Debug,
 }
+#[derive(Debug, PartialEq)]
+enum InProgressLoginType {
+    Oauth,
+    UsernamePass
+}
+
 
 //haha,
 //fuck.
@@ -197,6 +200,8 @@ pub struct DemoEguiApp {
     critical_bg_thread_crashed: bool, // If a core thread has crashed and made the UI unstable
     backend: MaximaThread,
     logged_in: bool, // temp book to track login status
+    in_progress_login: bool, // if the login flow is in progress
+    in_progress_login_type: InProgressLoginType // what type of login we're using
 }
 
 fn load_games(app: &mut DemoEguiApp) {
@@ -252,6 +257,8 @@ impl DemoEguiApp {
             critical_bg_thread_crashed: false,
             backend: MaximaThread::new(), //please don't fucking break
             logged_in: args.no_login, //temporary hack to just let me work on UI without needing to implement everything on unix lmao
+            in_progress_login: false,
+            in_progress_login_type: InProgressLoginType::Oauth,
         }
     }
 }
@@ -495,10 +502,40 @@ impl eframe::App for DemoEguiApp {
         }
         custom_window_frame(ctx, frame, "Maxima", |ui| {
             if !self.logged_in {
-                ui.vertical_centered(|ui| {
-                    ui.add_sized([400.0, 400.0], egui::Spinner::new().size(400.0));
-                    ui.heading("Logging in...");
-                });
+                if self.in_progress_login {
+                    match self.in_progress_login_type {
+                        InProgressLoginType::Oauth => {
+                            ui.vertical_centered(|ui| {
+                                ui.add_sized([400.0, 400.0], egui::Spinner::new().size(400.0));
+                                ui.heading("Logging in...");
+                            });
+                        }
+                        InProgressLoginType::UsernamePass => {
+                            ui.vertical_centered(|ui| {
+                                ui.heading("Not Implemented.");
+                            });
+                        }
+                    }
+                } else {
+                    ui.vertical_centered(|ui| {
+                        ui.heading("You're not logged in.");
+                        ui.horizontal(|ui| {
+                            if ui.button("OAuth (Browser)").clicked() {
+                                self.backend
+                                .tx
+                                .send(interact_thread::MaximaLibRequest::LoginRequestOauth).unwrap();
+                                self.backend
+                                .tx
+                                .send(interact_thread::MaximaLibRequest::GetGamesRequest).unwrap();
+                            }
+                            ui.set_enabled(false);
+                            if ui.button("Username & Password").clicked() {
+
+                            }
+                        })
+                    });
+                }
+                
             } else {
                 let mut top_nav_frame = egui::Frame::default();
                 top_nav_frame.fill = Color32::from_rgb(19, 19, 19);

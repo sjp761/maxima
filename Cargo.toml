@@ -7,7 +7,7 @@ members = [
     "maxima-lib",
     "maxima-native",
     "maxima-service",
-    #"maxima-ui",
+    "maxima-ui",
 ]
 
 [profile.release]
