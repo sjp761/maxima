@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
 #[cfg(windows)]
 fn service_setup() -> Result<()> {
     if is_service_valid()? {
-        return Ok();
+        return Ok(());
     }
 
     register_service()?;
