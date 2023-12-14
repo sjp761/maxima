@@ -14,7 +14,7 @@ pub fn get_process_id(local_port: u16) -> Option<u32> {
     unsafe {
         let mut table_size: DWORD = 0;
         let mut result = GetExtendedTcpTable(
-            ptr::null_mut(),
+            std::ptr::null_mut(),
             &mut table_size,
             FALSE,
             winapi::shared::ws2def::AF_INET as DWORD,

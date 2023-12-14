@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 #[cfg(windows)]
 use std::{
     os::windows::prelude::{OsStrExt, OsStringExt},
-    ffi::OsString,
+    ffi::{CString, OsString},
 };
 
 #[cfg(windows)]

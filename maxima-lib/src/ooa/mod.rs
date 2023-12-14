@@ -112,7 +112,7 @@ pub fn save_licenses(license: &License) -> Result<()> {
 }
 
 #[cfg(windows)]
-fn get_license_path() -> Result<String> {
+fn get_license_dir() -> Result<String> {
     let path = format!("C:/{}", LICENSE_PATH.to_string());
     create_dir_all(&path)?;
     Ok(path)
