@@ -110,9 +110,9 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: matrix.os == 'ubuntu-latest'
       with:
-        name: maxima-x86_64-linux-gnu
+        name: maxima-x86_64-linux-musl
         path: |
-          target/x86_64-unknown-linux-gnu/release/libmaxima_native.so
-          target/x86_64-unknown-linux-gnu/release/maxima-bootstrap
-          target/x86_64-unknown-linux-gnu/release/maxima-cli
-          target/x86_64-unknown-linux-gnu/release/maxima-ui
+          target/x86_64-unknown-linux-musl/release/libmaxima_native.so
+          target/x86_64-unknown-linux-musl/release/maxima-bootstrap
+          target/x86_64-unknown-linux-musl/release/maxima-cli
+          target/x86_64-unknown-linux-musl/release/maxima-ui
