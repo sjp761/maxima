@@ -324,23 +324,22 @@ pub fn fetch_zip_manifest(url: &str) -> Result<ZipFile> {
     let content_length = response.header("content-length").unwrap();
     let content_length = content_length.parse::<i64>().unwrap_or(0);
 
-    let read_block = 8 * 1024;
-    let max_scan_size: usize = 5 * 1024 * 1024;
-    let mut data: Vec<u8> = Vec::with_capacity(max_scan_size);
+    let max_offset: usize = 6 * 1024 * 1024;
+    let mut data: Vec<u8> = Vec::with_capacity(max_offset);
 
-    let mut offset_to_read = content_length - read_block;
-    if offset_to_read < 0 {
-        offset_to_read = content_length / 2;
+    let mut offset = content_length - 8 * 1024;
+    if offset < 0 {
+        bail!("Something went wrong while requesting a zip manifest");
     }
 
     let mut zip = ZipFile::default();
 
-    while offset_to_read >= 0 && data.len() < max_scan_size {
-        let read = content_length - offset_to_read - data.len() as i64;
-        let offset_start = content_length - data.len() as i64 - read;
-        let offset_end = offset_start + read;
+    while offset >= 0 && data.len() < max_offset {
+        let read = content_length - offset - data.len() as i64;
+        let start_offset = content_length - data.len() as i64 - read;
+        let end_offset = start_offset + read;
         
-        let range_header = format!("bytes={}-{}", offset_start, offset_end);
+        let range_header = format!("bytes={}-{}", start_offset, end_offset);
         let response = agent.get(url).set("range", &range_header).call()?;
 
         let mut this_data: Vec<u8> = Vec::with_capacity(read as usize);
@@ -350,12 +349,12 @@ pub fn fetch_zip_manifest(url: &str) -> Result<ZipFile> {
 
         data = [this_data, data].concat();
 
-        offset_to_read = zip.load(&mut ByteBuffer::from_vec(data.clone()), content_length)?;
-        if offset_to_read > content_length {
+        offset = zip.load(&mut ByteBuffer::from_vec(data.clone()), content_length)?;
+        if offset > content_length {
             bail!("Requested read was too big");
         }
 
-        if offset_to_read == 0 {
+        if offset == 0 {
             break;
         }
     }

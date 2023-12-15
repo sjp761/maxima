@@ -75,7 +75,7 @@ pub fn read_game_path(name: &str) -> Result<PathBuf> {
 }
 
 #[cfg(windows)]
-pub fn get_bootstrap_path() -> Result<PathBuf> {
+pub fn bootstrap_path() -> Result<PathBuf> {
     let path = module_path()?
         .parent()
         .unwrap()
@@ -267,7 +267,7 @@ fn verify_protocol_handler(protocol: &str) -> Result<bool> {
 }
 
 #[cfg(unix)]
-pub fn read_game_path(name: &str) -> Result<PathBuf> {
+pub fn read_game_path(_name: &str) -> Result<PathBuf> {
     todo!();
 }
 

@@ -6,9 +6,8 @@ use tokio::sync::Mutex;
 use crate::core::{
     cache::DynamicCache,
     service_layer::{
-        send_service_request, ServiceAvailableBuild, ServiceAvailableBuildsRequest,
-        ServiceAvailableBuildsRequestBuilder, ServiceDownloadType, ServiceDownloadUrl,
-        ServiceDownloadUrlRequest, ServiceDownloadUrlRequestBuilder,
+        send_service_request, ServiceAvailableBuild, ServiceAvailableBuildsRequestBuilder,
+        ServiceDownloadType, ServiceDownloadUrl, ServiceDownloadUrlRequestBuilder,
         SERVICE_REQUEST_AVAILABLEBUILDS, SERVICE_REQUEST_DOWNLOADURL,
     },
     Maxima,

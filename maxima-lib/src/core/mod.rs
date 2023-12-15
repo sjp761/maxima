@@ -13,7 +13,6 @@ pub mod background_service {
 }
 
 use std::{
-    any::Any,
     env,
     fs::{create_dir_all, File},
     os::raw::c_char,
@@ -25,7 +24,6 @@ use std::{
 use anyhow::{bail, Result};
 use derive_getters::Getters;
 use log::error;
-use moka::sync::Cache;
 use strum_macros::IntoStaticStr;
 
 use std::sync::Arc;
@@ -41,8 +39,7 @@ use self::{
     launch::ActiveGameContext,
     locale::Locale,
     service_layer::{
-        send_service_request, ServiceGameType, ServiceGetBasicPlayerRequest,
-        ServiceGetBasicPlayerRequestBuilder, ServiceGetPreloadedOwnedGamesRequest,
+        send_service_request, ServiceGameType, ServiceGetBasicPlayerRequestBuilder,
         ServiceGetPreloadedOwnedGamesRequestBuilder, ServiceGetUserPlayerRequest, ServiceImage,
         ServicePlatform, ServicePlayer, ServiceStorefront, ServiceUser,
         SERVICE_REQUEST_GETBASICPLAYER, SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES,

@@ -60,6 +60,6 @@ pub fn get_process_id(local_port: u16) -> Option<u32> {
 }
 
 #[cfg(unix)]
-pub fn get_process_id(local_port: u16) -> Option<u32> {
+pub fn get_process_id(_local_port: u16) -> Option<u32> {
     Some(0) // TODO
 }
