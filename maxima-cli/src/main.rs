@@ -82,7 +82,7 @@ async fn native_setup() -> Result<()> {
         if !is_service_valid()? {
             info!("Installing service...");
             register_service_user()?;
-            sleep(Duration::from_secs(1)).await;
+            std::thread::sleep(std::time::Duration::from_secs(1)).await;
         }
 
         if !is_service_running()? {
@@ -148,8 +148,6 @@ async fn startup() -> Result<()> {
     if args.login.is_none() {
         info!("Received login...");
     }
-
-    info!("Logged in...");
     
     // Take back the focus since the browser and bootstrap will take it
     take_foreground_focus()?;
