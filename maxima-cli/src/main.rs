@@ -259,6 +259,8 @@ async fn interactive_install_game(maxima_arc: Arc<Mutex<Maxima>>) -> Result<()> 
         .await?;
 
     let manifest = fetch_zip_manifest(&url.url())?;
+
+    info!("URL: {}", url.url());
     info!("Entries: {}", manifest.entries().len());
 
     Ok(())

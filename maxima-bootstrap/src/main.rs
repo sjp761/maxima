@@ -82,7 +82,12 @@ fn platform_launch(args: BootstrapLaunchArgs) -> Result<()> {
         .args(args.args);
     
     let status = child.spawn()?.wait()?;
-    bail!("{}", status.code().unwrap());
+    let code = status.code();
+    if code.is_none() {
+        return Ok(());
+    }
+
+    bail!("{}", code.unwrap());
 }
 
 async fn run(args: &Vec<String>) -> Result<()> {
