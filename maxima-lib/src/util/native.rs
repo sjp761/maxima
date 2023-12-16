@@ -21,8 +21,6 @@ use winapi::{
     },
 };
 
-use std::fs;
-
 #[cfg(windows)]
 unsafe extern "system" fn enum_windows_proc(
     hwnd: HWND,
@@ -110,7 +108,7 @@ pub fn module_path() -> Result<PathBuf> {
 
 #[cfg(unix)]
 pub fn module_path() -> Result<PathBuf> {
-    let path = fs::read_link("/proc/self/exe");
+    let path = std::fs::read_link("/proc/self/exe");
     if path.is_err() {
         bail!("Invalid module path!");
     }

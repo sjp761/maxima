@@ -138,12 +138,19 @@ impl Connection {
         if !cfg!(unix) {
             let mut i = 0;
             while pid.is_none() && i < 10 {
-                pid = get_process_id(stream.peer_addr().unwrap().port());
+                let result = get_process_id(stream.peer_addr().unwrap().port());
+                if result.is_err() {
+                    pid = Some(0);
+                    warn!("PID fetch failed: {}", result.err().unwrap());
+                    break;
+                }
+
+                pid = result.unwrap();
                 std::thread::sleep(Duration::from_secs(1));
                 i += 1;
             }
         } else {
-            // Not really needed on linux, this is mainly for games with anti-cheat launchers
+            // Not really needed on linux, this is mainly for games with anti-cheat launchers and Kyber injection
             pid = Some(0);
         }
 
@@ -154,11 +161,9 @@ impl Connection {
             warn!("Failed to find PID through TCP table, falling back to known executable name");
             let sys = System::new_all();
             for p in sys.processes_by_exact_name("starwarsbattlefrontii.exe") {
-                pid = Some(p.pid().as_u32())
+                pid = Some(p.pid().as_u32());
             }
         }
-
-        //info!("PID: {:?}", pid.unwrap());
 
         let state = Arc::new(RwLock::new(ConnectionState {
             maxima: maxima.clone(),
