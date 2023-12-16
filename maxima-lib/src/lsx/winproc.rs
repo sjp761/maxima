@@ -73,5 +73,5 @@ pub fn get_process_id(local_port: u16) -> Result<Option<u32>> {
 
 #[cfg(unix)]
 pub fn get_process_id(_local_port: u16) -> Result<Option<u32>> {
-    Ok(0) // TODO
+    Ok(Some(0)) // TODO
 }
