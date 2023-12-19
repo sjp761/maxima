@@ -88,19 +88,19 @@ pub fn run_wine_command<I: IntoIterator<Item = T>, T:AsRef<OsStr>>(
 ) -> Result<()> {
     let path = maxima_dir()?.join(format!("wine/bin/{}", program));
 
-    // create command with all necessary wine env variables
+    // Create command with all necessary wine env variables
     let mut binding = Command::new(path);
     let mut output = binding
         .env("WINEPREFIX", wine_prefix_dir()?)
-        .env("WINEDLLOVERRIDES", "winemenubuilder.exe=d") // disable winemenubuilder so it doesnt mess with file associations
+        .env("WINEDLLOVERRIDES", "winemenubuilder.exe=d") // Disable winemenubuilder so it doesnt mess with file associations
         .env("WINEDLLPATH", format!("{}:{}", maxima_dir()?.join("wine/lib64/wine").display(), maxima_dir()?.join("wine/lib/wine").display()))
 
-        // these should probably be settings for the user to enable/disable
+        // These should probably be settings for the user to enable/disable
         .env("WINE_FULLSCREEN_FSR", "0")
         .env("WINEESYNC", "1")
         .env("WINEFSYNC", "1")
 
-        .env("LD_PRELOAD", "")// fixes some log errors for some games
+        .env("LD_PRELOAD", "") // Fixes some log errors for some games
         .env("LD_LIBRARY_PATH", format!("{}:{}", maxima_dir()?.join("wine/lib64").display(), maxima_dir()?.join("wine/lib").display()))
         .env("GST_PLUGIN_SYSTEM_PATH_1_0", format!("{}:{}", maxima_dir()?.join("wine/lib64/gstreamer-1.0").display(), maxima_dir()?.join("wine/lib/gstreamer-1.0").display()))
 
@@ -112,7 +112,7 @@ pub fn run_wine_command<I: IntoIterator<Item = T>, T:AsRef<OsStr>>(
 
     let status = output.spawn()?.wait()?;
 
-    // start wineserver so we actually wait until the wine process finished (idk its weird)
+    // Start wineserver so we actually wait until the wine process finished (idk its weird)
     let wine_server_path = maxima_dir()?.join("wine/bin/wineserver");
     let mut wine_server_binding = Command::new(wine_server_path);
     let wine_server = wine_server_binding
@@ -124,9 +124,7 @@ pub fn run_wine_command<I: IntoIterator<Item = T>, T:AsRef<OsStr>>(
         return Ok(());
     }
 
-    let code = status.code();
-
-    bail!("{}", code.unwrap());
+    bail!("{}", status.code().unwrap());
 }
 
 pub async fn install_wine() -> Result<()> {
