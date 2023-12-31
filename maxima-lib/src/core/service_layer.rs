@@ -430,3 +430,30 @@ service_layer_type!(DownloadUrlMetadata, {
     url: String,
     sync_url: Option<String>,
 });
+
+service_layer_type!(GrantEntitlementInput, {
+    offer_id: String,
+    source: Option<String>,
+});
+
+service_layer_type!(GrantEntitlementRequest, {
+    input: ServiceGrantEntitlementInput,
+});
+
+service_layer_type!(GameSessionStartInput, {
+    game_slug: String,
+    platform: ServicePlatform,
+    session_id: String,
+});
+
+service_layer_type!(GameSessionStartRequest, {
+    input: ServiceGameSessionStartInput,
+});
+
+service_layer_type!(GameSessionEndInput, {
+    session_id: String,
+});
+
+service_layer_type!(GameSessionEndRequest, {
+    input: ServiceGameSessionEndInput,
+});
