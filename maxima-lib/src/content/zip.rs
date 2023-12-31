@@ -330,7 +330,7 @@ impl ZipFile {
         for i in 0..eocd.total_entries {
             let result = ZipFileEntry::parse(data);
             if let Some(err) = result.as_ref().err() {
-                bail!("Failed to load central directory entry {}: {}", i, err);
+                bail!("Failed to load central directory entry {} (out of {}): {}", i, eocd.total_entries, err);
             }
 
             let entry = result.unwrap();
