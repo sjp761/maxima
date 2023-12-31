@@ -11,7 +11,7 @@ use std::{
     vec::Vec, fs,
 };
 
-use maxima::core::{auth::login, launch, service_layer::{ServiceOwnershipMethod, ServiceGame, SERVICE_REQUEST_GAMEIMAGES, ServiceGameImagesRequest, ServiceGameImagesRequestBuilder}};
+use maxima::core::{auth::{login, context::AuthContext}, launch, service_layer::{ServiceOwnershipMethod, ServiceGame, SERVICE_REQUEST_GAMEIMAGES, ServiceGameImagesRequest, ServiceGameImagesRequestBuilder}};
 use maxima::{
     core::{
         self,
@@ -30,6 +30,7 @@ use maxima::{
         registry::{check_registry_validity, bootstrap_path, launch_bootstrap, read_game_path},
     },
 };
+use maxima::core::auth::execute_connect_token;
 
 use crate::{GameInfo, GameImage};
 
@@ -87,8 +88,10 @@ impl MaximaThread {
             let request = rx1.recv()?;
             match request {
                 MaximaLibRequest::LoginRequestOauth => {
-                    let token = login::begin_oauth_login_flow().await;
-                    let token = token.expect("Login Failed!").expect("Login Failed x2!");
+                    let mut context = AuthContext::new()?;
+                    let result = login::begin_oauth_login_flow(&mut context).await?;
+                    let token = execute_connect_token(&context).await.expect("Token exchange failed");
+                    let token = token.access_token().to_owned();
                     let user: ServiceUser = send_service_request(
                         token.as_ref(),
                         SERVICE_REQUEST_GETUSERPLAYER,

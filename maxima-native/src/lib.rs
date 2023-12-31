@@ -1,6 +1,6 @@
 use core::slice;
 use std::{
-    ffi::{CStr, CString, c_ushort},
+    ffi::{c_ushort, CStr, CString},
     os::raw::{c_char, c_uint, c_void},
     sync::Arc,
 };
@@ -8,7 +8,10 @@ use std::{
 use anyhow::{bail, Error, Result};
 
 use maxima::{
-    core::{auth::login, launch, Maxima, MaximaEvent},
+    core::{
+        auth::{context::AuthContext, login},
+        launch, Maxima, MaximaEvent,
+    },
     util::{
         log::init_logger,
         native::take_foreground_focus,
@@ -20,11 +23,11 @@ use maxima::{
 use maxima::{
     core::background_service::request_registry_setup,
     util::service::{
-        is_service_running, is_service_valid, register_service_user, start_service,
-        stop_service,
+        is_service_running, is_service_valid, register_service_user, start_service, stop_service,
     },
 };
 
+use maxima::core::auth::execute_connect_token;
 use tokio::{runtime::Runtime, sync::Mutex};
 
 pub const ERR_SUCCESS: usize = 0;
@@ -184,18 +187,27 @@ pub extern "C" fn maxima_request_registry_setup(runtime: *mut *mut Runtime) -> u
 pub extern "C" fn maxima_login(runtime: *mut *mut Runtime, token_out: *mut *mut c_char) -> usize {
     let rt = unsafe { Box::from_raw(*runtime) };
 
-    let result = rt.block_on(async { login::begin_oauth_login_flow().await });
+    let auth_context = AuthContext::new();
+    if auth_context.is_err() {
+        set_last_error_from_result(auth_context);
+        return ERR_CHECK_LE;
+    }
+
+    let mut auth_context = auth_context.unwrap();
+
+    let result = rt.block_on(async { login::begin_oauth_login_flow(&mut auth_context).await });
     if result.is_err() {
         set_last_error_from_result(result);
         return ERR_CHECK_LE;
     }
 
-    let token = result.unwrap();
-    if token.is_none() {
+    let token = rt.block_on(async { execute_connect_token(&auth_context).await });
+    if token.is_err() {
+        set_last_error_from_result(token);
         return ERR_LOGIN_FAILED;
     }
 
-    let raw_token = CString::new(token.unwrap());
+    let raw_token = CString::new(token.unwrap().access_token().to_owned());
     if raw_token.is_err() {
         set_last_error(raw_token.err().unwrap().into());
         return ERR_CHECK_LE;

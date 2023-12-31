@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::info;
 
 use crate::{
-    core::auth::execute_auth_exchange,
+    core::auth::{context::AuthContext, execute_auth_exchange},
     lsx::{
         connection::LockedConnectionState,
         types::{LSXAuthCode, LSXGetAuthCode, LSXResponseType},
@@ -19,7 +19,7 @@ pub async fn handle_auth_code_request(
     let client_id = request.attr_ClientId;
     info!("Retrieving authorization code for '{}'", client_id);
 
-    let auth_code = execute_auth_exchange(&access_token, &client_id, "code")
+    let auth_code = execute_auth_exchange(&access_token, &client_id, &AuthContext::new()?, "code")
         .await
         .unwrap();
 

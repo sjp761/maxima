@@ -17,7 +17,7 @@ pub struct HardwareInfo {
 
 impl HardwareInfo {
     #[cfg(windows)]
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         use std::collections::HashMap;
 
         use wmi::{COMLibrary, FilterValue, WMIConnection};
@@ -94,7 +94,7 @@ impl HardwareInfo {
     }
 
     #[cfg(target_os = "linux")]
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         use std::{fs, path::Path, process::Command};
 
         let board_manufacturer = match fs::read_to_string("/sys/class/dmi/id/board_vendor") {
@@ -178,7 +178,7 @@ impl HardwareInfo {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         use std::process::Command;
 
         use smbioslib::{
@@ -269,7 +269,7 @@ impl HardwareInfo {
         }
     }
 
-    pub fn generate_mid(&self) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn generate_mid(&self) -> anyhow::Result<String> {
         let mut buffer = String::new();
         buffer += &self.board_manufacturer;
         buffer += &self.board_sn;

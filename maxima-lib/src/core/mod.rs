@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod cache;
+pub mod clients;
 pub mod ecommerce;
 pub mod endpoints;
 pub mod launch;

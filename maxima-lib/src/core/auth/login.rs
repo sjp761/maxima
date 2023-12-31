@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::StatusCode;
@@ -7,16 +7,20 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpListener;
 use ureq::OrAnyStatus;
 
-use crate::core::auth::execute_auth_exchange;
+use crate::core::clients::JUNO_PC_CLIENT_ID;
 use crate::core::endpoints::API_PROXY_NOVAFUSION_LICENSES;
 
+use super::context::AuthContext;
+
 lazy_static! {
-    static ref EMAIL_PATTERN: Regex = Regex::new(r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})").unwrap();
+    static ref EMAIL_PATTERN: Regex = Regex::new(
+        r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})"
+    )
+    .unwrap();
 }
 
-pub async fn begin_oauth_login_flow() -> Result<Option<String>> {
-    // Hardcoded for now, need to figure out where pc_sign comes from. All I know for now is it identifies a device for 2fa.
-    open::that("https://accounts.ea.com/connect/auth?response_type=token&client_id=JUNO_PC_CLIENT&pc_sign=eyJhdiI6InYxIiwiYnNuIjoiRGVmYXVsdCBzdHJpbmciLCJnaWQiOjc5NDQsImhzbiI6IkFBMDAwMDAwMDAwMDAwMDAxMjc3IiwibWFjIjoiJGI0MmU5OTRjNTBhZiIsIm1pZCI6IjUyODUwNDMyMDkxOTEyODgwNDMiLCJtc24iOiJEZWZhdWx0IHN0cmluZyIsInN2IjoidjIiLCJ0cyI6IjIwMjMtMi0xMiAxMzo0NTozNjo5MzcifQ.c__XyfI01HjScx1yJ4JpZWklwMO9qn4iC9OQ5oJFE3A")?;
+pub async fn begin_oauth_login_flow<'a>(context: &mut AuthContext<'a>) -> Result<()> {
+    open::that(context.nucleus_auth_url(JUNO_PC_CLIENT_ID, None)?)?;
     let listener = TcpListener::bind("127.0.0.1:31033").await?;
 
     loop {
@@ -36,12 +40,13 @@ pub async fn begin_oauth_login_flow() -> Result<Option<String>> {
                 .unwrap();
 
             for query in query_string {
-                if query.0 == "access_token" {
-                    return Ok(Some(query.1.to_string()));
+                if query.0 == "code" {
+                    context.set_code(query.1);
+                    return Ok(());
                 }
             }
 
-            return Ok(None);
+            bail!("Failed to find auth code");
         }
     }
 }
@@ -56,7 +61,7 @@ pub struct NovaLoginValue {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum NovaLoginErrorCode {
     InvalidPassword,
-    ValidationFailed
+    ValidationFailed,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -98,6 +103,5 @@ pub async fn manual_login(persona: &str, password: &str) -> Result<String> {
         bail!("{:?}", error.code);
     }
 
-    let token = error.auth_token.unwrap().value;
-    execute_auth_exchange(&token, "JUNO_PC_CLIENT", "token").await
+    Ok(error.auth_token.unwrap().value)
 }

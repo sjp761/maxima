@@ -18,10 +18,12 @@ use maxima::{
     util::service::{is_service_running, is_service_valid, register_service_user, start_service},
 };
 
+use maxima::core::auth::execute_connect_token;
 use maxima::{
-    content::{ContentService, zip::ZipFile},
+    content::{zip::ZipFile, ContentService},
     core::{
         auth::{
+            context::AuthContext,
             execute_auth_exchange,
             login::{begin_oauth_login_flow, manual_login},
         },
@@ -120,8 +122,11 @@ async fn startup() -> Result<()> {
     native_setup().await?;
 
     info!("Logging in...");
-    let token = if let Some(access_token) = &args.login {
-        if let Some(captures) = MANUAL_LOGIN_PATTERN.captures(&access_token) {
+
+    let mut auth_context = AuthContext::new()?;
+
+    if let Some(access_token) = &args.login {
+        let access_token = if let Some(captures) = MANUAL_LOGIN_PATTERN.captures(&access_token) {
             let persona = &captures[1];
             let password = &captures[2];
 
@@ -131,18 +136,33 @@ async fn startup() -> Result<()> {
                 return Ok(());
             }
 
-            Some(login_result.unwrap())
+            login_result.unwrap()
         } else {
-            Some(access_token.to_owned())
-        }
+            access_token.to_owned()
+        };
+        
+        let code = execute_auth_exchange(&&access_token, "JUNO_PC_CLIENT", &auth_context, "code").await?;
+        auth_context.set_code(&code);
     } else {
-        begin_oauth_login_flow().await.unwrap()
+        let result = begin_oauth_login_flow(&mut auth_context).await;
+        if result.is_err() {
+            error!("Login failed: {}", result.err().unwrap().to_string());
+            return Ok(());
+        }
     };
 
-    if token.is_none() {
+    if auth_context.code().is_none() {
         error!("Login failed!");
         return Ok(());
     }
+    
+    let token_res = execute_connect_token(&auth_context).await;
+    if token_res.is_err() {
+        error!("Login failed: {}", token_res.err().unwrap().to_string());
+        return Ok(());
+    }
+
+    let token = token_res.unwrap().access_token().to_owned();
 
     if args.login.is_none() {
         info!("Received login...");
@@ -155,7 +175,7 @@ async fn startup() -> Result<()> {
 
     {
         let mut maxima = maxima_arc.lock().await;
-        maxima.set_access_token(token.unwrap().to_owned());
+        maxima.set_access_token(token.to_owned());
 
         let user = maxima.local_user().await?;
 
@@ -285,7 +305,8 @@ async fn print_account_info(maxima_arc: Arc<Mutex<Maxima>>) -> Result<()> {
 async fn create_auth_code(maxima_arc: Arc<Mutex<Maxima>>, client_id: &str) -> Result<()> {
     let maxima = maxima_arc.lock().await;
 
-    let auth_code = execute_auth_exchange(&maxima.access_token(), client_id, "code").await?;
+    let auth_code =
+        execute_auth_exchange(&maxima.access_token(), client_id, &AuthContext::new()?, "code").await?;
     info!("Auth Code for {}: {}", client_id, auth_code);
     Ok(())
 }
