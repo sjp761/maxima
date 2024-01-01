@@ -142,9 +142,13 @@ pub async fn start_game(
 
     let user = maxima.local_user().await?;
 
+    // Vars saved here for historical and debugging purposes:
+    // EALaunchOOAUserEmail
+    // EALaunchOOAUserPass
+    // EAOnErrorExitRetCode
+
     child
         .current_dir(PathBuf::from(path).parent().unwrap())
-        //.stdout(std::process::Stdio::piped())
         .env("EAAuthCode", "unavailable")
         .env("EAConnectionId", offer_id.to_owned())
         .env("EAEgsProxyIpcPort", "0")
@@ -158,9 +162,6 @@ pub async fn start_game(
             user.player().as_ref().unwrap().display_name(),
         )
         .env("EALaunchEnv", "production")
-        //.env("EALaunchOOAUserEmail", "")
-        //.env("EALaunchOOAUserPass", "")
-        //.env("EAOnErrorExitRetCode", "true")
         .env("EALaunchOfflineMode", "false")
         .env("EALaunchUserAuthToken", access_token)
         .env("EALicenseToken", offer_id.to_owned())

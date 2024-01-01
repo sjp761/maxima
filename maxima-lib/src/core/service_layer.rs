@@ -478,3 +478,12 @@ service_layer_type!(GameSessionEndInput, {
 service_layer_type!(GameSessionEndRequest, {
     input: ServiceGameSessionEndInput,
 });
+
+service_layer_type!(GameBundleInput, {
+    offerId: String,
+});
+
+service_layer_type!(GameBundleRequest, {
+    bundles: Vec<ServiceGameBundleInput>,
+    region: String,
+});
