@@ -290,5 +290,5 @@ fn service_manager(create: bool) -> Result<ServiceManager> {
 }
 
 fn service_path() -> Result<PathBuf> {
-    Ok(module_path()?.with_file_name("maxima-service.exe"))
+    Ok(module_path().with_file_name("maxima-service.exe"))
 }

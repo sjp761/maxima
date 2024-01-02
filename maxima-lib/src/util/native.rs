@@ -76,7 +76,7 @@ pub fn take_foreground_focus() -> Result<()> {
 }
 
 #[cfg(windows)]
-pub fn module_path() -> Result<PathBuf> {
+pub fn module_path() -> PathBuf {
     // Get a handle to the DLL
     let mut maxima_mod_name = OsString::from("maxima.dll")
         .encode_wide()
@@ -89,7 +89,7 @@ pub fn module_path() -> Result<PathBuf> {
     }
 
     if hmodule.is_null() {
-        bail!("Failed to find module");
+        panic!("Failed to find module");
     }
 
     // Create a buffer to hold the DLL path
@@ -98,22 +98,22 @@ pub fn module_path() -> Result<PathBuf> {
     // Get the DLL path
     let length = unsafe { GetModuleFileNameW(hmodule, buffer.as_mut_ptr(), buffer.len() as u32) };
     if length == 0 {
-        bail!("Failed to get module length");
+        panic!("Failed to get module length");
     }
 
     // Convert buffer to a Rust String
     let os_string = OsString::from_wide(&buffer[0..length as usize]);
-    Ok(os_string.to_string_lossy().into_owned().into())
+    os_string.to_string_lossy().into_owned().into()
 }
 
 #[cfg(unix)]
-pub fn module_path() -> Result<PathBuf> {
+pub fn module_path() -> PathBuf {
     let path = std::fs::read_link("/proc/self/exe");
     if path.is_err() {
-        bail!("Invalid module path!");
+        panic!("Invalid module path!");
     }
 
-    Ok(path.unwrap())
+    path.unwrap()
 }
 
 #[cfg(not(unix))]

@@ -129,7 +129,7 @@ pub async fn start_game(
         game_args.append(&mut parse_arguments(args.as_str()));
     }
 
-    let mut child = Command::new(bootstrap_path()?);
+    let mut child = Command::new(bootstrap_path());
     child.arg("launch");
 
     let bootstrap_args = BootstrapLaunchArgs {
