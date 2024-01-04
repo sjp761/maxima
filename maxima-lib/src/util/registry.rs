@@ -76,10 +76,7 @@ pub fn read_game_path(name: &str) -> Result<PathBuf> {
 
 #[cfg(windows)]
 pub fn bootstrap_path() -> PathBuf {
-    module_path()
-        .parent()
-        .unwrap()
-        .join("maxima-bootstrap.exe")
+    module_path().parent().unwrap().join("maxima-bootstrap.exe")
 }
 
 #[cfg(windows)]
@@ -128,25 +125,13 @@ pub fn set_up_registry() -> Result<()> {
     eax_32.set_value("InstallSuccessful", &"true")?;
 
     // Hijack Qt's protocol for our login redirection
-    register_custom_protocol(
-        "qrc",
-        "Maxima Protocol",
-        bootstrap_path,
-    )?;
+    register_custom_protocol("qrc", "Maxima Protocol", bootstrap_path)?;
 
     // We link2maxima now
-    register_custom_protocol(
-        "link2ea",
-        "Maxima Launcher",
-        bootstrap_path,
-    )?;
+    register_custom_protocol("link2ea", "Maxima Launcher", bootstrap_path)?;
 
     // maxima2
-    register_custom_protocol(
-        "origin2",
-        "Maxima Launcher",
-        bootstrap_path,
-    )?;
+    register_custom_protocol("origin2", "Maxima Launcher", bootstrap_path)?;
 
     Ok(())
 }
@@ -165,21 +150,37 @@ fn register_custom_protocol(protocol: &str, name: &str, executable: &str) -> Res
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub fn set_up_registry() -> Result<()> {
     let bootstrap_path = &bootstrap_path().to_str().unwrap().to_string();
 
     // Hijack Qt's protocol for our login redirection
-    register_custom_protocol(
-        "qrc",
-        "Maxima Launcher",
-        bootstrap_path,
-    )?;
+    register_custom_protocol("qrc", "Maxima Launcher", bootstrap_path)?;
 
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "macos")]
+pub fn set_up_registry() -> Result<()> {
+    use std::process::Command;
+
+    use log::warn;
+
+    let bin = bootstrap_path();
+
+    if !bin.try_exists()? {
+        warn!(
+            "{} does not exist. Did you run `cargo bundle` for `maxima-bootstrap`?",
+            bin.display()
+        );
+    }
+
+    Command::new(bin).arg("--noop").spawn()?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
 fn register_custom_protocol(protocol: &str, name: &str, executable: &str) -> Result<()> {
     use std::env;
 
@@ -201,11 +202,15 @@ fn register_custom_protocol(protocol: &str, name: &str, executable: &str) -> Res
     let desktop_file_path = format!("{}/.local/share/applications/{}", home, desktop_file_name);
     fs::write(desktop_file_path, desktop_file)?;
 
-    set_mime_type(&format!("x-scheme-handler/{}", protocol), &desktop_file_name)?;
+    set_mime_type(
+        &format!("x-scheme-handler/{}", protocol),
+        &desktop_file_name,
+    )?;
+
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn set_mime_type(mime_type: &str, desktop_file_path: &str) -> Result<()> {
     use std::process::Command;
 
@@ -213,13 +218,13 @@ fn set_mime_type(mime_type: &str, desktop_file_path: &str) -> Result<()> {
     if xdg_mime_check.is_err() {
         bail!("xdg-mime command is not available. Please install xdg-utils.");
     }
-    
+
     let output = Command::new("xdg-mime")
         .arg("default")
         .arg(desktop_file_path)
         .arg(mime_type)
         .output()?;
-    
+
     if !output.status.success() {
         bail!(
             "Failed to set MIME type association for {}: {}",
@@ -236,11 +241,11 @@ pub fn check_registry_validity() -> Result<()> {
     if !verify_protocol_handler("qrc")? {
         bail!("Protocol is not registered");
     }
-    
+
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn verify_protocol_handler(protocol: &str) -> Result<bool> {
     use std::process::Command;
 
@@ -264,16 +269,38 @@ fn verify_protocol_handler(protocol: &str) -> Result<bool> {
     return Ok(output_str == expected);
 }
 
+#[cfg(target_os = "macos")]
+fn verify_protocol_handler(protocol: &str) -> Result<bool> {
+    use std::process::Command;
+
+    let output = Command::new("open")
+        .args([&format!("{}://", protocol), "--args", "--noop"])
+        .output()
+        .expect("Failed to call open");
+
+    Ok(output.status.success())
+}
+
 #[cfg(unix)]
 pub fn read_game_path(_name: &str) -> Result<PathBuf> {
     todo!();
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
+pub fn bootstrap_path() -> PathBuf {
+    module_path().parent().unwrap().join("maxima-bootstrap")
+}
+
+#[cfg(target_os = "macos")]
 pub fn bootstrap_path() -> PathBuf {
     module_path()
         .parent()
         .unwrap()
+        .join("bundle")
+        .join("osx")
+        .join("MaximaBootstrap.app")
+        .join("Contents")
+        .join("MacOS")
         .join("maxima-bootstrap")
 }
 

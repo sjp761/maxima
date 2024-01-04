@@ -1,5 +1,6 @@
 [package]
 name = "maxima-bootstrap"
+description = "Maxima handler for custom EA protocols"
 version = "0.1.0"
 authors = ["Sean Kahler <sean@battleda.sh>"]
 edition = "2021"
@@ -36,9 +37,17 @@ winapi = { version = "0.3.9", features = [
 winreg = "0.50.0"
 windows-service = "0.6.0"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+cacao = "0.3.2"
+
 [build-dependencies]
 maxima-resources = { path = "../maxima-resources" }
 
 [[bin]]
 name = "maxima-bootstrap"
 path = "src/main.rs"
+
+[package.metadata.bundle]
+name = "MaximaBootstrap"
+identifier = "dev.armchairdevelopers.MaximaBootstrap"
+osx_url_schemes = ["qrc", "link2ea", "origin2"]

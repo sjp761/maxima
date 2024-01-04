@@ -2,7 +2,7 @@
 
 //extern crate windows_service;
 
-use std::{env::{self, current_exe}, process::Command};
+use std::{env::current_exe, process::Command};
 
 use anyhow::{bail, Result};
 
@@ -11,18 +11,46 @@ use maxima::core::launch::BootstrapLaunchArgs;
 use url::Url;
 
 #[cfg(windows)]
-use maxima::util::service::{register_service, is_service_valid};
+use maxima::util::service::{is_service_valid, register_service};
 
+#[cfg(target_os = "macos")]
+mod macos;
+
+#[cfg(not(target_os = "macos"))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut args: Vec<String> = env::args().collect();
-    let result = run(&args).await;
+    let _ = handle_launch_args().await?;
 
-    if cfg!(debug_assertions) || env::var("MAXIMA_DEBUG").is_ok() {
-        args.remove(0);
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::main]
+async fn main() -> Result<()> {
+    use cacao::appkit::App;
+
+    use crate::macos::MaximaBootstrapApp;
+
+    let handle = tokio::runtime::Handle::current();
+    App::new(
+        "dev.armchairdevelopers.MaximaBootstrap",
+        MaximaBootstrapApp::new(handle),
+    )
+    .run();
+
+    Ok(())
+}
+
+async fn handle_launch_args() -> Result<bool> {
+    let mut args: Vec<String> = std::env::args().collect();
+    args.remove(0);
+
+    let result = run(&args).await;
+    if cfg!(debug_assertions) || std::env::var("MAXIMA_DEBUG").is_ok() {
         println!("Args: {:?}", &args);
 
         let str_result = result
+            .as_ref()
             .map_err(|e| {
                 let source = e.source();
                 let error_str = if source.is_some() {
@@ -41,7 +69,7 @@ async fn main() -> Result<()> {
         //std::io::Read::read(&mut std::io::stdin(), &mut [0]).unwrap();
     }
 
-    Ok(())
+    result
 }
 
 #[cfg(windows)]
@@ -57,7 +85,7 @@ fn service_setup() -> Result<()> {
 
 #[cfg(not(windows))]
 fn service_setup() -> Result<()> {
-    unimplemented!();
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -78,46 +106,72 @@ fn platform_launch(args: BootstrapLaunchArgs) -> Result<()> {
     Ok(())
 }
 
-async fn run(args: &Vec<String>) -> Result<()> {
+async fn run(args: &[String]) -> Result<bool> {
     let len = args.len();
-    if len == 2 {
-        let arg = &args[1];
+    if len == 1 {
+        let arg = &args[0];
+
+        if arg == "--noop" {
+            return Ok(true);
+        }
+
         if arg.starts_with("link2ea") {
             // TODO
             bail!("link2ea not yet implemented!");
-        } else if arg.starts_with("origin2") {
+        }
+
+        if arg.starts_with("origin2") {
             let url = Url::parse(arg)?;
             let query = querystring::querify(url.query().unwrap());
             let _offer_id = query.iter().find(|(x, _)| *x == "offerIds").unwrap().1;
             let cmd_params = query.iter().find(|(x, _)| *x == "cmdParams").unwrap().1;
-            
+
             let mut child = Command::new(current_exe()?.with_file_name("maxima-cli.exe"));
-            child.env("MAXIMA_LAUNCH_ARGS", urlencoding::decode(cmd_params)?.into_owned().replace("\\\"", "\""));
-            println!("{}", urlencoding::decode(cmd_params)?.into_owned().replace("\\\"", "\""));
+            child.env(
+                "MAXIMA_LAUNCH_ARGS",
+                urlencoding::decode(cmd_params)?
+                    .into_owned()
+                    .replace("\\\"", "\""),
+            );
+            println!(
+                "{}",
+                urlencoding::decode(cmd_params)?
+                    .into_owned()
+                    .replace("\\\"", "\"")
+            );
             child.env("KYBER_INTERFACE_PORT", "3005");
             child.args(["--mode", "launch", "--offer-id", "Origin.OFR.50.0002148"]);
             child.spawn()?.wait()?;
-        } else {
+
+            return Ok(true);
+        }
+
+        if arg.starts_with("qrc") {
             let query = arg.split("login_successful.html?").collect::<Vec<&str>>()[1];
             reqwest::get(format!("http://127.0.0.1:31033/auth?{}", query)).await?;
+
+            return Ok(true);
         }
-        return Ok(());
+
+        return Ok(false);
     }
-    
-    if len > 2 {
-        let command = &args[1];
-        match command.as_str() {
+
+    if len > 1 {
+        let command = &args[0];
+        let handled = match command.as_str() {
             "launch" => {
-                let decoded = general_purpose::STANDARD.decode(&args[2])?;
+                let decoded = general_purpose::STANDARD.decode(&args[1])?;
                 let launch_args: BootstrapLaunchArgs = serde_json::from_slice(&decoded)?;
                 platform_launch(launch_args)?;
+
+                true
             }
-            _ => (),
-        }
-        return Ok(());
+            _ => false,
+        };
+        return Ok(handled);
     }
-    
+
     service_setup()?;
 
-    Ok(())
+    Ok(false)
 }

@@ -822,6 +822,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cacao"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5952f0958672e4aa8fc706d01905c56af57759e078c53a6fddf4a13361943e7a"
+dependencies = [
+ "block",
+ "core-foundation 0.9.4",
+ "core-graphics",
+ "dispatch",
+ "lazy_static",
+ "libc",
+ "objc",
+ "objc_id",
+ "os_info",
+ "url",
+]
+
+[[package]]
 name = "calloop"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2760,6 +2778,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.21.2",
+ "cacao",
  "log",
  "maxima-lib",
  "maxima-resources",
@@ -3418,6 +3437,17 @@ checksum = "9aa2b01e1d916879f73a53d01d1d6cee68adbb31d6d9177a8cfce093cced1d50"
 dependencies = [
  "futures-core",
  "pin-project-lite",
+]
+
+[[package]]
+name = "os_info"
+version = "3.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "006e42d5b888366f1880eda20371fedde764ed2213dc8496f49622fa0c99cd5e"
+dependencies = [
+ "log",
+ "serde",
+ "winapi",
 ]
 
 [[package]]

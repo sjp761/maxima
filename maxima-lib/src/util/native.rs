@@ -4,8 +4,8 @@ use anyhow::{bail, Result};
 
 #[cfg(windows)]
 use std::{
-    os::windows::prelude::{OsStrExt, OsStringExt},
     ffi::{CString, OsString},
+    os::windows::prelude::{OsStrExt, OsStringExt},
 };
 
 #[cfg(windows)]
@@ -106,7 +106,7 @@ pub fn module_path() -> PathBuf {
     os_string.to_string_lossy().into_owned().into()
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub fn module_path() -> PathBuf {
     let path = std::fs::read_link("/proc/self/exe");
     if path.is_err() {
@@ -114,6 +114,11 @@ pub fn module_path() -> PathBuf {
     }
 
     path.unwrap()
+}
+
+#[cfg(target_os = "macos")]
+pub fn module_path() -> PathBuf {
+    std::env::current_exe().unwrap()
 }
 
 #[cfg(not(unix))]
