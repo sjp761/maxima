@@ -2,6 +2,8 @@
 
 use anyhow::{bail, Result};
 
+use erased_serde::serialize_trait_object;
+use log::debug;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -159,6 +161,8 @@ impl ServiceLayerClient {
         }
 
         let text = res.text().await?;
+        debug!("Service layer response for {}: {}", operation.operation, text);
+
         let result = serde_json::from_str::<Value>(text.as_str())?;
         let errors = result.get("errors");
         if errors.is_some() {
@@ -190,6 +194,9 @@ impl ServiceLayerClient {
     }
 }
 
+pub trait ServiceType: erased_serde::Serialize + Sized {}
+serialize_trait_object!(ServiceType);
+
 macro_rules! service_layer_type {
     ($name:ident, { $($field:tt)* }) => {
         paste::paste! {
@@ -199,6 +206,8 @@ macro_rules! service_layer_type {
             pub struct [<Service $name>] {
                 $($field)*
             }
+
+            impl ServiceType for [<Service $name>] {}
         }
     };
 }
@@ -212,6 +221,8 @@ macro_rules! service_layer_enum {
             pub enum [<Service $name>] {
                 $($field)*
             }
+
+            impl ServiceType for [<Service $name>] {}
         }
     };
 }
