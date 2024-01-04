@@ -48,7 +48,6 @@ ring = "0.17.7"
 futures = "0.3.30"
 tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
 prost = "0.12.3"
-erased-serde = "0.4.2"
 
 [target.'cfg(windows)'.dependencies]
 openssl = "0.10.55"

@@ -194,9 +194,6 @@ impl ServiceLayerClient {
     }
 }
 
-pub trait ServiceType: erased_serde::Serialize + Sized {}
-serialize_trait_object!(ServiceType);
-
 macro_rules! service_layer_type {
     ($name:ident, { $($field:tt)* }) => {
         paste::paste! {
@@ -206,8 +203,6 @@ macro_rules! service_layer_type {
             pub struct [<Service $name>] {
                 $($field)*
             }
-
-            impl ServiceType for [<Service $name>] {}
         }
     };
 }
@@ -221,8 +216,6 @@ macro_rules! service_layer_enum {
             pub enum [<Service $name>] {
                 $($field)*
             }
-
-            impl ServiceType for [<Service $name>] {}
         }
     };
 }
