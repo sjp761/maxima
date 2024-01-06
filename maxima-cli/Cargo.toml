@@ -23,6 +23,7 @@ chrono = "0.4.26"
 regex = "1.8.4"
 directories = "5.0.1"
 inquire = "0.6.2"
+futures = "0.3.30"
 
 [target.'cfg(windows)'.dependencies]
 openssl = "0.10.55"

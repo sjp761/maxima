@@ -1,12 +1,13 @@
 use clap::{Parser, Subcommand};
 
 use anyhow::{bail, Result};
+use futures::StreamExt;
 use inquire::Select;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use regex::Regex;
 
-use std::vec::Vec;
+use std::{sync::Arc, time::Instant, vec::Vec};
 
 #[cfg(windows)]
 use is_elevated::is_elevated;
@@ -17,10 +18,13 @@ use maxima::{
     util::service::{is_service_running, is_service_valid, register_service_user, start_service},
 };
 
-use maxima::core::{
-    auth::{nucleus_connect_token, TokenResponse},
-    clients::JUNO_PC_CLIENT_ID,
-    LockedMaxima,
+use maxima::{
+    content::downloader::ZipDownloader,
+    core::{
+        auth::{nucleus_connect_token, TokenResponse},
+        clients::JUNO_PC_CLIENT_ID,
+        LockedMaxima,
+    },
 };
 use maxima::{
     content::{zip::ZipFile, ContentService},
@@ -292,12 +296,37 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
 
     info!("URL: {}", url.url());
 
-    let manifest = ZipFile::fetch(&url.url()).await?;
-    info!("Entries: {}", manifest.entries().len());
+    let downloader = ZipDownloader::new(&url.url()).await?;
+    let num_of_entries = downloader.manifest().entries().len();
+    info!("Entries: {}", num_of_entries);
 
-    for ele in manifest.entries() {
-        info!("File: {}", ele.name());
+    let mut handles = Vec::with_capacity(downloader.manifest().entries().len());
+    let downloader_arc = Arc::new(downloader);
+
+    let start_time = Instant::now();
+    for i in 0..num_of_entries {
+        let downloader = downloader_arc.clone();
+
+        handles.push(async move {
+            let ele = &downloader.manifest().entries()[i];
+            info!("File: {}", ele.name());
+            downloader.download_single_file(ele).await.unwrap();
+        });
     }
+    
+    let _results = futures::stream::iter(handles)
+        .buffer_unordered(16)
+        .collect::<Vec<_>>().await;
+
+    let end_time = Instant::now();
+
+    let elapsed_time = end_time - start_time;
+
+    info!(
+        "Download took {}.{}",
+        elapsed_time.as_secs(),
+        elapsed_time.subsec_millis()
+    );
 
     Ok(())
 }

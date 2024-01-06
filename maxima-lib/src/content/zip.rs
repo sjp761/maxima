@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use bytebuffer::{ByteBuffer, Endian};
 use derive_getters::Getters;
 use encoding::{all::WINDOWS_1252, DecoderTrap, Encoding};
-use log::warn;
+use log::{debug, warn};
 use reqwest::Client;
 use std::cmp;
 
@@ -36,7 +36,7 @@ fn signature_scan_rev(data: &[u8], signature: u32) -> Option<usize> {
     None
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub enum CompressionType {
     #[default]
     None = 0,
@@ -78,7 +78,8 @@ impl ZipFileEntry {
 
         data.read_u16()?; // Version
         data.read_u16()?; // Vers. needed
-        data.read_u16()?; // Flags
+        let flags = data.read_u16()?;
+        let use_utf8 = flags & (1 << 11) != 0;
 
         entry.compression_type = CompressionType::from_num(data.read_u16()?);
 
@@ -100,16 +101,19 @@ impl ZipFileEntry {
 
         entry.local_header_offset = data.read_u32()? as i64;
 
-        entry.name = match WINDOWS_1252.decode(
-            &data.read_bytes(file_name_len as usize)?,
-            DecoderTrap::Strict,
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                bail!(
-                    "Failed to decode file name with Windows-1252 encoding: {}",
-                    e
-                );
+        let name_bytes = data.read_bytes(file_name_len as usize)?;
+        entry.name = if use_utf8 {
+            debug!("Using UTF-8...");
+            String::from_utf8(name_bytes)?
+        } else {
+            match WINDOWS_1252.decode(&name_bytes, DecoderTrap::Strict) {
+                Ok(s) => s,
+                Err(e) => {
+                    bail!(
+                        "Failed to decode file name with Windows-1252 encoding: {}",
+                        e
+                    );
+                }
             }
         };
         entry.extra_field = data.read_bytes(extra_field_len as usize)?;
@@ -384,6 +388,10 @@ impl ZipFile {
             }
 
             prev.data_offset = entry.local_header_offset - prev.compressed_size;
+        }
+
+        if let Some(last_entry) = self.entries.last_mut() {
+            last_entry.data_offset = eocd.cd_offset - last_entry.compressed_size;
         }
 
         Ok(())
