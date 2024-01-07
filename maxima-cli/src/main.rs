@@ -25,6 +25,7 @@ use maxima::{
         clients::JUNO_PC_CLIENT_ID,
         LockedMaxima,
     },
+    ooa,
 };
 use maxima::{
     content::{zip::ZipFile, ContentService},
@@ -55,13 +56,17 @@ enum Mode {
         game_args: Vec<String>,
 
         #[arg(short, long)]
-        offer_id: Option<String>,
+        offer_id: String,
     },
     ListGames,
     AccountInfo,
     CreateAuthCode {
         #[arg(long)]
-        client_id: Option<String>,
+        client_id: String,
+    },
+    ReadLicenseFile {
+        #[arg(long)]
+        content_id: String,
     },
 }
 
@@ -206,10 +211,17 @@ async fn startup() -> Result<()> {
 
     let mode = args.mode.unwrap();
     match mode {
-        Mode::Launch{game_path, game_args, offer_id} => start_game(&offer_id.as_ref().expect("Please pass an Origin Offer ID with `--offer-id`. You can obtain one through the `list-games` mode"), game_path, game_args, maxima_arc.clone()).await,
+        Mode::Launch {
+            game_path,
+            game_args,
+            offer_id,
+        } => start_game(&offer_id, game_path, game_args, maxima_arc.clone()).await,
         Mode::ListGames => list_games(maxima_arc.clone()).await,
         Mode::AccountInfo => print_account_info(maxima_arc.clone()).await,
-        Mode::CreateAuthCode{client_id} => create_auth_code(maxima_arc.clone(), &client_id.unwrap()).await,
+        Mode::CreateAuthCode { client_id } => {
+            create_auth_code(maxima_arc.clone(), &client_id).await
+        }
+        Mode::ReadLicenseFile { content_id } => read_license_file(&content_id).await,
     }?;
 
     Ok(())
@@ -313,10 +325,11 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
             downloader.download_single_file(ele).await.unwrap();
         });
     }
-    
+
     let _results = futures::stream::iter(handles)
         .buffer_unordered(16)
-        .collect::<Vec<_>>().await;
+        .collect::<Vec<_>>()
+        .await;
 
     let end_time = Instant::now();
 
@@ -352,6 +365,17 @@ async fn create_auth_code(maxima_arc: LockedMaxima, client_id: &str) -> Result<(
 
     let auth_code = execute_auth_exchange(&context, client_id, "code").await?;
     info!("Auth Code for {}: {}", client_id, auth_code);
+    Ok(())
+}
+
+async fn read_license_file(content_id: &str) -> Result<()> {
+    let path = ooa::get_license_dir()?.join(format!("{}.dlf", content_id));
+    let mut data = tokio::fs::read(path).await?;
+    data.drain(0..65); // Signature
+
+    let license = ooa::decrypt_license(data.as_slice())?;
+    info!("License: {:?}", license);
+
     Ok(())
 }
 

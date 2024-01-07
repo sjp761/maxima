@@ -1,6 +1,7 @@
 use std::{
     fs::{create_dir_all, File},
     io::Write,
+    path::PathBuf,
 };
 
 use anyhow::{bail, Result};
@@ -65,16 +66,20 @@ pub async fn request_license(
     let signature = res.headers().get("x-signature").unwrap().to_owned();
     let body: Vec<u8> = res.bytes().await?.to_vec();
 
-    let cipher = Cipher::aes_128_cbc();
-    let decrypted_data = decrypt(cipher, &OOA_CRYPTO_KEY, Some(&[0; 16]), body.as_slice())?;
-    let data = String::from_utf8(decrypted_data)?;
-
-    let mut license: License = quick_xml::de::from_str(data.as_str())?;
+    let mut license = decrypt_license(body.as_slice())?;
     license.signature = signature.to_str()?.to_owned();
+
     Ok(license)
 }
 
-pub fn save_license(license: &License, path: String) -> Result<()> {
+pub fn decrypt_license(data: &[u8]) -> Result<License> {
+    let cipher = Cipher::aes_128_cbc();
+    let decrypted_data = decrypt(cipher, &OOA_CRYPTO_KEY, Some(&[0; 16]), data)?;
+    let data = String::from_utf8(decrypted_data)?;
+    Ok(quick_xml::de::from_str(data.as_str())?)
+}
+
+pub fn save_license(license: &License, path: PathBuf) -> Result<()> {
     let mut data = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>".to_string();
     data.push_str(quick_xml::se::to_string(license)?.as_str());
 
@@ -85,9 +90,15 @@ pub fn save_license(license: &License, path: String) -> Result<()> {
     let cipher = Cipher::aes_128_cbc();
     let encrypted_data = encrypt(cipher, &OOA_CRYPTO_KEY, Some(&[0; 16]), data.as_bytes())?;
 
-    let decoded = general_purpose::STANDARD.decode(&license.signature)?;
-    let len = decoded.len();
-    let license_blob: Vec<u8> = vec![decoded, vec![0; 65 - len], encrypted_data]
+    let decode_b64 = false;
+
+    let mut signature = license.signature.as_bytes().to_vec();
+    if decode_b64 {
+        signature = general_purpose::STANDARD.decode(&signature)?;
+    }
+
+    let signature_len = signature.len();
+    let license_blob: Vec<u8> = vec![signature, vec![0; 65 - signature_len], encrypted_data]
         .into_iter()
         .flatten()
         .collect();
@@ -102,24 +113,24 @@ pub fn save_license(license: &License, path: String) -> Result<()> {
 pub fn save_licenses(license: &License) -> Result<()> {
     let path = get_license_dir()?;
 
-    save_license(&license, format!("{}/{}.dlf", path, license.content_id))?;
+    save_license(&license, path.join(format!("{}.dlf", license.content_id)))?;
     save_license(
         &license,
-        format!("{}/{}_cached.dlf", path, license.content_id),
+        path.join(format!("{}_cached.dlf", license.content_id)),
     )?;
 
     Ok(())
 }
 
 #[cfg(windows)]
-fn get_license_dir() -> Result<String> {
+pub fn get_license_dir() -> Result<PathBuf> {
     let path = format!("C:/{}", LICENSE_PATH.to_string());
     create_dir_all(&path)?;
-    Ok(path)
+    Ok(PathBuf::from(path))
 }
 
 #[cfg(unix)]
-fn get_license_dir() -> Result<String> {
+pub fn get_license_dir() -> Result<PathBuf> {
     use crate::unix::wine::wine_prefix_dir;
 
     let path = format!(
@@ -129,5 +140,5 @@ fn get_license_dir() -> Result<String> {
     );
     create_dir_all(&path)?;
 
-    Ok(path)
+    Ok(PathBuf::from(path))
 }
