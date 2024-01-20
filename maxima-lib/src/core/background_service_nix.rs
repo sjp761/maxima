@@ -26,7 +26,12 @@ pub async fn request_library_injection(pid: u32, path: &str) -> Result<()> {
     let b64 = general_purpose::STANDARD.encode(serde_json::to_string(&launch_args).unwrap());
     run_wine_command(
         "wine",
-        module_path().parent().unwrap().join("wine-injector.exe"),
+        module_path()
+            .parent()
+            .unwrap()
+            .join("wine-injector.exe")
+            .to_str()
+            .unwrap(),
         Some(vec![b64]),
     )?;
 

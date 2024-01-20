@@ -81,10 +81,10 @@ fn get_wine_release() -> Result<GithubRelease> {
     Ok(release.unwrap())
 }
 
-pub fn run_wine_command<I: IntoIterator<Item = T>, T:AsRef<OsStr>>(
+pub fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     program: &str,
     arg: T,
-    args: Option<I>
+    args: Option<I>,
 ) -> Result<()> {
     let path = maxima_dir()?.join(format!("wine/bin/{}", program));
 
