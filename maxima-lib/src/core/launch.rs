@@ -187,17 +187,19 @@ pub async fn linux_setup() -> Result<()> {
 
     info!("Verifying wine dependencies...");
 
-    if !check_wine_validity()? {
+    let skip = std::env::var("MAXIMA_DISABLE_WINE_VERIFICATION").is_ok();
+
+    if !skip && !check_wine_validity()? {
         install_wine().await?;
     }
 
     setup_wine_registry()?;
 
-    if !check_dxvk_validity()? {
+    if !skip && !check_dxvk_validity()? {
         wine_install_dxvk().await?;
     }
 
-    if !check_vkd3d_validity()? {
+    if !skip && !check_vkd3d_validity()? {
         wine_install_vkd3d().await?;
     }
 

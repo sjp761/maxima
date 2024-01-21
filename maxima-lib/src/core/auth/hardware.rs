@@ -116,25 +116,27 @@ impl HardwareInfo {
         };
 
         let mut gpu_pnp_id: Option<String> = None;
-        let output = Command::new("lspci").args(["-Dd", "*:*:0300"]).output()?;
-        if output.status.success() {
-            let output = String::from_utf8_lossy(&output.stdout);
-            let lines: Vec<&str> = output
-                .lines()
-                .take(1)
-                .map(|line| line.split_whitespace().next().unwrap_or_default())
-                .collect();
+        let output = Command::new("lspci").args(["-Dd", "*:*:0300"]).output();
+        if let Ok(output) = output {
+            if output.status.success() {
+                let output = String::from_utf8_lossy(&output.stdout);
+                let lines: Vec<&str> = output
+                    .lines()
+                    .take(1)
+                    .map(|line| line.split_whitespace().next().unwrap_or_default())
+                    .collect();
 
-            if let Some(address) = lines.first() {
-                let path = format!("/sys/bus/pci/devices/{}", address);
-                let path_str = path.as_str();
+                if let Some(address) = lines.first() {
+                    let path = format!("/sys/bus/pci/devices/{}", address);
+                    let path_str = path.as_str();
 
-                if Path::new(path_str).exists() {
-                    let vendor_id = read_file_hex_contents(format!("{}/{}", path, "vendor"));
-                    let device_id = read_file_hex_contents(format!("{}/{}", path, "device"));
-                    let rev_id = read_file_hex_contents(format!("{}/{}", path, "revision"));
+                    if Path::new(path_str).exists() {
+                        let vendor_id = read_file_hex_contents(format!("{}/{}", path, "vendor"));
+                        let device_id = read_file_hex_contents(format!("{}/{}", path, "device"));
+                        let rev_id = read_file_hex_contents(format!("{}/{}", path, "revision"));
 
-                    gpu_pnp_id = Some(generate_pci_pnp_id(vendor_id, device_id, rev_id));
+                        gpu_pnp_id = Some(generate_pci_pnp_id(vendor_id, device_id, rev_id));
+                    }
                 }
             }
         }
@@ -284,7 +286,7 @@ impl HardwareInfo {
         if let Some(mac) = get_ea_mac_address() {
             buffer += mac.as_str();
         }
-        
+
         Ok(hash_fnv1a(buffer.as_bytes()).to_string())
     }
 }
