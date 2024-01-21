@@ -3,7 +3,7 @@ use std::{path::PathBuf, fs::{create_dir_all, File, self, remove_dir_all}, io::R
 use anyhow::{Result, bail};
 use flate2::read::GzDecoder;
 use lazy_static::lazy_static;
-use log::info;
+use log::{info, warn};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use tar::Archive;
@@ -47,18 +47,50 @@ fn set_versions(versions: Versions) -> Result<()> {
 }
 
 pub fn check_wine_validity() -> Result<bool> {
-    let release = get_wine_release()?;
-    Ok(versions()?.wine == release.tag_name)
+    let version = versions()?.wine;
+
+    let release = get_wine_release();
+    if release.is_err() {
+        if !version.is_empty() {
+            warn!("Failed to check wine release, rate limited?");
+            return Ok(true);
+        }
+
+        bail!("Failed to check wine release: {}", release.err().unwrap());
+    }
+
+    Ok(version == release.unwrap().tag_name)
 }
 
 pub fn check_dxvk_validity() -> Result<bool> {
-    let release = fetch_github_release("doitsujin", "dxvk", "latest")?;
-    Ok(versions()?.dxvk == release.tag_name)
+    let version = versions()?.dxvk;
+
+    let release = fetch_github_release("doitsujin", "dxvk", "latest");
+    if release.is_err() {
+        if !version.is_empty() {
+            warn!("Failed to check dxvk release, rate limited?");
+            return Ok(true);
+        }
+
+        bail!("Failed to check dxvk release: {}", release.err().unwrap());
+    }
+    Ok(version == release.unwrap().tag_name)
 }
 
 pub fn check_vkd3d_validity() -> Result<bool> {
-    let release = fetch_github_release("HansKristian-Work", "vkd3d-proton", "latest")?;
-    Ok(versions()?.vkd3d == release.tag_name)
+    let version = versions()?.vkd3d;
+
+    let release = fetch_github_release("HansKristian-Work", "vkd3d-proton", "latest");
+    if release.is_err() {
+        if !version.is_empty() {
+            warn!("Failed to check vkd3d release, rate limited?");
+            return Ok(true);
+        }
+
+        bail!("Failed to check vkd3d release: {}", release.err().unwrap());
+    }
+
+    Ok(version == release.unwrap().tag_name)
 }
 
 fn get_wine_release() -> Result<GithubRelease> {
@@ -121,13 +153,16 @@ pub fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
         status = output.status;
     } else {
         status = child.spawn()?.wait()?;
+        
         // Start wineserver to wait for the process to exit
-        let wine_server_path = maxima_dir()?.join("wine/bin/wineserver");
-        let mut wine_server_binding = Command::new(wine_server_path);
-        let wine_server = wine_server_binding
-            .env("WINEPREFIX", wine_prefix_dir()?)
-            .arg("--wait");
-        wine_server.spawn()?.wait()?;
+        // Disabled because this is causing hangs
+
+        // let wine_server_path = maxima_dir()?.join("wine/bin/wineserver");
+        // let mut wine_server_binding = Command::new(wine_server_path);
+        // let wine_server = wine_server_binding
+        //     .env("WINEPREFIX", wine_prefix_dir()?)
+        //     .arg("--wait");
+        // wine_server.spawn()?.wait()?;
     };
 
     if !status.success() {
