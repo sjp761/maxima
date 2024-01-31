@@ -1,7 +1,7 @@
 use log::{debug, error, info};
 use maxima::core::{launch, LockedMaxima};
 
-pub async fn start_game_request(maxima_arc: LockedMaxima, offer_id: String) {
+pub async fn start_game_request(maxima_arc: LockedMaxima, offer_id: String, hardcode_paths: bool) {
     let maxima = maxima_arc.lock().await;
     let logged_in = maxima.auth_storage().lock().await.current().is_some();
     if !logged_in {
@@ -10,26 +10,32 @@ pub async fn start_game_request(maxima_arc: LockedMaxima, offer_id: String) {
     }
 
     debug!("got request to start game {:?}", offer_id);
-    let maybe_path: Option<String> = if offer_id.eq("Origin.OFR.50.0001456") || offer_id.eq("Origin.OFR.50.0002304") {
-        Some(
-            "/home/headass/.local/share/Steam/steamapps/common/Titanfall2/NorthstarLauncher.exe"
-                .to_owned(),
-        )
-    } else if offer_id.eq("Origin.OFR.50.0000739") {
-        Some("H:\\SteamLibrary\\steamapps\\common\\Titanfall\\Titanfall.exe".to_owned())
-    } else if offer_id.eq("Origin.OFR.50.0004976") || offer_id.eq("Origin.OFR.50.0004465") {
-        Some("/kronos/Games/Steam/steamapps/common/Excalibur/NeedForSpeedUnbound.exe".to_owned())
-    } else if offer_id.eq("Origin.OFR.50.0002688") {
-        Some("/kronos/Games/Oregon/Anthem/Anthem.exe".to_owned())
-    } else if offer_id.eq("Origin.OFR.50.0002148") {
-        Some("/home/battledash/games/battlefront/starwarsbattlefrontii.exe".to_owned())
-    } else if offer_id.eq("OFB-EAST:109552314") {
-        Some("/kronos/Games/Steam/steamapps/common/Battlefield 4/bf4.exe".to_owned())
-    } else if offer_id.eq("DR:156691300") {
-        Some("/data/Games/Steam/steamapps/common/Battlefield Bad Company 2/BFBC2Game.exe".to_owned())
+    let maybe_path: Option<String>;
+    if hardcode_paths {
+        maybe_path = if offer_id.eq("Origin.OFR.50.0001456") || offer_id.eq("Origin.OFR.50.0002304") {
+            Some(
+                "/home/headass/.local/share/Steam/steamapps/common/Titanfall2/NorthstarLauncher.exe"
+                    .to_owned(),
+            )
+        } else if offer_id.eq("Origin.OFR.50.0000739") {
+            Some("H:\\SteamLibrary\\steamapps\\common\\Titanfall\\Titanfall.exe".to_owned())
+        } else if offer_id.eq("Origin.OFR.50.0004976") || offer_id.eq("Origin.OFR.50.0004465") {
+            Some("/kronos/Games/Steam/steamapps/common/Excalibur/NeedForSpeedUnbound.exe".to_owned())
+        } else if offer_id.eq("Origin.OFR.50.0002688") {
+            Some("/kronos/Games/Oregon/Anthem/Anthem.exe".to_owned())
+        } else if offer_id.eq("Origin.OFR.50.0002148") {
+            Some("/home/battledash/games/battlefront/starwarsbattlefrontii.exe".to_owned())
+        } else if offer_id.eq("OFB-EAST:109552314") {
+            Some("/kronos/Games/Steam/steamapps/common/Battlefield 4/bf4.exe".to_owned())
+        } else if offer_id.eq("DR:156691300") {
+            Some("/data/Games/Steam/steamapps/common/Battlefield Bad Company 2/BFBC2Game.exe".to_owned())
+        } else {
+            None
+        };
     } else {
-        None
-    };
+        maybe_path = None
+    }
+
     let maybe_args: Vec<String> = if offer_id.eq("Origin.OFR.50.0001456") || offer_id.eq("Origin.OFR.50.0002304") {
         vec!["-windowed".to_string(), "-novid".to_string(), "-northstar".to_string()]
     } else if offer_id.eq("Origin.OFR.50.0000739") {

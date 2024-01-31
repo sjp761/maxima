@@ -60,7 +60,7 @@ pub enum MaximaLibRequest {
     GetUserAvatarRequest(String, String),
     GetGameImagesRequest(String),
     GetGameDetailsRequest(String),
-    StartGameRequest(String),
+    StartGameRequest(String, bool),
     BitchesRequest,
     ShutdownRequest,
 }
@@ -185,8 +185,8 @@ impl MaximaThread {
                     }
                     .await?;
                 }
-                MaximaLibRequest::StartGameRequest(offer_id) => {
-                    start_game_request(maxima_arc.clone(), offer_id.clone()).await;
+                MaximaLibRequest::StartGameRequest(offer_id, hardcode) => {
+                    start_game_request(maxima_arc.clone(), offer_id.clone(), hardcode).await;
                 }
                 MaximaLibRequest::BitchesRequest => {
                     bitches_request();

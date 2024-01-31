@@ -219,7 +219,7 @@ pub fn game_view_details_panel(app : &mut DemoEguiApp, ui: &mut Ui) {
                           .rounding(Rounding::same(2.0))
                           .min_size(vec2(50.0,50.0))
                         ).clicked() {
-                          let _ = app.backend.tx.send(crate::interact_thread::MaximaLibRequest::StartGameRequest(game.offer.clone()));
+                          let _ = app.backend.tx.send(crate::interact_thread::MaximaLibRequest::StartGameRequest(game.offer.clone(), app.hardcode_game_paths));
                         }
                         
                         /* buttons.set_enabled(false);
@@ -404,7 +404,7 @@ pub fn game_view_details_panel(app : &mut DemoEguiApp, ui: &mut Ui) {
 
 fn game_list_button_context_menu(app : &DemoEguiApp, game : &GameInfo, ui : &mut Ui) {
   if ui.button("▶ Play").clicked() {
-    let _ = app.backend.tx.send(crate::interact_thread::MaximaLibRequest::StartGameRequest(game.offer.clone()));
+    let _ = app.backend.tx.send(crate::interact_thread::MaximaLibRequest::StartGameRequest(game.offer.clone(), app.hardcode_game_paths));
     ui.close_menu();
   }
   ui.separator();

@@ -135,7 +135,8 @@ impl TranslationManager {
             Some(code) => 
             if code.starts_with("en-") {
                 english
-            } else {match code.as_str() {
+            } else {
+                match code.as_str() {
                     // add other languages here
                     _ => english,
                 }

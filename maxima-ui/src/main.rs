@@ -70,6 +70,8 @@ struct Args {
     profile: bool,
     #[arg(short, long)]
     no_login: bool,
+    #[arg(short, long)]
+    remove_hardcoded_game_paths: bool,
 }
 
 #[tokio::main]
@@ -254,6 +256,7 @@ pub struct DemoEguiApp {
     in_progress_password: String, // Password buffer for logging in with a username/password
     in_progress_credential_status: String, // Errors info etc for logging in with a username/password
     credential_login_in_progress: bool, // Currently waiting on the maxima thread to log us in with credentials
+    hardcode_game_paths: bool, // Hardcodes game exe paths to stuff on my computer
 }
 
 const F9B233: Color32 = Color32::from_rgb(249, 178, 51);
@@ -382,6 +385,7 @@ impl DemoEguiApp {
             in_progress_password: String::new(),
             in_progress_credential_status: String::new(),
             credential_login_in_progress: false,
+            hardcode_game_paths: !args.remove_hardcoded_game_paths
         }
     }
 }
