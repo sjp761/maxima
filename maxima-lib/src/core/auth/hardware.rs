@@ -2,7 +2,7 @@ use regex::Regex;
 
 use crate::util::simple_crypto::hash_fnv1a;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct HardwareInfo {
     pub board_manufacturer: String,
     pub board_sn: String,
@@ -20,6 +20,7 @@ impl HardwareInfo {
     pub fn new() -> anyhow::Result<Self> {
         use std::collections::HashMap;
 
+        use log::warn;
         use wmi::{COMLibrary, FilterValue, WMIConnection};
 
         use crate::util::wmi_utils;
@@ -43,9 +44,13 @@ impl HardwareInfo {
             Box::new((os_data, bios_data, board_data, gpu_data, disk_data))
         });
 
-        let wmi_data = wmi_thread.join().expect("Failed to get data from wmi");
+        let wmi_data = wmi_thread.join();
+        if wmi_data.is_err() {
+            warn!("WMI call failed, using dummy hardware info. Please report this! {:?}", wmi_data.err().unwrap());
+            Ok(Self::default())
+        }
 
-        let (os_data, bios_data, board_data, gpu_data, disk_data) = *wmi_data;
+        let (os_data, bios_data, board_data, gpu_data, disk_data) = *wmi_data.unwrap();
 
         let mut board_manufacturer = "Microsoft Corporation";
         let mut board_sn = "None";
@@ -57,8 +62,8 @@ impl HardwareInfo {
         let mut bios_manufacturer = "Microsoft Corporation";
         let mut bios_sn = "None";
         if let Some(bios_info) = bios_data.get(0) {
-            bios_manufacturer = bios_info.manufacturer.unwrap_or_default().as_str();
-            bios_sn = bios_info.serial_number.unwrap_or_default().as_str();
+            bios_manufacturer = bios_info.manufacturer.as_str();
+            bios_sn = bios_info.serial_number.as_str();
         }
 
         let mut os_install_date = "1970-01-0100:00:00.000000000+0000";
