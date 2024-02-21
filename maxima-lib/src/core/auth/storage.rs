@@ -111,7 +111,7 @@ pub type LockedAuthStorage = Arc<Mutex<AuthStorage>>;
 impl Default for AuthStorage {
     fn default() -> Self {
         Self {
-            accounts: Vec::new(),
+            accounts: HashMap::new(),
             selected: None,
             can_save: true,
         }
