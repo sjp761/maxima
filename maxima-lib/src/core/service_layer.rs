@@ -153,16 +153,16 @@ impl ServiceLayerClient {
         .send()
         .await?;
 
-        if res.status() != StatusCode::OK {
-            bail!(
-                "Service request '{}' failed: {}",
-                operation.operation,
-                res.text().await?
-            );
+        let status = res.status();
+        let text = res.text().await?;
+        if status != StatusCode::OK {
+            bail!("Service request '{}' failed: {}", operation.operation, text);
         }
 
-        let text = res.text().await?;
-        debug!("Service layer response for {}: {}", operation.operation, text);
+        debug!(
+            "Service layer response for {}: {}",
+            operation.operation, text
+        );
 
         let result = serde_json::from_str::<Value>(text.as_str())?;
         let errors = result.get("errors");

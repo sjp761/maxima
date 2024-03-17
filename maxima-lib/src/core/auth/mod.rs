@@ -98,15 +98,16 @@ pub async fn nucleus_token_exchange(auth_context: &AuthContext<'_>) -> Result<To
     let res = client.post(API_NUCLEUS_TOKEN).form(&query).send().await?;
 
     let status = res.status();
+    let text = res.text().await?;
     if status.is_client_error() || status.is_server_error() {
         bail!(
             "Token exchange failed with code {}: {}",
             auth_context.code().unwrap(),
-            res.text().await?
+            text
         );
     }
 
-    let response: TokenResponse = serde_json::from_str(&res.text().await?)?;
+    let response: TokenResponse = serde_json::from_str(&text)?;
     Ok(response)
 }
 
@@ -124,14 +125,11 @@ pub async fn nucleus_connect_token_refresh(refresh_token: &str) -> Result<TokenR
     let res = client.post(API_NUCLEUS_TOKEN).form(&query).send().await?;
 
     let status = res.status();
+    let text = res.text().await?;
     if status.is_client_error() || status.is_server_error() {
-        bail!(
-            "Token refresh failed with code {}: {}",
-            refresh_token,
-            res.text().await?
-        );
+        bail!("Token refresh failed with code {}: {}", refresh_token, text);
     }
 
-    let response: TokenResponse = serde_json::from_str(&res.text().await?)?;
+    let response: TokenResponse = serde_json::from_str(&text)?;
     Ok(response)
 }
