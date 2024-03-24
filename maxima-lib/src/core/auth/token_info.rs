@@ -13,7 +13,7 @@ pub struct NucleusTokenInfo {
     pid_id: String,
     pid_type: String,
     user_id: String,
-    persona_id: Option<String>,
+    persona_id: Option<u64>,
     console_env: Option<String>,
     is_underage: Option<bool>,
 }

@@ -45,7 +45,6 @@ use super::{
         create_lsx_message, LSXChallenge, LSXEvent, LSXEventType, LSXMessageType, LSXRequest,
         LSXResponse, LSX,
     },
-    winproc::get_process_id,
 };
 
 const CORE_SENDER: &str = "EALS";

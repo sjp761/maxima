@@ -7,7 +7,7 @@ use super::{
     service_layer::{
         ServiceGameProductType, ServiceGetPreloadedOwnedGamesRequest,
         ServiceGetPreloadedOwnedGamesRequestBuilder, ServiceLayerClient, ServicePlatform,
-        ServiceStorefront, ServiceUser, ServiceUserGameProduct, ServiceUserGameProductCursorPage,
+        ServiceStorefront, ServiceUser, ServiceUserGameProduct,
         SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES,
     },
 };

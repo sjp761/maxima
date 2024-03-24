@@ -12,6 +12,7 @@ use crate::{
         },
     },
     make_lsx_handler_response,
+    rtm::client::BasicPresence,
 };
 
 pub async fn handle_profile_request(
@@ -64,7 +65,7 @@ pub async fn handle_presence_request(
 }
 
 pub async fn handle_set_presence_request(
-    _: LockedConnectionState,
+    state: LockedConnectionState,
     request: LSXSetPresence,
 ) -> Result<Option<LSXResponseType>> {
     info!(
@@ -72,9 +73,30 @@ pub async fn handle_set_presence_request(
         request.attr_Presence,
         request
             .attr_RichPresence
+            .to_owned()
             .or(Some("Unknown".to_string()))
             .unwrap()
     );
+
+    let arc = state.write().await.maxima_arc();
+    let mut maxima = arc.lock().await;
+
+    let offer_id = maxima
+        .playing()
+        .as_ref()
+        .unwrap()
+        .offer()
+        .offer_id
+        .to_owned();
+
+    maxima
+        .rtm()
+        .set_presence(
+            BasicPresence::Online,
+            &request.attr_RichPresence.unwrap(),
+            &offer_id,
+        )
+        .await?;
 
     make_lsx_handler_response!(Response, ErrorSuccess, { attr_Code: 0, attr_Description: String::new() })
 }

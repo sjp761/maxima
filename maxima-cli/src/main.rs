@@ -23,18 +23,22 @@ use maxima::{
     core::{
         auth::{nucleus_token_exchange, TokenResponse},
         clients::JUNO_PC_CLIENT_ID,
-        service_layer::{ServiceGetMyFriendsRequestBuilder, SERVICE_REQUEST_GETMYFRIENDS, ServiceFriends},
+        service_layer::{
+            ServiceFriends, ServiceGetBasicPlayerRequestBuilder, ServiceGetMyFriendsRequestBuilder,
+            ServicePlayer, SERVICE_REQUEST_GETBASICPLAYER, SERVICE_REQUEST_GETMYFRIENDS,
+        },
         LockedMaxima,
     },
     ooa,
+    rtm::client::BasicPresence,
 };
 use maxima::{
-    content::{zip::ZipFile, ContentService},
+    content::ContentService,
     core::{
         auth::{
             context::AuthContext,
-            nucleus_auth_exchange,
             login::{begin_oauth_login_flow, manual_login},
+            nucleus_auth_exchange,
         },
         launch,
         service_layer::ServiceUserGameProduct,
@@ -69,6 +73,11 @@ enum Mode {
         #[arg(long)]
         content_id: String,
     },
+    GetUserById {
+        #[arg(long)]
+        user_id: String,
+    },
+    TestRTMConnection,
     ListFriends,
 }
 
@@ -225,13 +234,21 @@ async fn startup() -> Result<()> {
         }
         Mode::ReadLicenseFile { content_id } => read_license_file(&content_id).await,
         Mode::ListFriends => list_friends(maxima_arc.clone()).await,
+        Mode::GetUserById { user_id } => get_user_by_id(maxima_arc.clone(), &user_id).await,
+        Mode::TestRTMConnection => test_rtm_connection(maxima_arc.clone()).await,
     }?;
 
     Ok(())
 }
 
 async fn run_interactive(maxima_arc: LockedMaxima) -> Result<()> {
-    let launch_options = vec!["Launch Game", "Install Game", "List Builds", "List Games", "Account Info"];
+    let launch_options = vec![
+        "Launch Game",
+        "Install Game",
+        "List Builds",
+        "List Games",
+        "Account Info",
+    ];
     let name = Select::new(
         "Welcome to Maxima! What would you like to do?",
         launch_options,
@@ -368,7 +385,7 @@ async fn generate_download_links(maxima_arc: LockedMaxima) -> Result<()> {
     let builds = content_service
         .available_builds(&game.origin_offer_id())
         .await?;
-    
+
     let mut strs = String::new();
     for build in builds.builds {
         let url = content_service
@@ -430,20 +447,101 @@ async fn read_license_file(content_id: &str) -> Result<()> {
 async fn list_friends(maxima_arc: LockedMaxima) -> Result<()> {
     let maxima = maxima_arc.lock().await;
 
-    let response: ServiceFriends = maxima.service_layer().request(
-        SERVICE_REQUEST_GETMYFRIENDS,
-        ServiceGetMyFriendsRequestBuilder::default()
-            .limit(100)
-            .offset(0)
-            .is_mutual_friends_enabled(false)
-            .build()?,
-    ).await?;
+    let response: ServiceFriends = maxima
+        .service_layer()
+        .request(
+            SERVICE_REQUEST_GETMYFRIENDS,
+            ServiceGetMyFriendsRequestBuilder::default()
+                .limit(100)
+                .offset(0)
+                .is_mutual_friends_enabled(false)
+                .build()?,
+        )
+        .await?;
 
     for ele in response.friends().items() {
         info!("{}", ele.player().display_name());
     }
 
     Ok(())
+}
+
+async fn get_user_by_id(maxima_arc: LockedMaxima, user_id: &str) -> Result<()> {
+    let maxima = maxima_arc.lock().await;
+
+    let player: ServicePlayer = maxima
+        .service_layer()
+        .request(
+            SERVICE_REQUEST_GETBASICPLAYER,
+            ServiceGetBasicPlayerRequestBuilder::default()
+                .pd(user_id.to_string())
+                .build()?,
+        )
+        .await?;
+
+    info!("Name: {}", player.display_name());
+    Ok(())
+}
+
+async fn test_rtm_connection(maxima_arc: LockedMaxima) -> Result<()> {
+    let mut maxima = maxima_arc.lock().await;
+
+    let friends: ServiceFriends = maxima
+        .service_layer()
+        .request(
+            SERVICE_REQUEST_GETMYFRIENDS,
+            ServiceGetMyFriendsRequestBuilder::default()
+                .offset(0)
+                .limit(100)
+                .is_mutual_friends_enabled(false)
+                .build()?,
+        )
+        .await?;
+
+    let rtm = maxima.rtm();
+    rtm.login().await?;
+    rtm.set_presence(BasicPresence::Online, "Test", "Origin.OFR.50.0002148")
+        .await?;
+
+    let mut players: Vec<String> = friends
+        .friends()
+        .items()
+        .iter()
+        .map(|f| f.id().to_owned())
+        .collect();
+    info!("Subscribed to {} players", players.len());
+
+    rtm.subscribe(&players).await?;
+    drop(maxima);
+
+    loop {
+        let mut maxima = maxima_arc.lock().await;
+        maxima.rtm().heartbeat().await?;
+
+        {
+            let store = maxima.rtm().presence_store().lock().await;
+            for entry in store.iter() {
+                info!(
+                    "{}/{} is {:?}: In {}",
+                    friends
+                        .friends()
+                        .items()
+                        .iter()
+                        .find(|x| x.id().to_owned() == *entry.0)
+                        .unwrap()
+                        .player()
+                        .display_name(),
+                    entry.0,
+                    entry.1.basic(),
+                    entry.1.status()
+                );
+            }
+        }
+
+        drop(maxima);
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
 }
 
 async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
@@ -473,8 +571,9 @@ async fn start_game(
     maxima_arc: LockedMaxima,
 ) -> Result<()> {
     {
-        let maxima = maxima_arc.lock().await;
+        let mut maxima = maxima_arc.lock().await;
         maxima.start_lsx(maxima_arc.clone()).await?;
+        maxima.rtm().login().await?;
     }
 
     launch::start_game(offer_id, game_path_override, game_args, maxima_arc.clone()).await?;

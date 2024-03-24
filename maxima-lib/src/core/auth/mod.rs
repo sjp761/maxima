@@ -46,7 +46,7 @@ pub async fn nucleus_auth_exchange<'a>(
 
     // Failed, the user either has 2fa enabled or something went wrong
     if redirect_url.starts_with("https://signin.ea.com") {
-        bail!("Auth exchange failed because 2FA is enabled");
+        bail!("Auth exchange failed: {}", redirect_url);
     }
 
     // The Url crate doesn't like custom protocols :(

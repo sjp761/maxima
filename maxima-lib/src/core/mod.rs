@@ -44,6 +44,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     lsx::{self, types::LSXRequestType},
+    rtm::client::RtmClient,
     util::native::maxima_dir,
 };
 
@@ -52,6 +53,7 @@ use self::{
     cache::DynamicCache,
     ecommerce::CommerceOffer,
     launch::ActiveGameContext,
+    library::GameLibrary,
     locale::Locale,
     service_layer::{
         ServiceGameProductType, ServiceGetBasicPlayerRequestBuilder,
@@ -59,7 +61,7 @@ use self::{
         ServiceLayerClient, ServicePlatform, ServicePlayer, ServiceStorefront, ServiceUser,
         SERVICE_REQUEST_GETBASICPLAYER, SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES,
         SERVICE_REQUEST_GETUSERPLAYER,
-    }, library::GameLibrary,
+    },
 };
 
 #[derive(Clone, IntoStaticStr)]
@@ -78,7 +80,7 @@ pub struct Maxima {
 
     auth_storage: LockedAuthStorage,
     service_layer: ServiceLayerClient,
-    
+
     library: GameLibrary,
 
     playing: Option<ActiveGameContext>,
@@ -86,6 +88,9 @@ pub struct Maxima {
     lsx_port: u16,
     lsx_event_callback: Option<MaximaLSXEventCallback>,
     lsx_connections: u16,
+
+    #[getter(skip)]
+    rtm: RtmClient,
 
     #[getter(skip)]
     request_cache: DynamicCache<String>,
@@ -97,7 +102,7 @@ pub struct Maxima {
 pub type LockedMaxima = Arc<Mutex<Maxima>>;
 
 impl Maxima {
-    pub fn new() -> Result<Arc<Mutex<Self>>> {
+    pub fn new() -> Result<LockedMaxima> {
         let lsx_port = if let Ok(lsx_port) = env::var("MAXIMA_LSX_PORT") {
             lsx_port.parse::<u16>().unwrap()
         } else {
@@ -116,17 +121,18 @@ impl Maxima {
             locale: Locale::EnUs,
             auth_storage: auth_storage.clone(),
             service_layer: ServiceLayerClient::new(auth_storage.clone()),
-            library: GameLibrary::new(auth_storage),
+            library: GameLibrary::new(auth_storage.clone()),
             playing: None,
             lsx_port,
             lsx_event_callback: None,
             lsx_connections: 0,
+            rtm: RtmClient::new(auth_storage),
             request_cache,
             pending_events: Vec::new(),
         })))
     }
 
-    pub async fn start_lsx(&self, maxima: Arc<Mutex<Maxima>>) -> Result<()> {
+    pub async fn start_lsx(&self, maxima: LockedMaxima) -> Result<()> {
         let lsx_port = self.lsx_port;
 
         tokio::spawn(async move {
@@ -278,6 +284,10 @@ impl Maxima {
         create_dir_all(&dir)?;
 
         Ok(dir.join(format!("{}_{}x{}.jpg", id, width, height)))
+    }
+
+    pub fn rtm(&mut self) -> &mut RtmClient {
+        &mut self.rtm
     }
 
     pub fn set_lsx_port(&mut self, port: u16) {

@@ -52,6 +52,10 @@ encoding = "0.2.33"
 async-compression = { version = "0.4.5", features = ["tokio", "deflate"] }
 tokio-util = { version = "0.7.10", features = ["io", "compat"] }
 uuid = "1.7.0"
+async-trait = "0.1.77"
+tokio-rustls = "0.23.1"
+rustls = "0.20.0"
+webpki-roots = "0.22.0"
 
 [target.'cfg(windows)'.dependencies]
 openssl = "0.10.55"
