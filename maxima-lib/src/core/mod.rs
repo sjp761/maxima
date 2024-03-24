@@ -176,8 +176,8 @@ impl Maxima {
     }
 
     pub async fn friends(&self, page: u32) -> Result<Vec<ServicePlayer>> {
-        let cache_key = "friends";
-        if let Some(cached) = self.request_cache.get(cache_key) {
+        let cache_key = format!("friends_{}", page);
+        if let Some(cached) = self.request_cache.get(&cache_key) {
             return Ok(cached);
         }
 
@@ -200,8 +200,7 @@ impl Maxima {
             .map(|x| x.player().clone())
             .collect();
 
-        self.request_cache
-            .insert(cache_key.to_owned(), friends.clone());
+        self.request_cache.insert(cache_key, friends.clone());
         Ok(friends)
     }
 
