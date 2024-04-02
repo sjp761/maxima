@@ -70,8 +70,11 @@ pub fn friends_view(app : &mut DemoEguiApp, ui: &mut Ui) {
   let context = ui.ctx().clone();
   // this is a fucking mistake.
   let sidebar_rect = ui.available_rect_before_wrap();
-  let mistake = ui.allocate_rect(sidebar_rect, Sense::hover());
-  //ui.painter().rect_filled(mistake.rect, Rounding::ZERO, Color32::from_black_alpha(255));
+  let mistake = ui.allocate_rect(sidebar_rect, Sense::hover()); //TODO: better hover handling
+  // egui, for better or worse, only counts hovering if you're right on it, and nothing's above it
+  // the fringe edge cases of one or both of those being true are already present
+  // if you move your cursor off the window or open a sub-menu in this pane, it will shrink
+  // this is egregiously bad UX and i need to fix that
   let hovering_friends = context.animate_bool_with_time(egui::Id::new("FriendsListWidthAnimator"), mistake.hovered(), ui.style().animation_time*2.0);
   let hover_diff = 300.0 - PFP_SIZE;
   app.friends_width = PFP_SIZE + (hovering_friends * hover_diff);
@@ -259,7 +262,7 @@ pub fn friends_view(app : &mut DemoEguiApp, ui: &mut Ui) {
                     }));
                 });
                 //if friend.online {  } else {  }
-                friendo.allocate_space(vec2(6.0,0.0));
+                friendo.allocate_space(vec2(6.0 + (30.0 - (hovering_friends * 30.0)),0.0));
                 friendo.vertical(|muchotexto| {
                   muchotexto.allocate_space(vec2(0.0,2.0));
                   let friend_name = egui::Label::new(egui::RichText::new(&friend.name).size(15.0).color(text_col)).wrap(false);

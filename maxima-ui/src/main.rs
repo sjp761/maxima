@@ -247,7 +247,6 @@ pub struct DemoEguiApp {
     //game_view_rows: bool,                               // if the game view is in rows mode
     page_view: PageType, // what page you're on (games, friends, etc)
     game_view_bg_renderer: Option<GameViewBgRenderer>, // Renderer for the blur effect in the game view
-    game_view_frac: f32, // Multi-purpose fraction, how far along the bottom edge of the initial bottom edge of the hero image has scrolled up
     app_bg_renderer: Option<AppBgRenderer>, // Renderer for the app's background
     locale: TranslationManager, // Translations
     critical_bg_thread_crashed: bool, // If a core thread has crashed and made the UI unstable
@@ -377,7 +376,6 @@ impl DemoEguiApp {
             //game_view_rows: false,
             page_view: PageType::Games,
             game_view_bg_renderer: GameViewBgRenderer::new(cc),
-            game_view_frac: 0.0,
             app_bg_renderer: AppBgRenderer::new(cc),
             locale: TranslationManager::new()
                 .expect("Could not load translation file"),
