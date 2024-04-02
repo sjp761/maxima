@@ -1,5 +1,5 @@
 use log::{debug, error, info};
-use maxima::{core::{launch, LockedMaxima}, rtm::client::BasicPresence};
+use maxima::{core::{launch::{self, LaunchMode}, LockedMaxima}, rtm::client::BasicPresence};
 
 pub async fn start_game_request(maxima_arc: LockedMaxima, offer_id: String, hardcode_paths: bool) {
     let maxima = maxima_arc.lock().await;
@@ -45,7 +45,7 @@ pub async fn start_game_request(maxima_arc: LockedMaxima, offer_id: String, hard
     };
 
     drop(maxima);
-    let result = launch::start_game(&offer_id, maybe_path, maybe_args, maxima_arc.clone()).await;
+    let result = launch::start_game(maxima_arc.clone(), LaunchMode::Online(offer_id), maybe_path, maybe_args).await;
     if result.is_err() {
         error!("Failed to start game! Reason: {}", result.err().unwrap());
     }

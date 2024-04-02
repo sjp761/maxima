@@ -9,7 +9,7 @@ use anyhow::{bail, Error, Result};
 
 use maxima::{
     core::{
-        auth::{context::AuthContext, nucleus_auth_exchange, login}, clients::JUNO_PC_CLIENT_ID, launch, Maxima, MaximaEvent
+        auth::{context::AuthContext, login, nucleus_auth_exchange}, clients::JUNO_PC_CLIENT_ID, launch::{self, LaunchMode}, Maxima, MaximaEvent
     },
     util::{
         log::init_logger,
@@ -526,7 +526,7 @@ pub extern "C" fn maxima_launch_game(
         let rt = Box::from_raw(*runtime);
         let result = rt.block_on(async {
             let offer_id = parse_raw_string(c_offer_id);
-            launch::start_game(&offer_id, None, vec![], maxima_arc.clone()).await
+            launch::start_game(maxima_arc.clone(), LaunchMode::Online(offer_id), None, vec![]).await
         });
 
         *runtime = Box::into_raw(rt);
