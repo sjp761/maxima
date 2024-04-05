@@ -424,4 +424,11 @@ impl Maxima {
 
         self.playing = None;
     }
+
+    /// Returns whether this Maxima instance was constructed with a dummy
+    /// user. This is usually paired with not loading/interacting with auth
+    /// storage.
+    pub fn dummy_local_user(&self) -> bool {
+        self.dummy_local_user.is_some()
+    }
 }
