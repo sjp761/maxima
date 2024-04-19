@@ -319,6 +319,7 @@ impl Maxima {
                 if x.status() != &ServiceOwnershipStatus::Active {
                     return false;
                 }
+                
                 // Ensure it's the full game
                 if x.product().base_item().game_type().as_ref().unwrap_or(&ServiceGameProductType::ExpansionPack)
                     != &ServiceGameProductType::BaseGame
