@@ -82,7 +82,10 @@ impl ZipDownloader {
 
                 let mut x = decoder.take(cmp::min(bytes, *entry.compressed_size()) as u64);
                 let mut buffer = Vec::new();
-                x.read_to_end(&mut buffer).await.expect("Failed to read to end");
+                let result = x.read_to_end(&mut buffer).await;
+                if result.is_err() {
+                    bail!("Failed to read bytes");
+                }
 
                 return Ok(buffer);
             }
