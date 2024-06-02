@@ -247,7 +247,7 @@ impl ZipFile {
         let client = Client::new();
 
         let response = client.head(url).send().await?;
-        let content_length = response.headers().get("content-length")?;
+        let content_length = response.headers().get("content-length");
         if content_length.is_none() {
             bail!("No content length found in response");
         }
