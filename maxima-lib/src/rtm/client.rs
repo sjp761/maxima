@@ -165,6 +165,8 @@ impl RtmClient {
                 }
 
                 let res: ClientVersion = res.unwrap();
+                dbg!(presence.clone());
+
                 if res.client_type != "Client" && res.client_type != "LegacyClient" {
                     return;
                 }

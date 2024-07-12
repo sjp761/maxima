@@ -2,7 +2,10 @@
 extern crate winapi;
 
 use anyhow::{bail, Result};
-use std::path::PathBuf;
+use widestring::U16CString;
+use winapi::{shared::{minwindef::HKEY, winerror::ERROR_SUCCESS}, um::{winnt::{KEY_QUERY_VALUE, KEY_WOW64_64KEY}, winreg::{RegCloseKey, RegOpenKeyExW, RegQueryValueExW}}};
+use winreg::enums::{RegType::{REG_NONE, REG_SZ}, KEY_READ};
+use std::{path::PathBuf, ptr};
 
 #[cfg(windows)]
 use winapi::{
@@ -57,9 +60,70 @@ pub fn check_registry_validity() -> Result<()> {
     Ok(())
 }
 
+fn read_reg_key(path: &str) -> Option<String> {
+    if let (Some(hkey_segment), Some(value_segment)) = (path.find('\\'), path.rfind('\\')) {
+        let sub_key = &path[(hkey_segment + 1)..value_segment];
+        let value_name = &path[(value_segment + 1)..];
+
+        let hkey = HKEY_LOCAL_MACHINE as HKEY;
+        let mut handle = ptr::null_mut();
+
+        unsafe {
+            if RegOpenKeyExW(hkey, U16CString::from_str(sub_key).unwrap().as_ptr(), 0, KEY_QUERY_VALUE, &mut handle) != 0 {
+                return None;
+            }
+
+            let dw_type = ptr::null_mut();
+            let mut dw_size = 0;
+
+            if RegQueryValueExW(handle, U16CString::from_str(value_name).unwrap().as_ptr(), ptr::null_mut(), dw_type, ptr::null_mut(), &mut dw_size) != 0 {
+                RegCloseKey(handle);
+                return None;
+            }
+
+            if dw_size <= 0 {
+                RegCloseKey(handle);
+                return None;
+            }
+
+            let mut buf: Vec<u16> = vec![0; (dw_size as usize / 2) - 1];
+            if RegQueryValueExW(handle, U16CString::from_str(value_name).unwrap().as_ptr(), ptr::null_mut(), dw_type, buf.as_mut_ptr() as *mut u8, &mut dw_size) != 0 {
+                RegCloseKey(handle);
+                return None;
+            }
+
+            RegCloseKey(handle);
+            return Some(String::from_utf16_lossy(&buf));
+        }
+    }
+
+    None
+}
+
+pub fn parse_registry_path(key: &str) -> PathBuf {
+    let mut parts = key.split(|c| c == '[' || c == ']').filter(|s| !s.is_empty());
+
+    if let (Some(first), Some(second)) = (parts.next(), parts.next()) {
+        let path = read_reg_key(first);
+        if path.is_none() {
+            return PathBuf::from(key.to_owned())
+        }
+        
+        let path = path.unwrap().replace("\\", "/");
+        let second = second.replace("\\", "/");
+        let second = second.strip_prefix("/").unwrap_or(&second);
+
+        return [path, second.to_owned()].iter().collect();
+    }
+
+    PathBuf::from(key.to_owned())
+}
+
 #[cfg(windows)]
 pub fn read_game_path(name: &str) -> Result<PathBuf> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+
+    dbg!(name);
 
     let mut key = hklm.open_subkey(format!("SOFTWARE\\EA Games\\{}", name));
     if key.is_err() {

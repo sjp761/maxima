@@ -42,7 +42,7 @@ impl ZipDownloader {
     }
 
     pub async fn download_single_file(&self, entry: &ZipFileEntry) -> Result<()> {
-        let dir_path = Path::new("/Users/gustash/Documents/GameTest");
+        let dir_path = Path::new("GameTest");
         let file_path = dir_path.join(entry.name());
 
         if !file_path.parent().unwrap().exists() {

@@ -40,36 +40,40 @@ struct FullServiceRequest<'a, T: Serialize> {
 pub struct ServiceLayerGraphQLRequest {
     query: &'static str,
     operation: &'static str,
+    key: &'static str,
     hash: [u8; 32],
 }
 
 macro_rules! load_graphql_request {
-    ($operation:expr) => {{
+    ($operation:expr, $key:expr) => {{
         let content = include_str!(concat!("graphql/", $operation, ".gql"));
         let hash = Sha256::new().update(content.as_bytes()).finalize();
         ServiceLayerGraphQLRequest {
             query: content,
             operation: $operation,
+            key: $key,
             hash,
         }
     }};
 }
 
 macro_rules! define_graphql_request {
-    ($operation:expr) => { paste::paste! {
-        pub const [<SERVICE_REQUEST_ $operation:upper>]: &ServiceLayerGraphQLRequest = &load_graphql_request!(stringify!($operation));
+    ($operation:expr, $key:expr) => { paste::paste! {
+        pub const [<SERVICE_REQUEST_ $operation:upper>]: &ServiceLayerGraphQLRequest = &load_graphql_request!(stringify!($operation), stringify!($key));
     }}
 }
 
-define_graphql_request!(availableBuilds); // Input: ServiceAvailableBuildsRequest, Output: ServiceAvailableBuild[]
-define_graphql_request!(downloadUrl); // Input: ServiceDownloadUrlRequest, Output: ServiceDownloadUrlMetadata
-define_graphql_request!(GameImages); // Input: ServiceGameImagesRequest, Output: ServiceGame
-define_graphql_request!(GetBasicPlayer); // Input: ServiceGetBasicPlayerRequest, Output: ServicePlayer
-define_graphql_request!(getPreloadedOwnedGames); // Input: ServiceGetPreloadedOwnedGamesRequest, Output: ServiceUser (with owned_game_products field set)
-define_graphql_request!(GetUserPlayer); // Input: ServiceGetUserPlayerRequest, Output: ServiceUser
-define_graphql_request!(GameSystemRequirements); // Input: ServiceGameSystemRequirementsRequest, Output: ServiceGameSystemRequirements
-define_graphql_request!(GetMyFriends); // Input: ServiceGetMyFriendsRequest, Output: ServiceFriends
-define_graphql_request!(SearchPlayer); // Input: ServiceSearchPlayerRequest, Output: ServicePlayersPage
+define_graphql_request!(availableBuilds, availableBuilds); // Input: ServiceAvailableBuildsRequest, Output: ServiceAvailableBuild[]
+define_graphql_request!(downloadUrl, downloadUrl); // Input: ServiceDownloadUrlRequest, Output: ServiceDownloadUrlMetadata
+define_graphql_request!(GameImages, game); // Input: ServiceGameImagesRequest, Output: ServiceGame
+define_graphql_request!(GetBasicPlayer, playerByPd); // Input: ServiceGetBasicPlayerRequest, Output: ServicePlayer
+define_graphql_request!(getPreloadedOwnedGames, me); // Input: ServiceGetPreloadedOwnedGamesRequest, Output: ServiceUser (with owned_game_products field set)
+define_graphql_request!(GetUserPlayer, me); // Input: ServiceGetUserPlayerRequest, Output: ServiceUser
+define_graphql_request!(GameSystemRequirements, game); // Input: ServiceGameSystemRequirementsRequest, Output: ServiceGameSystemRequirements
+define_graphql_request!(GetMyFriends, me); // Input: ServiceGetMyFriendsRequest, Output: ServiceFriends
+define_graphql_request!(SearchPlayer, players); // Input: ServiceSearchPlayerRequest, Output: ServicePlayersPage
+define_graphql_request!(getLegacyCatalogDefs, legacyOffers); // Input: ServiceGetLegacyCatalogDefsRequest, Output: Vec<ServiceLegacyOffer>
+define_graphql_request!(getGameProducts, gameProducts); // Input: ServiceGetLegacyCatalogDefsRequest, Output: Vec<ServiceLegacyProduct>
 
 #[derive(Clone)]
 pub struct ServiceLayerClient {
@@ -186,8 +190,7 @@ impl ServiceLayerClient {
             .unwrap()
             .as_object()
             .unwrap()
-            .values()
-            .next()
+            .get(operation.key)
             .unwrap()
             .to_owned();
 
@@ -338,7 +341,7 @@ service_layer_enum!(OwnershipMethod, {
     DirectEntitlement,
     PreOrderPurchase,
     Vault,
-    XgpVault,
+    XgpVault, // Xbox Game Pass
     Steam,
     SteamVault,
     SteamSubscription,
@@ -553,4 +556,26 @@ service_layer_type!(SearchPlayerRequest, {
 
 service_layer_type!(PlayersPage, {
     items: Vec<ServicePlayer>,
+});
+
+service_layer_type!(GetLegacyCatalogDefsRequest, {
+    offer_ids: Vec<String>,
+    locale: Locale,
+});
+
+service_layer_type!(LegacyOffer, {
+    offer_id: String,
+    content_id: String,
+    primary_master_title_id: String,
+    #[serde(rename = "gameLauncherURL")]
+    game_launcher_url: String,
+    #[serde(rename = "gameLauncherURLClientID")]
+    game_launcher_url_client_id: String,
+    execute_path_override: String,
+    installation_directory: String,
+    install_check_override: String,
+    monitor_play: bool,
+    display_name: String,
+    dip_manifest_relative_path: String,
+    cloud_save_configuration_override: String,
 });

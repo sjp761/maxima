@@ -115,11 +115,26 @@ ecommerce_type!(
 );
 
 ecommerce_type!(
+    FulfillmentAttributes;
+    attr {},
+    data {
+        cloud_save_configuration_override: Option<String>,
+        execute_path_override: Option<String>,
+        installation_directory: Option<String>,
+        install_check_override: Option<String>,
+    }
+);
+
+ecommerce_enum!(Platform, {
+    Pcwin,
+});
+
+ecommerce_type!(
     Software;
     attr {
     },
     data {
-        software_platform: String,
+        software_platform: CommercePlatform,
         software_id: String,
         fulfillment_attributes: CommerceFulfillmentAttributes,
     }
@@ -133,20 +148,18 @@ ecommerce_type!(
     }
 );
 
+impl CommerceSoftwareList {
+    pub fn software(&self, platform: CommercePlatform) -> Option<&CommerceSoftware> {
+        self.software.iter().find(|x| x.software_platform == platform)
+    }
+}
+
 ecommerce_type!(
     Publishing;
     attr {},
     data {
         publishing_attributes: CommercePublishingAttributes,
         software_list: Option<CommerceSoftwareList>,
-    }
-);
-
-ecommerce_type!(
-    FulfillmentAttributes;
-    attr {},
-    data {
-        installation_directory: Option<String>,
     }
 );
 

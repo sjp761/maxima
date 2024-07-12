@@ -16,12 +16,9 @@ tokio = { version = "1.28.2", features = [
 ] }
 serde = { version = "1.0.164", features = ["derive"] }
 serde_json = "1.0.97"
-paste = "1.0.12"
 anyhow = { version = "1.0.71", features = ["backtrace"] }
 reqwest = "0.11.18"
 base64 = "0.21.2"
-log = "0.4.19"
-regex = "1.8.4"
 url = "2.4.0"
 querystring = "1.1.0"
 urlencoding = "2.1.3"

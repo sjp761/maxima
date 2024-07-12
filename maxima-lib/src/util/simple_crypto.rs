@@ -3,7 +3,7 @@ use std::{io::Write, num::Wrapping, str};
 use aes::cipher::{
     block_padding::Pkcs7,
     generic_array::GenericArray,
-    BlockDecryptMut, BlockEncryptMut, KeyInit, KeyIvInit,
+    BlockDecryptMut, BlockEncryptMut, KeyInit,
 };
 use chrono::Datelike;
 

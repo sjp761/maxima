@@ -114,7 +114,7 @@ impl BridgeThread {
                 .dummy_local_user(false)
                 .load_auth_storage(true)
                 .build()?,
-        )?;
+        ).await?;
 
         {
             let maxima = maxima_arc.lock().await;

@@ -23,8 +23,6 @@ pub async fn start_game_request(maxima_arc: LockedMaxima, offer_id: String, hard
             Some("/kronos/Games/Steam/steamapps/common/Excalibur/NeedForSpeedUnbound.exe".to_owned())
         } else if offer_id.eq("Origin.OFR.50.0002688") {
             Some("/kronos/Games/Oregon/Anthem/Anthem.exe".to_owned())
-        } else if offer_id.eq("Origin.OFR.50.0002148") {
-            Some("/home/battledash/games/battlefront/starwarsbattlefrontii.exe".to_owned())
         } else if offer_id.eq("OFB-EAST:109552314") {
             Some("/kronos/Games/Steam/steamapps/common/Battlefield 4/bf4.exe".to_owned())
         } else if offer_id.eq("DR:156691300") {

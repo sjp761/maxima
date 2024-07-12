@@ -35,6 +35,7 @@ fragment OwnedGameProductFragment on GameProduct {
     __typename
   }
   baseItem(availabilities: [VISIBLE]) {
+    title
     id
     baseGameSlug
     gameType

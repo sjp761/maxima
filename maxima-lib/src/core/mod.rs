@@ -2,6 +2,7 @@ pub mod auth;
 pub mod cache;
 pub mod clients;
 pub mod concurrency;
+pub mod dip;
 pub mod ecommerce;
 pub mod endpoints;
 pub mod launch;
@@ -84,6 +85,7 @@ pub struct Maxima {
     auth_storage: LockedAuthStorage,
     service_layer: ServiceLayerClient,
 
+    #[getter(skip)]
     library: GameLibrary,
 
     playing: Option<ActiveGameContext>,
@@ -114,7 +116,7 @@ pub struct MaximaOptions {
 pub type LockedMaxima = Arc<Mutex<Maxima>>;
 
 impl Maxima {
-    pub fn new_with_options(options: MaximaOptions) -> Result<LockedMaxima> {
+    pub async fn new_with_options(options: MaximaOptions) -> Result<LockedMaxima> {
         let lsx_port = if let Ok(lsx_port) = env::var("MAXIMA_LSX_PORT") {
             lsx_port.parse::<u16>().unwrap()
         } else {
@@ -175,7 +177,7 @@ impl Maxima {
             locale: Locale::EnUs,
             auth_storage: auth_storage.clone(),
             service_layer: ServiceLayerClient::new(auth_storage.clone()),
-            library: GameLibrary::new(auth_storage.clone()),
+            library: GameLibrary::new(auth_storage.clone()).await,
             playing: None,
             lsx_port,
             lsx_event_callback: None,
@@ -187,13 +189,13 @@ impl Maxima {
         })))
     }
 
-    pub fn new() -> Result<LockedMaxima> {
+    pub async fn new() -> Result<LockedMaxima> {
         Maxima::new_with_options(
             MaximaOptionsBuilder::default()
                 .load_auth_storage(true)
                 .dummy_local_user(false)
                 .build()?,
-        )
+        ).await
     }
 
     pub async fn start_lsx(&self, maxima: LockedMaxima) -> Result<()> {
@@ -425,6 +427,14 @@ impl Maxima {
         create_dir_all(&dir)?;
 
         Ok(dir.join(format!("{}_{}x{}.jpg", id, width, height)))
+    }
+
+    pub fn library(&self) -> &GameLibrary {
+        &self.library
+    }
+
+    pub fn mut_library(&mut self) -> &mut GameLibrary {
+        &mut self.library
     }
 
     pub fn rtm(&mut self) -> &mut RtmClient {

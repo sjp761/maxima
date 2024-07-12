@@ -6,6 +6,7 @@ members = [
     "maxima-lib",
     "maxima-native",
     "maxima-service",
+    "maxima-tui",
     "maxima-ui",
     "maxima-resources",
 ]

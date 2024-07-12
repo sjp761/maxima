@@ -98,10 +98,10 @@ async fn req_set_up_registry() -> impl Responder {
 async fn req_inject_library(body: web::Bytes) -> Result<HttpResponse, ServiceError> {
     info!("Injecting...");
 
-    let obj: ServiceLibraryInjectionRequest = serde_json::from_slice(&body)?;
-    let process = OwnedProcess::from_pid(obj.pid)?;
+    let req: ServiceLibraryInjectionRequest = serde_json::from_slice(&body)?;
+    let process = OwnedProcess::from_pid(req.pid)?;
 
-    let hash_result = get_sha256_hash_of_pid(obj.pid);
+    let hash_result = get_sha256_hash_of_pid(req.pid);
     if hash_result.is_err() {
         return Err(ServiceError::InternalError);
     }
@@ -115,7 +115,7 @@ async fn req_inject_library(body: web::Bytes) -> Result<HttpResponse, ServiceErr
     }
 
     let syringe = Syringe::for_process(process);
-    syringe.inject(obj.path).unwrap();
+    syringe.inject(req.path).unwrap();
 
     Ok(HttpResponse::Ok().body("Injected"))
 }

@@ -30,6 +30,10 @@ impl ServiceAvailableBuilds {
                 == &ServiceDownloadType::Live
         })
     }
+
+    pub fn build(&self, id: &str) -> Option<&ServiceAvailableBuild> {
+        self.builds.iter().find(|b| b.game_version() == &Some(id.to_owned()))
+    }
 }
 
 pub struct ContentService {

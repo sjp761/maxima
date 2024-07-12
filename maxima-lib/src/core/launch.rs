@@ -11,7 +11,7 @@ use uuid::Uuid;
 use anyhow::{bail, Result};
 
 use crate::{
-    core::ecommerce::request_offer_data,
+    core::ecommerce::{request_offer_data, CommercePlatform},
     ooa::{request_and_save_license, LicenseAuth},
     util::{
         registry::{bootstrap_path, read_game_path},
@@ -21,7 +21,7 @@ use crate::{
 
 use serde::{Deserialize, Serialize};
 
-use super::{ecommerce::CommerceOffer, Maxima};
+use super::{ecommerce::CommerceOffer, library::OwnedOffer, Maxima};
 
 pub enum StartupStage {
     Launch,
@@ -58,7 +58,7 @@ pub struct ActiveGameContext {
     launch_id: String,
     game_path: String,
     content_id: String,
-    offer: Option<CommerceOffer>,
+    offer: Option<OwnedOffer>,
     mode: LaunchMode,
     injections: Vec<LibraryInjection>,
     process: Child,
@@ -70,7 +70,7 @@ impl ActiveGameContext {
         launch_id: &str,
         game_path: &str,
         content_id: &str,
-        offer: Option<CommerceOffer>,
+        offer: Option<OwnedOffer>,
         mode: LaunchMode,
         process: Child,
     ) -> Self {
@@ -131,23 +131,24 @@ pub async fn start_game(
     let (content_id, online_offline, offer, access_token) =
         if let LaunchMode::Online(ref offer_id) = mode {
             let access_token = &maxima.access_token().await?;
-            let offer =
-                request_offer_data(access_token, offer_id, maxima.locale.full_str()).await?;
+            let offer = maxima.mut_library().game_by_base_offer(offer_id).await;
+            if offer.is_none() {
+                bail!("Offer not found");
+            }
 
-            let content_id = offer
-                .publishing
-                .publishing_attributes
-                .content_id
-                .as_ref()
-                .unwrap()
-                .to_owned();
+            let offer = offer.unwrap();
+            if !offer.installed() {
+                bail!("Game is not installed");
+            }
+
+            let content_id = offer.offer().content_id().to_owned();
 
             info!(
                 "Requesting pre-game license for {}...",
-                offer.localizable_attributes.display_name
+                offer.offer().display_name()
             );
 
-            (content_id, false, Some(offer), access_token.to_owned())
+            (content_id, false, Some(offer.clone()), access_token.to_owned())
         } else if let LaunchMode::OnlineOffline(ref content_id, _, _) = mode {
             (content_id.to_owned(), true, None, String::new())
         } else {
@@ -159,30 +160,14 @@ pub async fn start_game(
         PathBuf::from(game_path_override.as_ref().unwrap())
     } else if !online_offline {
         // https://youtu.be/TGfQu0bQTKc?t=506
-        let software = offer
-            .as_ref()
-            .unwrap()
-            .publishing
-            .software_list
-            .as_ref()
-            .unwrap()
-            .software[0]
-            .fulfillment_attributes
-            .installation_directory
-            .as_ref()
-            .unwrap()
-            .to_owned();
-
-        read_game_path(&software)
-            .expect("Failed to find game path")
-            .join("starwarsbattlefrontii.exe")
+        offer.as_ref().unwrap().execute_path(false).await?
     } else {
         bail!("Game path not found");
     };
 
+    info!("Game path: {:?}", path);
     let dir = path.parent().unwrap().to_str().unwrap();
     let path = path.to_str().unwrap();
-    info!("Game path: {}", path);
 
     match mode {
         LaunchMode::Offline(_) => {}
@@ -225,7 +210,7 @@ pub async fn start_game(
         .env("EAFreeTrialGame", "false")
         .env("EAGameLocale", maxima.locale.full_str())
         .env("EAGenericAuthToken", access_token.to_owned())
-        .env("EALaunchCode", "4AULYZZ2KJSN2RMHEVUH")
+        .env("EALaunchCode", "")
         .env(
             "EALaunchEAID",
             user.player().as_ref().unwrap().display_name(),
@@ -240,7 +225,8 @@ pub async fn start_game(
         .env("EASecureLaunchTokenTemp", user.id())
         .env("EASteamProxyIpcPort", "0")
         .env("OriginSessionKey", launch_id.to_owned())
-        .env("ContentId", content_id.to_owned());
+        .env("ContentId", content_id.to_owned())
+        .env("EAOnErrorExitRetCode", "1");
 
     match mode {
         LaunchMode::Offline(_) => todo!(),
@@ -283,7 +269,6 @@ pub async fn linux_setup() -> Result<()> {
     info!("Verifying wine dependencies...");
 
     let skip = std::env::var("MAXIMA_DISABLE_WINE_VERIFICATION").is_ok();
-
     if !skip && !check_wine_validity()? {
         install_wine().await?;
     }

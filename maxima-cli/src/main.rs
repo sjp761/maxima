@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use futures::StreamExt;
 use inquire::Select;
 use lazy_static::lazy_static;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use regex::Regex;
 
 use std::{sync::Arc, time::Instant};
@@ -24,8 +24,11 @@ use maxima::{
         auth::{nucleus_token_exchange, TokenResponse},
         clients::JUNO_PC_CLIENT_ID,
         launch::LaunchMode,
+        library::OwnedTitle,
         service_layer::{
-            ServiceGetBasicPlayerRequestBuilder, ServicePlayer, SERVICE_REQUEST_GETBASICPLAYER,
+            ServiceGetBasicPlayerRequestBuilder, ServiceGetLegacyCatalogDefsRequestBuilder,
+            ServiceLegacyOffer, ServicePlayer, SERVICE_REQUEST_GETBASICPLAYER,
+            SERVICE_REQUEST_GETLEGACYCATALOGDEFS,
         },
         LockedMaxima, MaximaOptionsBuilder,
     },
@@ -89,6 +92,20 @@ enum Mode {
     },
     TestRTMConnection,
     ListFriends,
+    GetLegacyCatalogDef {
+        #[arg(long)]
+        offer_id: String,
+    },
+    DownloadSpecificFile {
+        #[arg(long)]
+        offer_id: String,
+
+        #[arg(long)]
+        build_id: String,
+
+        #[arg(long)]
+        file: String,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -199,9 +216,6 @@ async fn startup() -> Result<()> {
 
     native_setup().await?;
 
-    // Take back the focus since the browser and bootstrap will take it
-    take_foreground_focus()?;
-
     let skip_login = {
         if let Some(Mode::Launch {
             game_path: _,
@@ -221,7 +235,7 @@ async fn startup() -> Result<()> {
         .dummy_local_user(skip_login)
         .build()?;
 
-    let maxima_arc = Maxima::new_with_options(options)?;
+    let maxima_arc = Maxima::new_with_options(options).await?;
 
     if !skip_login {
         let maxima = maxima_arc.lock().await;
@@ -243,6 +257,9 @@ async fn startup() -> Result<()> {
             user.player().as_ref().unwrap().display_name()
         );
     }
+
+    // Take back the focus since the browser and bootstrap will take it
+    take_foreground_focus()?;
 
     if args.mode.is_none() {
         run_interactive(maxima_arc.clone()).await?;
@@ -267,6 +284,14 @@ async fn startup() -> Result<()> {
         Mode::GetUserById { user_id } => get_user_by_id(maxima_arc.clone(), &user_id).await,
         Mode::GetGameBySlug { slug } => get_game_by_slug(maxima_arc.clone(), &slug).await,
         Mode::TestRTMConnection => test_rtm_connection(maxima_arc.clone()).await,
+        Mode::GetLegacyCatalogDef { offer_id } => {
+            get_legacy_catalog_def(maxima_arc.clone(), &offer_id).await
+        }
+        Mode::DownloadSpecificFile {
+            offer_id,
+            build_id,
+            file,
+        } => download_specific_file(maxima_arc.clone(), &offer_id, &build_id, &file).await,
     }?;
 
     Ok(())
@@ -299,24 +324,22 @@ async fn run_interactive(maxima_arc: LockedMaxima) -> Result<()> {
 }
 
 async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
-    let maxima = maxima_arc.lock().await;
+    let offer_id = {
+        let mut maxima = maxima_arc.lock().await;
 
-    let owned_games = maxima.owned_games(1).await?;
-    let owned_games = owned_games.owned_game_products().as_ref().unwrap().items();
-    let owned_games_strs = owned_games
-        .iter()
-        .map(|g| g.product().name())
-        .collect::<Vec<String>>();
+        let owned_games = maxima.mut_library().games().await;
+        let owned_games_strs = owned_games
+            .iter()
+            .map(|g| g.name())
+            .collect::<Vec<String>>();
 
-    let name = Select::new("What game would you like to play?", owned_games_strs).prompt()?;
-    let game: &ServiceUserGameProduct = owned_games
-        .iter()
-        .find(|g| g.product().name() == name)
-        .unwrap();
+        let name = Select::new("What game would you like to play?", owned_games_strs).prompt()?;
+        let game: &OwnedTitle = owned_games.iter().find(|g| g.name() == name).unwrap();
+        game.base_offer().offer().offer_id().to_owned()
+    };
 
-    drop(maxima);
     start_game(
-        game.origin_offer_id().as_str(),
+        &offer_id,
         None,
         Vec::new(),
         None,
@@ -362,6 +385,7 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
     info!("URL: {}", url.url());
 
     let downloader = ZipDownloader::new(&url.url()).await?;
+
     let num_of_entries = downloader.manifest().entries().len();
     info!("Entries: {}", num_of_entries);
 
@@ -394,6 +418,54 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
         elapsed_time.subsec_millis()
     );
 
+    Ok(())
+}
+
+async fn download_specific_file(
+    maxima_arc: LockedMaxima,
+    offer: &str,
+    build_id: &str,
+    file: &str,
+) -> Result<()> {
+    let maxima = maxima_arc.lock().await;
+
+    let content_service = ContentService::new(maxima.auth_storage().clone());
+    let builds = content_service.available_builds(offer).await?;
+    let build = builds.build(build_id);
+    if build.is_none() {
+        bail!("Couldn't find the game build {}", build_id);
+    }
+
+    let build = build.unwrap();
+    info!("Downloading file from game build {}", build.to_string());
+
+    let url = content_service
+        .download_url(offer, Some(&build.build_id()))
+        .await?;
+
+    debug!("URL: {}", url.url());
+
+    let downloader = ZipDownloader::new(&url.url()).await?;
+    let num_of_entries = downloader.manifest().entries().len();
+    info!("Entries: {}", num_of_entries);
+
+    let entry = downloader
+        .manifest()
+        .entries()
+        .iter()
+        .find(|x| x.name() == file);
+    if entry.is_none() {
+        bail!("Couldn't find the file {}", file);
+    }
+
+    let ele = entry.unwrap();
+    downloader.download_single_file(ele).await.unwrap();
+
+    info!(
+        "Downloaded file {} from game build {}",
+        file,
+        build.to_string()
+    );
     Ok(())
 }
 
@@ -445,6 +517,7 @@ async fn print_account_info(maxima_arc: LockedMaxima) -> Result<()> {
     let user = maxima.local_user().await?;
 
     info!("Access Token: {}", maxima.access_token().await?);
+    info!("PC Sign: {}", AuthContext::new()?.generate_pc_sign());
 
     let player = user.player().as_ref().unwrap();
     info!("Username: {}", player.unique_name());
@@ -480,7 +553,12 @@ async fn list_friends(maxima_arc: LockedMaxima) -> Result<()> {
     let maxima = maxima_arc.lock().await;
 
     for ele in maxima.friends(0).await? {
-        info!("{} - Persona ID: {}", ele.display_name(), ele.psd());
+        info!(
+            "{} [ID: {}, Persona ID: {}]",
+            ele.display_name(),
+            ele.pd(),
+            ele.psd()
+        );
     }
 
     Ok(())
@@ -500,6 +578,8 @@ async fn get_user_by_id(maxima_arc: LockedMaxima, user_id: &str) -> Result<()> {
         .await?;
 
     info!("Name: {}", player.display_name());
+
+    dbg!(player);
     Ok(())
 }
 
@@ -556,21 +636,61 @@ async fn test_rtm_connection(maxima_arc: LockedMaxima) -> Result<()> {
     }
 }
 
-async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
+async fn get_legacy_catalog_def(maxima_arc: LockedMaxima, offer_id: &str) -> Result<()> {
     let maxima = maxima_arc.lock().await;
+    let defs: Vec<ServiceLegacyOffer> = maxima
+        .service_layer()
+        .request(
+            SERVICE_REQUEST_GETLEGACYCATALOGDEFS,
+            ServiceGetLegacyCatalogDefsRequestBuilder::default()
+                .offer_ids(vec![offer_id.to_owned()])
+                .locale(maxima.locale().clone())
+                .build()?,
+        )
+        .await?;
+
+    info!("Content ID: {}", defs[0].content_id());
+    Ok(())
+}
+
+async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
+    let mut maxima = maxima_arc.lock().await;
 
     info!("Owned games:");
-    maxima.library().owned_games().await;
+    let titles = maxima.mut_library().games().await;
 
-    let owned_games = maxima.owned_games(1).await?;
-    for game in owned_games.owned_game_products().as_ref().unwrap().items() {
+    // let owned_games = maxima.owned_games(1).await?;
+    // for game in owned_games.owned_game_products().as_ref().unwrap().items() {
+    //     info!(
+    //         "{:<width$} - {:<width2$}",
+    //         game.product().name(),
+    //         game.origin_offer_id(),
+    //         width = 55,
+    //         width2 = 25
+    //     );
+    // }
+
+    for title in titles {
         info!(
-            "{:<width$} - {:<width2$}",
-            game.product().name(),
-            game.origin_offer_id(),
-            width = 55,
-            width2 = 25
+            "{:<width$} - {:<width2$} - Installed: {}",
+            title.base_offer().slug(),
+            title.name(),
+            title.base_offer().installed(),
+            width = 35,
+            width2 = 35
         );
+
+        //info!("{}", title.base_offer().installed());
+
+        for game in title.extra_offers() {
+            info!(
+                "  {:<width$} - {:<width2$}",
+                game.offer().display_name(),
+                game.offer().offer_id(),
+                width = 55,
+                width2 = 25
+            );
+        }
     }
 
     Ok(())
