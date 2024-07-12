@@ -2,9 +2,10 @@
 extern crate winapi;
 
 use anyhow::{bail, Result};
-use widestring::U16CString;
-
 use std::{path::PathBuf, ptr};
+
+#[cfg(windows)]
+use widestring::U16CString;
 
 #[cfg(windows)]
 use winapi::{
@@ -63,6 +64,7 @@ pub fn check_registry_validity() -> Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn read_reg_key(path: &str) -> Option<String> {
     if let (Some(hkey_segment), Some(value_segment)) = (path.find('\\'), path.rfind('\\')) {
         let sub_key = &path[(hkey_segment + 1)..value_segment];
@@ -123,6 +125,11 @@ fn read_reg_key(path: &str) -> Option<String> {
         }
     }
 
+    None
+}
+
+#[cfg(unix)]
+fn read_reg_key(path: &str) -> Option<String> {
     None
 }
 
