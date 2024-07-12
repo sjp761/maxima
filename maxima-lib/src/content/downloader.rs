@@ -78,7 +78,7 @@ impl ZipDownloader {
             CompressionType::Deflate => {
                 let stream_reader = BufReader::new(stream.compat());
 
-                let mut decoder = DeflateDecoder::new(stream_reader);
+                let decoder = DeflateDecoder::new(stream_reader);
 
                 let mut x = decoder.take(cmp::min(bytes, *entry.compressed_size()) as u64);
                 let mut buffer = Vec::new();

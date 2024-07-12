@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
 use regex::Regex;
 
-use std::{sync::Arc, time::Instant};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
 #[cfg(windows)]
 use is_elevated::is_elevated;
@@ -21,16 +21,11 @@ use maxima::{
 use maxima::{
     content::downloader::ZipDownloader,
     core::{
-        auth::{nucleus_token_exchange, TokenResponse},
-        clients::JUNO_PC_CLIENT_ID,
-        launch::LaunchMode,
-        library::OwnedTitle,
-        service_layer::{
+        auth::{nucleus_token_exchange, TokenResponse}, clients::JUNO_PC_CLIENT_ID, dip::{DiPManifest, DIP_RELATIVE_PATH}, launch::LaunchMode, library::OwnedTitle, service_layer::{
             ServiceGetBasicPlayerRequestBuilder, ServiceGetLegacyCatalogDefsRequestBuilder,
             ServiceLegacyOffer, ServicePlayer, SERVICE_REQUEST_GETBASICPLAYER,
             SERVICE_REQUEST_GETLEGACYCATALOGDEFS,
-        },
-        LockedMaxima, MaximaOptionsBuilder,
+        }, LockedMaxima, MaximaOptionsBuilder
     },
     ooa,
     rtm::client::BasicPresence,
@@ -73,6 +68,9 @@ enum Mode {
         login: Option<String>,
     },
     ListGames,
+    LocateGame {
+        path: String,
+    },
     AccountInfo,
     CreateAuthCode {
         #[arg(long)]
@@ -126,7 +124,7 @@ async fn main() {
     if let Some(e) = result.err() {
         match std::env::var("RUST_BACKTRACE") {
             Ok(_) => error!("{}:\n{}", e, e.backtrace().to_string()),
-            Err(_) => error!("{}", e),
+            Err(_) => error!("{}: {}", e, e.root_cause()),
         }
     }
 }
@@ -275,6 +273,7 @@ async fn startup() -> Result<()> {
             login,
         } => start_game(&offer_id, game_path, game_args, login, maxima_arc.clone()).await,
         Mode::ListGames => list_games(maxima_arc.clone()).await,
+        Mode::LocateGame { path } => locate_game(maxima_arc.clone(), &path).await,
         Mode::AccountInfo => print_account_info(maxima_arc.clone()).await,
         Mode::CreateAuthCode { client_id } => {
             create_auth_code(maxima_arc.clone(), &client_id).await
@@ -680,6 +679,13 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn locate_game(maxima_arc: LockedMaxima, path: &str) -> Result<()> {
+    let path = PathBuf::from(path);
+    let manifest = DiPManifest::read(&path.join(DIP_RELATIVE_PATH)).await?;
+    manifest.run_touchup(path).await?;
     Ok(())
 }
 

@@ -41,6 +41,7 @@ pub fn wine_get_pid(launch_id: &str, name: &str) -> Result<u32> {
             .to_str()
             .unwrap(),
         Some(vec!["get_pid", b64.as_str()]),
+        None,
         true,
     )?;
 
@@ -70,6 +71,7 @@ pub async fn request_library_injection(pid: u32, path: &str) -> Result<()> {
             .to_str()
             .unwrap(),
         Some(vec!["inject", b64.as_str()]),
+        None,
         false,
     )?;
 

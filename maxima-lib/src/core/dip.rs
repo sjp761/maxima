@@ -1,7 +1,14 @@
 #![allow(non_snake_case)]
 
+use std::path::PathBuf;
+
+use anyhow::{Context, Result};
 use derive_getters::Getters;
 use serde::Deserialize;
+
+use crate::unix::wine::run_wine_command;
+
+pub const DIP_RELATIVE_PATH: &str = "__Installer/installerdata.xml";
 
 macro_rules! dip_type {
     (
@@ -61,18 +68,71 @@ dip_type!(
 );
 
 dip_type!(
+    Touchup;
+    attr {},
+    data {
+        file_path: String,
+        parameters: String,
+    }
+);
+
+fn remove_leading_slash(path: &str) -> &str {
+    path.strip_prefix('/').unwrap_or(path)
+}
+
+fn remove_trailing_backslash(path: &str) -> &str {
+    path.strip_suffix('\\').unwrap_or(path)
+}
+
+impl DiPTouchup {
+    pub fn path(&self) -> &str {
+        remove_leading_slash(&self.file_path)
+    }
+}
+
+dip_type!(
     Manifest;
     attr {
         version: String,
     },
     data {
         runtime: DiPRuntime,
+        touchup: DiPTouchup,
     }
 );
 
 impl DiPManifest {
-    pub fn file_path(&self, trial: bool) -> Option<String> {
+    pub async fn read(path: &PathBuf) -> Result<Self> {
+        let file = tokio::fs::read_to_string(path)
+            .await
+            .context("Test")
+            .unwrap();
+        Ok(quick_xml::de::from_str(&file)?)
+    }
+
+    pub fn execute_path(&self, trial: bool) -> Option<String> {
         let launcher = self.runtime.launcher.iter().find(|l| l.trial == trial);
         launcher.map(|l| l.file_path.clone())
+    }
+
+    pub async fn run_touchup(&self, install_path: PathBuf) -> Result<()> {
+        let mut args = Vec::new();
+        for arg in self.touchup.parameters.split(" ") {
+            let arg = arg.replace("{locale}", "en_US").replace(
+                "\"{installLocation}\"",
+                &format!(
+                    "Z:{}",
+                    remove_trailing_backslash(install_path.to_str().unwrap()).replace("/", "\\")
+                ),
+            );
+
+            args.push(PathBuf::from(arg));
+        }
+
+        log::info!("Bruh {:?}", args);
+
+        let path = install_path.join(&self.touchup.path());
+        run_wine_command("wine", path, Some(args), Some(PathBuf::from("/home/battledash/games/battlefront/__Installer")), true)?;
+        Ok(())
     }
 }

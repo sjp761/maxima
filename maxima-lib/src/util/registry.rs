@@ -2,7 +2,10 @@
 extern crate winapi;
 
 use anyhow::{bail, Result};
-use std::{path::PathBuf, ptr};
+use std::path::PathBuf;
+
+#[cfg(windows)]
+use std::ptr;
 
 #[cfg(windows)]
 use widestring::U16CString;
@@ -130,7 +133,8 @@ fn read_reg_key(path: &str) -> Option<String> {
 
 #[cfg(unix)]
 fn read_reg_key(path: &str) -> Option<String> {
-    None
+    use crate::unix::wine::get_mx_wine_registry_value;
+    get_mx_wine_registry_value(path)
 }
 
 pub fn parse_registry_path(key: &str) -> PathBuf {
@@ -144,11 +148,29 @@ pub fn parse_registry_path(key: &str) -> PathBuf {
             return PathBuf::from(key.to_owned());
         }
 
-        let path = path.unwrap().replace("\\", "/");
+        let path = path.unwrap().replace("\\", "/").replace("//", "/");
         let second = second.replace("\\", "/");
         let second = second.strip_prefix("/").unwrap_or(&second);
 
         return [path, second.to_owned()].iter().collect();
+    }
+
+    PathBuf::from(key.to_owned())
+}
+
+pub fn parse_partial_registry_path(key: &str) -> PathBuf {
+    let mut parts = key
+        .split(|c| c == '[' || c == ']')
+        .filter(|s| !s.is_empty());
+
+    if let (Some(first), Some(_second)) = (parts.next(), parts.next()) {
+        let path = read_reg_key(first);
+        if path.is_none() {
+            return PathBuf::from(key.to_owned());
+        }
+
+        let path = path.unwrap().replace("\\", "/");
+        return PathBuf::from(path.to_owned());
     }
 
     PathBuf::from(key.to_owned())

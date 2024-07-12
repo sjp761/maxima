@@ -11,12 +11,8 @@ use uuid::Uuid;
 use anyhow::{bail, Result};
 
 use crate::{
-    core::ecommerce::{request_offer_data, CommercePlatform},
     ooa::{request_and_save_license, LicenseAuth},
-    util::{
-        registry::{bootstrap_path, read_game_path},
-        simple_crypto,
-    },
+    util::{registry::bootstrap_path, simple_crypto},
 };
 
 use serde::{Deserialize, Serialize};
@@ -113,8 +109,6 @@ pub async fn start_game(
     game_path_override: Option<String>,
     mut game_args: Vec<String>,
 ) -> Result<()> {
-    linux_setup().await?;
-
     let mut maxima = maxima_arc.lock().await;
     info!("Initiating game launch with {}...", mode);
 
@@ -148,7 +142,12 @@ pub async fn start_game(
                 offer.offer().display_name()
             );
 
-            (content_id, false, Some(offer.clone()), access_token.to_owned())
+            (
+                content_id,
+                false,
+                Some(offer.clone()),
+                access_token.to_owned(),
+            )
         } else if let LaunchMode::OnlineOffline(ref content_id, _, _) = mode {
             (content_id.to_owned(), true, None, String::new())
         } else {
@@ -159,25 +158,26 @@ pub async fn start_game(
     let path = if game_path_override.is_some() {
         PathBuf::from(game_path_override.as_ref().unwrap())
     } else if !online_offline {
-        // https://youtu.be/TGfQu0bQTKc?t=506
         offer.as_ref().unwrap().execute_path(false).await?
     } else {
         bail!("Game path not found");
     };
 
-    info!("Game path: {:?}", path);
     let dir = path.parent().unwrap().to_str().unwrap();
     let path = path.to_str().unwrap();
+    info!("Game path: {}", path);
+
+    linux_setup().await?;
 
     match mode {
         LaunchMode::Offline(_) => {}
         LaunchMode::Online(_) => {
             let auth = LicenseAuth::AccessToken(maxima.access_token().await?);
-            request_and_save_license(&auth, &content_id, path.into()).await?;
+            request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
         }
         LaunchMode::OnlineOffline(_, ref persona, ref password) => {
             let auth = LicenseAuth::Direct(persona.to_owned(), password.to_owned());
-            request_and_save_license(&auth, &content_id, path.into()).await?;
+            request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
         }
     }
 

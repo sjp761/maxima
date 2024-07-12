@@ -1,14 +1,14 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::{Path, PathBuf}};
 
 use anyhow::{bail, Result};
 use derive_getters::Getters;
 use tokio::{fs::File, io::BufReader};
 
-use crate::util::registry::parse_registry_path;
+use crate::util::registry::{parse_partial_registry_path, parse_registry_path};
 
 use super::{
     auth::storage::LockedAuthStorage,
-    dip::DiPManifest,
+    dip::{DiPManifest, DIP_RELATIVE_PATH},
     locale::Locale,
     service_layer::{
         ServiceGameProductType, ServiceGetLegacyCatalogDefsRequestBuilder,
@@ -24,6 +24,15 @@ pub struct OwnedOffer {
     slug: String,
     product: ServiceUserGameProduct,
     offer: ServiceLegacyOffer,
+}
+
+fn find_parent_dir(file_path: &Path, dir_name: &str) -> Option<PathBuf> {
+    for ancestor in file_path.ancestors() {
+        if ancestor.file_name().and_then(|name| name.to_str()) == Some(dir_name) {
+            return Some(ancestor.to_path_buf().canonicalize().unwrap());
+        }
+    }
+    None
 }
 
 impl OwnedOffer {
@@ -45,7 +54,7 @@ impl OwnedOffer {
             bail!("No DiP manifest found for {}", self.slug);
         }
 
-        let path = if let Some(path) = manifest.unwrap().file_path(trial) {
+        let path = if let Some(path) = manifest.unwrap().execute_path(trial) {
             path
         } else if !self.offer.execute_path_override().is_empty() {
             parse_registry_path(&self.offer.execute_path_override())
@@ -65,18 +74,17 @@ impl OwnedOffer {
             .install_check_override()
             .contains("installerdata.xml")
         {
-            self.install_check_path()
+            PathBuf::from(self.install_check_path())
         } else {
-            String::new()
+            let path = PathBuf::from(parse_partial_registry_path(&self.offer.install_check_override())
+                .to_str()
+                .unwrap()
+                .to_owned());
+
+            path.join(DIP_RELATIVE_PATH)
         };
 
-        if path.is_empty() {
-            return None;
-        }
-
-        let file = tokio::fs::read_to_string(path).await.ok()?;
-        let manifest: DiPManifest = quick_xml::de::from_str(&file).unwrap();
-        Some(manifest)
+        Some(DiPManifest::read(&path).await.unwrap())
     }
 
     pub fn offer_id(&self) -> &String {
@@ -176,13 +184,11 @@ pub struct GameLibrary {
 
 impl GameLibrary {
     pub async fn new(auth: LockedAuthStorage) -> Self {
-        let mut lib = Self {
+        Self {
             service_layer: ServiceLayerClient::new(auth),
             library: Vec::new(),
             last_request: 0,
-        };
-        //lib.update_if_needed().await;
-        lib
+        }
     }
 
     pub async fn games(&mut self) -> &Vec<OwnedTitle> {

@@ -68,6 +68,8 @@ use self::{
     },
 };
 
+mod error;
+
 #[derive(Clone, IntoStaticStr)]
 pub enum MaximaEvent {
     /// PID, Request Type
