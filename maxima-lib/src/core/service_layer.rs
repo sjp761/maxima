@@ -74,6 +74,7 @@ define_graphql_request!(GetMyFriends, me); // Input: ServiceGetMyFriendsRequest,
 define_graphql_request!(SearchPlayer, players); // Input: ServiceSearchPlayerRequest, Output: ServicePlayersPage
 define_graphql_request!(getLegacyCatalogDefs, legacyOffers); // Input: ServiceGetLegacyCatalogDefsRequest, Output: Vec<ServiceLegacyOffer>
 define_graphql_request!(getGameProducts, gameProducts); // Input: ServiceGetLegacyCatalogDefsRequest, Output: Vec<ServiceLegacyProduct>
+define_graphql_request!(GetGamePlayTimes, me); // Input: ServiceGetLegacyCatalogDefsRequest, Output: Vec<ServiceLegacyProduct>
 
 #[derive(Clone)]
 pub struct ServiceLayerClient {
@@ -295,7 +296,7 @@ service_layer_type!(Player, {
     display_name: String,
     unique_name: String,
     nickname: String,
-    avatar: ServiceAvatarList,
+    avatar: Option<ServiceAvatarList>,
     relationship: String,
 });
 
@@ -579,4 +580,8 @@ service_layer_type!(LegacyOffer, {
     display_type: String,
     dip_manifest_relative_path: Option<String>,
     cloud_save_configuration_override: Option<String>,
+});
+
+service_layer_type!(RecentGames, {
+
 });

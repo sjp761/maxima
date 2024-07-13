@@ -376,6 +376,11 @@ impl Maxima {
             .await?;
 
         let avatars = data.avatar();
+        if avatars.is_none() {
+            bail!("No avatars found");
+        }
+
+        let avatars = avatars.as_ref().unwrap();
         self.cache_avatar_image(&id, avatars.large()).await?;
         self.cache_avatar_image(&id, avatars.medium()).await?;
         self.cache_avatar_image(&id, avatars.small()).await?;
