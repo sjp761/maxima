@@ -559,14 +559,14 @@ impl eframe::App for DemoEguiApp {
                     }
                     match &self.games[&self.game_sel].images {
                         GameUIImagesWrapper::Unloaded | GameUIImagesWrapper::Loading => {
-                            render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), how_game);
+                            render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), 0.0);
                         }
                         GameUIImagesWrapper::Available(images) => {
                             render.draw(ui, fullrect, images.hero.size, images.hero.renderable, how_game);
                         }
                     }
                 } else {
-                    render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), how_game);
+                    render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), 0.0);
                 }
             }
             if self.login_cache_waiting {

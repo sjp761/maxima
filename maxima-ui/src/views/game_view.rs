@@ -459,9 +459,13 @@ fn show_game_list_buttons(app : &mut DemoEguiApp, ui : &mut Ui) {
         style.spacing.item_spacing = vec2(0.0,0.0);
         
         let james: std::collections::hash_map::Iter<String, GameInfo> = app.games.iter();
-        let filtered_games = app.games.iter().filter(|obj| 
+        
+        let mut filtered_games: Vec<(&String, &GameInfo)> = james.filter(|obj| 
           obj.1.name.to_lowercase().contains(&app.game_view_bar.search_buffer.to_lowercase())
-        );
+        ).collect();
+        filtered_games.sort_by(|(_, a_game),(_, b_game)| {
+          a_game.name.cmp(&b_game.name)
+        });
         
         for (slug, game) in filtered_games {
           puffin::profile_scope!("game list game");
