@@ -160,7 +160,7 @@ impl Maxima {
                 .display_name(name.to_owned())
                 .unique_name(name.to_owned())
                 .nickname(name)
-                .avatar(avatar_list)
+                .avatar(Some(avatar_list))
                 .relationship("self".to_owned())
                 .build()?;
 

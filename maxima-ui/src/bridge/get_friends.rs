@@ -30,7 +30,7 @@ pub async fn get_friends_request(
             online: BasicPresence::Offline,
             game: None,
             game_presence: None,
-            avatar: UIFriendImageWrapper::Unloaded(bitchass.avatar().medium().path().to_string()),
+            avatar: UIFriendImageWrapper::Unloaded(bitchass.avatar().as_ref().unwrap().medium().path().to_string()),
         };
 
         let res = MaximaLibResponse::FriendInfoResponse(InteractThreadFriendListResponse {
