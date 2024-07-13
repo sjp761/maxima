@@ -6,8 +6,6 @@ use anyhow::{Context, Result};
 use derive_getters::Getters;
 use serde::Deserialize;
 
-use crate::unix::wine::{invalidate_mx_wine_registry, run_wine_command};
-
 pub const DIP_RELATIVE_PATH: &str = "__Installer/installerdata.xml";
 
 macro_rules! dip_type {
@@ -115,7 +113,27 @@ impl DiPManifest {
         launcher.map(|l| l.file_path.clone())
     }
 
+    #[cfg(unix)]
     pub async fn run_touchup(&self, install_path: PathBuf) -> Result<()> {
+        use crate::unix::wine::{invalidate_mx_wine_registry, run_wine_command};
+
+        let args = self.collect_touchup_args(&install_path);
+        let path = install_path.join(&self.touchup.path());
+        run_wine_command("wine64", path, Some(args), None, true)?;
+
+        invalidate_mx_wine_registry().await;
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    pub async fn run_touchup(&self, install_path: PathBuf) -> Result<()> {
+        let args = self.collect_touchup_args(&install_path);
+        let path = install_path.join(&self.touchup.path());
+        // TODO
+        Ok(())
+    }
+
+    fn collect_touchup_args(&self, install_path: &PathBuf) -> Vec<PathBuf> {
         let mut args = Vec::new();
         for arg in self.touchup.parameters.split(" ") {
             let arg = arg.replace("{locale}", "en_US").replace(
@@ -128,11 +146,6 @@ impl DiPManifest {
 
             args.push(PathBuf::from(arg));
         }
-
-        let path = install_path.join(&self.touchup.path());
-        run_wine_command("wine64", path, Some(args), None, true)?;
-
-        invalidate_mx_wine_registry().await;
-        Ok(())
+        args
     }
 }

@@ -68,7 +68,7 @@ pub fn check_registry_validity() -> Result<()> {
 }
 
 #[cfg(windows)]
-fn read_reg_key(path: &str) -> Option<String> {
+async fn read_reg_key(path: &str) -> Option<String> {
     if let (Some(hkey_segment), Some(value_segment)) = (path.find('\\'), path.rfind('\\')) {
         let sub_key = &path[(hkey_segment + 1)..value_segment];
         let value_name = &path[(value_segment + 1)..];
