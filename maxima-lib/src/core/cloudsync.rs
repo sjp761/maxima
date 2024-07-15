@@ -455,7 +455,7 @@ impl CloudSyncClient {
         let id = format!(
             "{}_{}",
             offer.offer().primary_master_title_id(),
-            offer.offer().multiplayer_id()
+            offer.offer().multiplayer_id().as_ref().unwrap()
         );
 
         let mut allowed_files = Vec::new();
