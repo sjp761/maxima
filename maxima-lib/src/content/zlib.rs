@@ -73,12 +73,29 @@ pub struct ZInflateState {
     pub was: c_uint,
 }
 
+#[cfg(not(windows))]
+macro_rules! if_win {
+    ($_zng:tt, $not_zng:tt) => {
+        $not_zng
+    };
+}
+
+#[cfg(windows)]
+macro_rules! if_win {
+    ($zng:tt, $_not_zng:tt) => {
+        $zng
+    };
+}
+
+type ZSize = if_win!(usize, c_ulong);
+type ZChecksum = if_win!(u32, c_ulong);
+
 pub(crate) fn write_zlib_state(buf: &mut BytesMut, stream: &mut mz_stream) {
     buf.put_u32(Z_MAGIC);
 
     buf.put_u64(stream.total_in as u64);
     buf.put_u64(stream.total_out as u64);
-    buf.put_i32(stream.data_type as i32);
+    buf.put_i32(stream.data_type);
     buf.put_u64(stream.adler as u64);
 
     let state = stream.state as *mut ZInflateState;
@@ -112,17 +129,14 @@ pub(crate) fn write_zlib_state(buf: &mut BytesMut, stream: &mut mz_stream) {
 
     if lencode_index > Z_ENOUGH.try_into().unwrap() {
         lencode_index = 0;
-        //panic!("Can't serialize this zlib state, lencode too high! (Lencode: [{} {:?} {:?}], Distcode: {}, Nextcode: {})", lencode_index, state_ref.lencode, state_ref.codes.as_ptr(), distcode_index, next_index);
     }
 
     if distcode_index > Z_ENOUGH.try_into().unwrap() {
         distcode_index = 0;
-        //panic!("Can't serialize this zlib state, lencode too high! (Lencode: [{} {:?} {:?}], Distcode: {}, Nextcode: {})", lencode_index, state_ref.lencode, state_ref.codes.as_ptr(), distcode_index, next_index);
     }
 
     if next_index > Z_ENOUGH.try_into().unwrap() {
         next_index = 0;
-        //panic!("Can't serialize this zlib state, lencode too high! (Lencode: [{} {:?} {:?}], Distcode: {}, Nextcode: {})", lencode_index, state_ref.lencode, state_ref.codes.as_ptr(), distcode_index, next_index);
     }
 
     buf.put_u32(lencode_index as u32);
@@ -139,10 +153,10 @@ pub(crate) fn restore_zlib_state(buf: &mut Bytes, stream: &mut mz_stream) {
         return;
     }
 
-    stream.total_in = buf.get_u64();
-    stream.total_out = buf.get_u64();
+    stream.total_in = buf.get_u64() as ZSize;
+    stream.total_out = buf.get_u64() as ZSize;
     stream.data_type = buf.get_i32();
-    stream.adler = buf.get_u64();
+    stream.adler = buf.get_u64() as ZChecksum;
 
     let state = stream.state as *mut ZInflateState;
     let state_ref = unsafe { &mut *state };

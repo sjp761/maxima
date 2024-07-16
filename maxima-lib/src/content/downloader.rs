@@ -105,14 +105,14 @@ impl DownloadDecoder for ZLibDeflateDecoder {
         let mut decoder = self.decoder.lock().unwrap();
         let decompress = &mut decoder.inner_mut().decoder_mut().inner.decompress;
         let zstream = decompress.get_raw();
-        zstream.total_in
+        zstream.total_in as u64
     }
 
     fn write_out_pos(&self) -> u64 {
         let mut decoder = self.decoder.lock().unwrap();
         let decompress = &mut decoder.inner_mut().decoder_mut().inner.decompress;
         let zstream = decompress.get_raw();
-        zstream.total_out
+        zstream.total_out as u64
     }
 
     fn get_mut(&mut self) -> Arc<Mutex<dyn AsyncWriteWrapper>> {

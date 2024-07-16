@@ -119,7 +119,7 @@ impl DiPManifest {
 
         let args = self.collect_touchup_args(&install_path);
         let path = install_path.join(&self.touchup.path());
-        run_wine_command("wine", path, Some(args), None, true)?;
+        run_wine_command("wine64", path, Some(args), None, true)?;
 
         invalidate_mx_wine_registry().await;
         Ok(())

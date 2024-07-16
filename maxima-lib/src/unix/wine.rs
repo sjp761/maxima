@@ -243,7 +243,7 @@ pub(crate) async fn install_wine() -> Result<()> {
     versions.wine = release.tag_name;
     set_versions(versions)?;
 
-    run_wine_command("wine", "wineboot", Some(vec![" --init"]), None, false)?;
+    run_wine_command("wine64", "wineboot", Some(vec![" --init"]), None, false)?;
 
     Ok(())
 }
@@ -413,7 +413,7 @@ where
 
 pub fn setup_wine_registry() -> Result<()> {
     run_wine_command(
-        "wine",
+        "wine64",
         "reg",
         Some(vec![
             "add",
@@ -429,7 +429,7 @@ pub fn setup_wine_registry() -> Result<()> {
         false,
     )?;
     run_wine_command(
-        "wine",
+        "wine64",
         "reg",
         Some(vec![
             "add",
