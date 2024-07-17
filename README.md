@@ -38,11 +38,12 @@ Maxima itself is a library (`maxima-lib`), with povided CLI (`maxima-cli`), TUI 
    - Some games are able to start without being fully installed, and some games contain language-specific files.
  - Support for the store (buying games)
  - Friend Adding/Removing
+ - Status setting; locked to "online" at the moment
  
 **Unsupported:**
  - Battlefield 3/4 are currently unsupported due to how battlelog does game launching. This is on our radar, but isn't a huge priority at the moment.
    - Please file an issue if you find more games that don't work
- - Old games like Dead Space 2 and BFBC2 are unsupported due to being pre-"Download-In-Place" era games. They have a different manifest format that we need to make a parser for
+ - Old games like Dead Space 2 and BFBC2 are unsupported due to being pre-"Download-In-Place" era games. They have a different manifest format which we need to make a parser for.
 
 # CLI Usage
 `maxima-cli` standalone will launch an interactive CLI mode to install and launch games.
