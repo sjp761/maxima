@@ -75,6 +75,8 @@ struct Args {
     profile: bool,
     #[arg(short, long)]
     no_login: bool,
+    #[arg(short, long)]
+    allow_bf3: bool,
 }
 
 #[tokio::main]
@@ -275,6 +277,8 @@ impl InstallModalState {
 }
 
 pub struct MaximaEguiApp {
+    /// extra not-already-handled commandline args
+    args: Args,
     /// general toggle for showing debug info
     debug: bool,
     /// stuff for the bar on the top of the Games view
@@ -454,6 +458,7 @@ impl MaximaEguiApp {
             Rc::new(RetainedImage::from_image_bytes("Timothy Dean Sweeney", include_bytes!("../res/usericon_tmp.png")).expect("yeah"));
 
         Self {
+            args,
             debug: args.debug,
             game_view_bar: GameViewBar {
                 genre_filter: GameViewBarGenre::AllGames,
@@ -1002,7 +1007,7 @@ impl eframe::App for MaximaEguiApp {
 
                                         ui.separator();
 
-                                        if slug.eq("battlefield-3") || slug.eq("battlefield-4") {
+                                        if !self.args.allow_bf3 && (slug.eq("battlefield-3") || slug.eq("battlefield-4")) {
                                             ui.heading("Battlefield 3 and 4 are currently unsupported due to how battlelog complicates game launching. This is on our radar, but isn't a huge priority at the moment.");
                                             break 'outer;
                                         }
