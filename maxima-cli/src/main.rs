@@ -761,6 +761,12 @@ async fn start_game(
 
         if login.is_none() {
             maxima.rtm().login().await?;
+
+            let friends = maxima.friends(0).await?;
+            let players: Vec<String> = friends.iter().map(|f| f.id().to_owned()).collect();
+            info!("Subscribed to {} players", players.len());
+
+            maxima.rtm().subscribe(&players).await?;
         }
     }
 

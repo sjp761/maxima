@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 
@@ -147,4 +147,14 @@ pub fn maxima_dir() -> Result<PathBuf> {
     let path = PathBuf::from(format!("{}/maxima", home));
     create_dir_all(&path)?;
     Ok(path)
+}
+
+#[cfg(unix)]
+pub fn platform_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(format!("Z:{}", path.as_ref().to_str().unwrap()))
+}
+
+#[cfg(windows)]
+pub fn platform_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(path.as_ref())
 }

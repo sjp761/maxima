@@ -32,12 +32,12 @@ Maxima itself is a library (`maxima-lib`), with povided CLI (`maxima-cli`), TUI 
 **Planned:**
  - Library documentation/examples
  - Support for installing DLCs
- - Full EA Desktop interopability. Games installed with EA Desktop already appear on Maxima, but to take it a step further we'd like the ability to, for example, start a download on EA Desktop and continuing it on Maxima.
+ - Full EA Desktop interopability. Games installed with EA Desktop already appear on Maxima, but to take it a step further we'd like the ability to, for example, start a download on EA Desktop and continue it on Maxima.
  - Cleaner/Stabler downloader implementation
  - Progressive/Selective installs
    - Some games are able to start without being fully installed, and some games contain language-specific files.
  - Support for the store (buying games)
- - Friend Adding/Removing
+ - Friend Adding/Removing/Inviting
  - Status setting; locked to "online" at the moment
  
 **Unsupported:**

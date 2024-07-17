@@ -338,12 +338,8 @@ impl Maxima {
             return Ok(());
         }
 
-        let response = ureq::get(&image.path()).call()?;
-        let mut body: Vec<u8> = vec![];
-        response
-            .into_reader()
-            .take((1024 + 1) as u64)
-            .read_to_end(&mut body)?;
+        let response = reqwest::get(image.path()).await?;
+        let body: Vec<u8> = response.bytes().await?.to_vec();
 
         let mut file = File::create(path)?;
         io::copy(&mut body.as_slice(), &mut file)?;

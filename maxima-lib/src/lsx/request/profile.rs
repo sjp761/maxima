@@ -12,7 +12,8 @@ use crate::{
         },
     },
     make_lsx_handler_response,
-    rtm::client::BasicPresence,
+    rtm::client::{BasicPresence, RichPresenceBuilder},
+    util::native::platform_path,
 };
 
 pub async fn handle_profile_request(
@@ -23,11 +24,11 @@ pub async fn handle_profile_request(
     let maxima = arc.lock().await;
 
     let user = maxima.local_user().await?;
-    let path = maxima.avatar_image(&user.id(), 208, 208).await?;
+    let path = platform_path(maxima.avatar_image(&user.id(), 208, 208).await?);
 
     let player = user.player().as_ref().unwrap();
     let name = player.unique_name();
-    debug!("Got profile for {}", &name);
+    debug!("Got profile for {} {:?}", &name, path);
 
     make_lsx_handler_response!(Response, GetProfileResponse, {
        attr_Persona: name.to_owned(),
@@ -105,18 +106,35 @@ pub async fn handle_set_presence_request(
 }
 
 pub async fn handle_query_presence_request(
-    _: LockedConnectionState,
+    state: LockedConnectionState,
     request: LSXQueryPresence,
 ) -> Result<Option<LSXResponseType>> {
     let mut friends = Vec::new();
 
+    let mut state = state.write().await;
+    let mut maxima = state.maxima().await;
+    let presence_store = maxima.rtm().presence_store().lock().await;
+
     for user in request.Users {
+        let presence = presence_store.get(&user.to_string());
+        if presence.is_none() {
+            continue;
+        }
+
+        let presence = presence.unwrap();
+
+        let game = if let Some(game) = presence.game() {
+            game.to_owned()
+        } else {
+            String::new()
+        };
+
         friends.push(LSXFriend {
             attr_TitleId: "".to_string(),
             attr_MultiplayerId: "".to_string(),
             attr_Persona: "------".to_string(),
-            attr_RichPresence: "".to_string(),
-            attr_GamePresence: "".to_string(),
+            attr_RichPresence: presence.status().to_string(),
+            attr_GamePresence: game,
             attr_Title: "".to_string(),
             attr_UserId: user,
             attr_PersonaId: "0".to_string(),
@@ -132,12 +150,66 @@ pub async fn handle_query_presence_request(
 }
 
 pub async fn handle_query_friends_request(
-    _: LockedConnectionState,
+    state: LockedConnectionState,
     _: LSXQueryFriends,
 ) -> Result<Option<LSXResponseType>> {
-    let friends = Vec::new();
-    // TODO Populate friends with API
-    make_lsx_handler_response!(Response, QueryFriendsResponse, { friend: friends })
+    let mut state = state.write().await;
+    let mut maxima = state.maxima().await;
+
+    let friends = maxima.friends(0).await?;
+    let presence_store = maxima.rtm().presence_store().lock().await;
+
+    let mut lsx_friends = Vec::new();
+    for ele in friends {
+        let mut presence = presence_store.get(ele.id());
+        if presence.is_none() {
+            presence = Some(
+                RichPresenceBuilder::default()
+                    .basic(BasicPresence::Offline)
+                    .status(String::new())
+                    .game(None)
+                    .build()?,
+            );
+        }
+
+        let presence = presence.unwrap();
+
+        let mut lsx_presence = match presence.basic() {
+            BasicPresence::Unknown => LSXPresence::Unknown,
+            BasicPresence::Offline => LSXPresence::Offline,
+            BasicPresence::Dnd => LSXPresence::Busy,
+            BasicPresence::Away => LSXPresence::Idle,
+            BasicPresence::Online => LSXPresence::Online,
+        };
+
+        let game = if let Some(game) = presence.game() {
+            game.to_owned()
+        } else {
+            String::new()
+        };
+
+        if !game.is_empty() {
+            lsx_presence = LSXPresence::Ingame;
+        }
+
+        lsx_friends.push(LSXFriend {
+            attr_TitleId: "".to_string(),
+            attr_MultiplayerId: "".to_string(),
+            attr_Persona: ele.unique_name().to_string(),
+            attr_RichPresence: presence.status().to_string(),
+            attr_GamePresence: game,
+            attr_Title: "".to_string(),
+            attr_UserId: ele.id().parse()?,
+            attr_PersonaId: ele.pd().parse()?,
+            attr_AvatarId: "".to_string(),
+            attr_Group: "".to_string(),
+            attr_GroupId: "".to_string(),
+            attr_Presence: lsx_presence,
+            attr_State: LSXFriendState::None,
+        });
+    }
+
+    make_lsx_handler_response!(Response, QueryFriendsResponse, { friend: lsx_friends })
 }
 
 pub async fn handle_query_image_request(

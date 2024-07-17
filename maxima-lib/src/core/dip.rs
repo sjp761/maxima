@@ -6,6 +6,8 @@ use anyhow::{bail, Context, Result};
 use derive_getters::Getters;
 use serde::Deserialize;
 
+use crate::util::native::platform_path;
+
 pub const DIP_RELATIVE_PATH: &str = "__Installer/installerdata.xml";
 
 macro_rules! dip_type {
@@ -150,7 +152,10 @@ impl DiPManifest {
 
     #[cfg(unix)]
     pub async fn run_touchup(&self, install_path: &PathBuf) -> Result<()> {
-        use crate::{core::launch::mx_linux_setup, unix::wine::{invalidate_mx_wine_registry, run_wine_command}};
+        use crate::{
+            core::launch::mx_linux_setup,
+            unix::wine::{invalidate_mx_wine_registry, run_wine_command},
+        };
 
         mx_linux_setup().await?;
 
@@ -176,10 +181,11 @@ impl DiPManifest {
         for arg in self.touchup.parameters.split(" ") {
             let arg = arg.replace("{locale}", "en_US").replace(
                 "\"{installLocation}\"",
-                &format!(
-                    "Z:{}",
-                    remove_trailing_backslash(install_path.to_str().unwrap()).replace("/", "\\")
-                ),
+                platform_path(
+                    remove_trailing_backslash(install_path.to_str().unwrap()).replace("/", "\\"),
+                )
+                .to_str()
+                .unwrap(),
             );
 
             args.push(PathBuf::from(arg));
