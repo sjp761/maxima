@@ -134,8 +134,7 @@ impl DiPManifest {
     pub async fn read(path: &PathBuf) -> Result<Self> {
         let bytes = tokio::fs::read(path)
             .await
-            .context("Failed to read DiP manifest file")
-            .unwrap();
+            .context("Failed to read DiP manifest file")?;
         let string = bytes_to_string(bytes);
         if string.is_none() {
             bail!("Failed to decode DiPManifest file. Weird encoding?");
