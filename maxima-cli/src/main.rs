@@ -366,19 +366,23 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
 async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
     let mut maxima = maxima_arc.lock().await;
 
-    let content_service = ContentService::new(maxima.auth_storage().clone());
+    let offer_id = {
+        let owned_games = maxima.mut_library().games().await;
+        let owned_games_strs = owned_games
+            .iter()
+            .map(|g| g.name())
+            .collect::<Vec<String>>();
 
-    let owned_games = maxima.mut_library().games().await;
-    let owned_games_strs = owned_games
-        .iter()
-        .map(|g| g.name())
-        .collect::<Vec<String>>();
+        let name =
+            Select::new("What game would you like to install?", owned_games_strs).prompt()?;
+        let game = owned_games.iter().find(|g| g.name() == name).unwrap();
+        game.base_offer().offer_id().to_owned()
+    };
 
-    let name = Select::new("What game would you like to install?", owned_games_strs).prompt()?;
-    let game = owned_games.iter().find(|g| g.name() == name).unwrap();
-
-    let builds = content_service
-        .available_builds(&game.base_offer().offer_id())
+    let builds = maxima
+        .content_manager()
+        .service()
+        .available_builds(&offer_id)
         .await?;
     let build = builds.live_build();
     if build.is_none() {
@@ -398,16 +402,16 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
     }
 
     let game = QueuedGameBuilder::default()
-        .offer_id(game.base_offer().offer_id().to_owned())
+        .offer_id(offer_id)
         .build_id(build.build_id().to_owned())
         .path(path.clone())
         .build()?;
 
     let start_time = Instant::now();
     maxima.content_manager().install_now(game).await?;
-    
+
     drop(maxima);
-    
+
     loop {
         let mut maxima = maxima_arc.lock().await;
 

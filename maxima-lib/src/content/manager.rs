@@ -38,7 +38,7 @@ pub struct QueuedGame {
     path: PathBuf,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Getters, Serialize, Deserialize)]
 pub struct DownloadQueue {
     current: Option<QueuedGame>,
     paused: bool,
