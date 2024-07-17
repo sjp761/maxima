@@ -307,7 +307,7 @@ impl BridgeThread {
                         ctx.request_repaint();
                     }
                     #[cfg(not(unix))] {
-                        backend_responder.send(MaximaLibResponse::LocateGameResponse(InteractThreadLocateGameResponse::NotSupported));
+                        backend_responder.send(MaximaLibResponse::LocateGameResponse(InteractThreadLocateGameResponse::Error(anyhow::Error::msg("Windows not supported"))));
                     }
                 }
                 MaximaLibRequest::InstallGameRequest(offer, path) => {
