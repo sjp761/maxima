@@ -1,7 +1,7 @@
 use log::{debug, error, info, warn};
 
 use crate::{
-    bridge_thread, views::{downloads_view::QueuedDownload, friends_view::UIFriendImageWrapper}, GameDetails, GameDetailsWrapper, GameUIImages, GameUIImagesWrapper, MaximaEguiApp
+    bridge_thread, views::{downloads_view::QueuedDownload, friends_view::UIFriendImageWrapper}, BackendStallState, GameDetails, GameDetailsWrapper, GameUIImages, GameUIImagesWrapper, MaximaEguiApp
 };
 
 pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
@@ -10,18 +10,16 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
     while let Ok(result) = app.backend.backend_listener.try_recv() {
         match result {
             bridge_thread::MaximaLibResponse::LoginResponse(res) => {
-                info!("Got something");
                 if let Err(error) = &res {
                     warn!("Login failed. {}", error);
                     continue;
                 }
                 let res = res.unwrap();
 
-                app.logged_in = true;
                 info!("Logged in as {}!", &res.you.display_name());
                 app.user_name = res.you.display_name().clone();
                 app.user_id = res.you.id().clone();
-                app.login_cache_waiting = false;
+                app.backend_state = BackendStallState::BingChilling;
                 app.backend
                     .backend_commander
                     .send(bridge_thread::MaximaLibRequest::GetGamesRequest)
@@ -32,7 +30,13 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                     .unwrap();
             }
             bridge_thread::MaximaLibResponse::LoginCacheEmpty => {
-                app.login_cache_waiting = false;
+                app.backend_state = BackendStallState::UserNeedsToLogIn;
+            }
+            bridge_thread::MaximaLibResponse::ServiceNeedsStarting => {
+                app.backend_state = BackendStallState::UserNeedsToInstallService;
+            }
+            bridge_thread::MaximaLibResponse::ServiceStarted => {
+                app.backend_state = BackendStallState::Starting
             }
             bridge_thread::MaximaLibResponse::GameInfoResponse(res) => {
                 app.games.insert(res.game.slug.clone(), res.game);

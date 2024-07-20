@@ -9,11 +9,22 @@ use sys_locale;
 #[derive(Deserialize)]
 pub struct LocalizedStrings {
     pub errors: LocalizedGenericErrors,
+    pub startup_flow: LocalizedStartupFlow,
     pub menubar: LocalizedMenubar,
-    pub login: LocalizedLoginView,
     pub profile_menu: LocalizedProfileMenu,
     pub games_view: LocalizedGamesView,
     pub friends_view: LocalizedFriendsView,
+}
+
+#[derive(Deserialize)]
+pub struct LocalizedStartupFlow {
+    pub starting: String,
+    pub logging_in: String,
+    pub login_header: String,
+    pub login_button: String,
+    pub service_installer_header: String,
+    pub service_installer_description: String,
+    pub service_installer_button: String
 }
 
 #[derive(Deserialize)]
@@ -43,16 +54,6 @@ pub struct LocalizedGamesView {
     pub toolbar: LocalizedGamesViewToolbar,
     pub main: LocalizedGamesViewMain,
     pub details: LocalizedGamesViewDetails,
-}
-
-#[derive(Deserialize)]
-pub struct LocalizedLoginView {
-    pub oauth_option: String,
-    pub credentials_option: String,
-    pub username_box_hint: String,
-    pub password_box_hint: String,
-    pub credential_confirm: String,
-    pub credential_waiting: String,
 }
 
 #[derive(Deserialize)]

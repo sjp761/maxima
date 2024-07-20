@@ -4,20 +4,21 @@
         "view_coming_soon": "Coming Soon™!",
         "critical_thread_crashed" : "A critical background thread has crashed, and the application cannot continue functioning."
     },
+    "startup_flow": {
+        "starting": "Starting...",
+        "logging_in": "Logging In...",
+        "login_header": "You're not logged in.",
+        "login_button": "Log in with EA",
+        "service_installer_header": "Service Setup Required",
+        "service_installer_description": "Maxima needs to install a Windows Service to do some background work. You'll be prompted for administrator rights.",
+        "service_installer_button": "Install Service"
+    },
     "menubar" : {
         "games" : "Games",
         "store" : "Store",
         "friends" : "Friends",
         "settings" : "Settings",
         "downloads" : "Downloads"
-    },
-    "login" : {
-        "oauth_option" : "OAuth (Browser)",
-        "credentials_option" : "Username/Password",
-        "username_box_hint" : "Username",
-        "password_box_hint" : "Password",
-        "credential_confirm" : "Sign In",
-        "credential_waiting" : "Signing in..."
     },
     "profile_menu" : {
         "view_profile" : "View Profile",

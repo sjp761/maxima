@@ -17,7 +17,7 @@ impl ImageLoader {
             return Self::load_from_fs("./res/placeholder.png"); // probably a really shitty idea but i don't want to embed the png, or make a system to return pointers to the texture, suffer.
         }
 
-        let img_decoded = img?.decode();
+        let img_decoded = img?.with_guessed_format();
         if img_decoded.is_err() {
             error!("Failed to decode \"{}\"! Trying as SVG...", path);
             // this is incredibly fucking stupid
@@ -34,7 +34,10 @@ impl ImageLoader {
             return Ok(yeah.unwrap());
         }
 
-        let img_decoded = img_decoded?;
+        let img_decoded = img_decoded?.decode();
+        if img_decoded.is_err() {
+            error!("Failed to decode \"{}\" actually frfr this time", path);
+        } let img_decoded = img_decoded?;
 
         match img_decoded.color().channel_count() {
             2 => {

@@ -1,7 +1,8 @@
 #![feature(slice_pattern)]
+use anyhow::bail;
 use clap::{arg, command, Parser};
 
-use egui::{pos2, Layout, ViewportBuilder, Widget};
+use egui::{pos2, Align2, FontId, IconData, Layout, ViewportBuilder, Widget};
 use egui::style::{ScrollStyle, Spacing};
 use egui::Style;
 use log::{error, warn};
@@ -113,17 +114,8 @@ async fn main() {
     let native_options = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
         .with_inner_size([1280.0, 720.0])
-        .with_min_inner_size([940.0, 480.0]),
-        
-        /* icon_data: {
-            let res = IconData::try_from_png_bytes(include_bytes!("../../maxima-resources/assets/logo.png"));
-            if let Ok(icon) = res {
-                Some(icon)
-            } else {
-                None
-            }
-        },*/
-        //min_window_size: Some(vec2()),
+        .with_min_inner_size([940.0, 480.0])
+        .with_icon(eframe::icon_data::from_png_bytes(&include_bytes!("../../maxima-resources/assets/logo.png")[..]).unwrap()),
         ..Default::default()
     };
     eframe::run_native(
@@ -136,13 +128,7 @@ async fn main() {
             if args.no_login {
                 return Ok(Box::new(app));
             }
-            if let Err(err) = check_registry_validity() {
-                warn!("{}, fixing...", err);
-                // this is if let in case set_up_registry ever returns something useful, instead of bailing
-                if let Err(_er) = set_up_registry() {
-                    error!("Registry setup failed!");
-                }
-            }
+
             Ok(Box::new(app))
         }),
     )
@@ -256,6 +242,15 @@ pub struct GameInfo {
     has_cloud_saves: bool,
 }
 
+#[derive(PartialEq, Eq)]
+pub enum BackendStallState {
+    Starting,
+    UserNeedsToInstallService,
+    UserNeedsToLogIn,
+    LoggingIn,
+    BingChilling
+}
+
 pub struct InstallModalState {
     locate_path: String,
     install_folder: String,
@@ -319,12 +314,8 @@ pub struct MaximaEguiApp {
     critical_bg_thread_crashed: bool, 
     /// pepega
     backend: BridgeThread,
-    /// temp book to track login status
-    logged_in: bool, 
-    /// waiting for the bridge to check auth storage
-    login_cache_waiting: bool, 
-    /// if the login flow is in progress
-    in_progress_login: bool,
+    /// what the backend doin?
+    backend_state: BackendStallState,
     /// what type of login we're using
     /// Slug of the game currently running, may not be fully accurate but it's good enough to let the user know the button was clicked
     playing_game: Option<String>,
@@ -486,9 +477,7 @@ impl MaximaEguiApp {
                 .expect("Could not load translation file"),
             critical_bg_thread_crashed: false,
             backend: BridgeThread::new(&cc.egui_ctx), //please don't fucking break
-            logged_in: args.no_login, // largely deprecated but i'm going to keep it here
-            login_cache_waiting: true,
-            in_progress_login: false,
+            backend_state: BackendStallState::Starting,
             playing_game: None,
             installing_now: None,
             install_queue: HashMap::new(),
@@ -638,7 +627,7 @@ impl eframe::App for MaximaEguiApp {
                 let mut fullrect = ui.available_rect_before_wrap().clone();
                 fullrect.min -= APP_MARGIN;
                 fullrect.max += APP_MARGIN;
-                let has_game_img = self.logged_in && self.games.len() > 0;
+                let has_game_img = self.backend_state == BackendStallState::BingChilling && self.games.len() > 0;
                 let gaming = self.page_view == PageType::Games && has_game_img;
                 let how_game: f32 = ctx.animate_bool(egui::Id::new("MainAppBackgroundGamePageFadeBool"), gaming);
                 if has_game_img
@@ -660,81 +649,78 @@ impl eframe::App for MaximaEguiApp {
                     render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), 0.0);
                 }
             }
-            if self.login_cache_waiting {
-                ui.with_layout(
-                    egui::Layout::centered_and_justified(egui::Direction::RightToLeft),
-                    |ui| {
-                        ui.heading("hey, hi, hold on a bit");
-                    },
-                );
-            } else {
-                let app_rect = ui.available_rect_before_wrap().clone();
-                if !self.logged_in {
-                    if self.in_progress_login {
+            if self.critical_bg_thread_crashed {
+                let mut warning_margin = Margin::same(0.0 - APP_MARGIN.x);
+                warning_margin.bottom = APP_MARGIN.y;
+                egui::Frame::default()
+                    .fill(Color32::RED)
+                    .outer_margin(warning_margin)
+                    .show(ui, |ui| {
                         ui.vertical_centered(|ui| {
-                            ui.add_sized([400.0, 400.0], egui::Spinner::new().size(400.0));
-                            ui.heading("Logging in...");
+                            ui.heading(
+                                egui::RichText::new(
+                                    &self
+                                        .locale
+                                        .localization
+                                        .errors
+                                        .critical_thread_crashed,
+                                )
+                                .color(Color32::BLACK)
+                                .size(16.0),
+                            );
                         });
-                    } else {
-                        ui.allocate_exact_size(
-                            vec2(0.0, (ui.available_size_before_wrap().y / 2.0) - 120.0),
-                            egui::Sense::click(),
-                        );
-                        ui.vertical_centered_justified(|ui| {
-                            ui.heading("You're not logged in.");
-                            ui.horizontal(|ui| {
-                                ui.allocate_exact_size(
-                                    vec2(
-                                        (ui.available_width()
-                                            - (160.0 + ui.style().spacing.item_spacing.x))
-                                            / 2.0,
-                                        0.0,
-                                    ),
-                                    egui::Sense::click(),
-                                );
-
-                                if ui
-                                    .add_sized(
-                                        [160.0, 60.0],
-                                        egui::Button::new(
-                                            &self.locale.localization.login.oauth_option,
-                                        ),
-                                    )
-                                    .clicked()
-                                {
-                                    self.in_progress_login = true;
-                                    self.backend
-                                        .backend_commander
-                                        .send(bridge_thread::MaximaLibRequest::LoginRequestOauth)
-                                        .unwrap();
-                                }
-                            })
-                        });
+                    });
+            }
+            let app_rect = ui.available_rect_before_wrap().clone();
+            match self.backend_state {
+                BackendStallState::Starting => {
+                    ui.painter().text(
+                        app_rect.center(),
+                        Align2::CENTER_CENTER, &self.locale.localization.startup_flow.starting,
+                        FontId::proportional(30.0), Color32::WHITE
+                    );
+                    ui.put(app_rect, egui::Spinner::new().size(300.0));
+                },
+                BackendStallState::UserNeedsToInstallService => {
+                    let main_block_rect = ui.painter().text(app_rect.center(), Align2::CENTER_BOTTOM,
+                    &self.locale.localization.startup_flow.service_installer_description, egui::FontId::proportional(20.0), Color32::GRAY);
+                    ui.painter().text(main_block_rect.center_top() - vec2(0.0, 4.0), Align2::CENTER_BOTTOM,
+                    &self.locale.localization.startup_flow.service_installer_header, egui::FontId::proportional(30.0), Color32::WHITE);
+                    let button_rect = Rect {
+                        min: main_block_rect.center_bottom() + vec2(-60.0,  4.0),
+                        max: main_block_rect.center_bottom() + vec2( 60.0, 34.0)
+                    };
+                    if ui.put(button_rect, egui::Button::new(&self.locale.localization.startup_flow.service_installer_button.to_ascii_uppercase())).clicked() {
+                        self.backend.backend_commander
+                                .send(bridge_thread::MaximaLibRequest::StartService)
+                                .unwrap();
+                        self.backend_state = BackendStallState::Starting;
                     }
-                } else {
+                },
+                BackendStallState::UserNeedsToLogIn => {
+                    let main_block_rect = ui.painter().text(app_rect.center(), Align2::CENTER_BOTTOM,
+                    &self.locale.localization.startup_flow.login_header, egui::FontId::proportional(30.0), Color32::WHITE);
+                    let button_rect = Rect {
+                        min: main_block_rect.center_bottom() + vec2(-60.0,  4.0),
+                        max: main_block_rect.center_bottom() + vec2( 60.0, 34.0)
+                    };
+                    if ui.put(button_rect, egui::Button::new(&self.locale.localization.startup_flow.login_button.to_ascii_uppercase())).clicked() {
+                        self.backend.backend_commander
+                        .send(bridge_thread::MaximaLibRequest::LoginRequestOauth)
+                        .unwrap();
+                        self.backend_state = BackendStallState::LoggingIn;
+                    }
+                },
+                BackendStallState::LoggingIn => {
+                    ui.painter().text(
+                        app_rect.center(),
+                        Align2::CENTER_CENTER, &self.locale.localization.startup_flow.logging_in,
+                        FontId::proportional(30.0), Color32::WHITE
+                    );
+                    ui.put(app_rect, egui::Spinner::new().size(300.0));
+                },
+                BackendStallState::BingChilling => {
                     let outside_spacing = ui.spacing().item_spacing.x.clone();
-                    if self.critical_bg_thread_crashed {
-                        let mut warning_margin = Margin::same(0.0 - APP_MARGIN.x);
-                        warning_margin.bottom = APP_MARGIN.y;
-                        egui::Frame::default()
-                            .fill(Color32::RED)
-                            .outer_margin(warning_margin)
-                            .show(ui, |ui| {
-                                ui.vertical_centered(|ui| {
-                                    ui.heading(
-                                        egui::RichText::new(
-                                            &self
-                                                .locale
-                                                .localization
-                                                .errors
-                                                .critical_thread_crashed,
-                                        )
-                                        .color(Color32::BLACK)
-                                        .size(16.0),
-                                    );
-                                });
-                            });
-                    }
                     ui.add_enabled_ui(self.modal.is_none(), |non_modal| {
                         non_modal.spacing_mut().item_spacing.y = outside_spacing;
                         StripBuilder::new(non_modal)
@@ -831,11 +817,16 @@ impl eframe::App for MaximaEguiApp {
                                                 });
                                                 rtl.painter().rect(img_response.rect.expand(1.0), Rounding::same(4.0), Color32::TRANSPARENT, stroke);
                                                 
-                                                rtl.label(
-                                                    egui::RichText::new(self.user_name.clone())
-                                                    .size(15.0)
-                                                    .color(Color32::WHITE),
-                                                );
+                                                if let Some(game_slug) = &self.playing_game {
+                                                    if let Some(game) = &self.games.get(game_slug) {
+                                                        let point = img_response.rect.left_center() + vec2(-rtl.spacing().item_spacing.x, 2.0);
+                                                        let offset = vec2(0.0, 0.5);
+                                                        rtl.painter().text(point-offset, Align2::RIGHT_BOTTOM, &self.user_name, FontId::proportional(15.0), Color32::WHITE);
+                                                        rtl.painter().text(point+offset, Align2::RIGHT_TOP, format!("{} {}", &self.locale.localization.friends_view.status.playing, &game.name), FontId::proportional(10.0), Color32::WHITE);
+                                                    }
+                                                } else {
+                                                    rtl.label(egui::RichText::new(&self.user_name).size(15.0).color(Color32::WHITE));
+                                                }
                                             },
                                         );
                                     });
@@ -884,6 +875,7 @@ impl eframe::App for MaximaEguiApp {
                             .stroke(Stroke::new(4.0, Color32::WHITE))
                             .show(contents, |ui| {
                                 ui.style_mut().spacing.interact_size = vec2(100.0, 30.0);
+                                ui.spacing_mut().icon_width = 30.0;
                                 match modal {
                                     PopupModal::GameSettings(slug) => 'outer: {
                                         let game = if let Some(game) = self.games.get_mut(slug) { game } else { break 'outer; };
@@ -998,6 +990,9 @@ impl eframe::App for MaximaEguiApp {
                                         ui.add_enabled_ui(!self.installer_state.locating, |ui| {
                                             let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x*2.0), 30.0);
                                             ui.horizontal(|ui| {
+                                                ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::new(2.0, F9B233);
+                                                ui.style_mut().visuals.widgets.hovered.expansion = -2.0;
+                                                ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(2.0);
                                                 ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.install_folder).vertical_align(egui::Align::Center));
                                             });
                                             let path = PathBuf::from(self.installer_state.install_folder.clone());
@@ -1037,8 +1032,8 @@ impl eframe::App for MaximaEguiApp {
                     if clear {
                         self.modal = None;
                     }
-                }
-            }
+                },
+            };
         });
         puffin::GlobalProfiler::lock().new_frame();
     }

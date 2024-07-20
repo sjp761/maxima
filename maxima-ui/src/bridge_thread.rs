@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use egui::Context;
-use log::info;
+use log::{info, warn};
 
 use std::{
     panic, path::PathBuf, sync::{
@@ -9,8 +9,7 @@ use std::{
     }, time::{Duration, SystemTime}
 };
 
-use maxima::{content::manager::{ContentManager, QueuedGameBuilder}, core::{dip::{DiPManifest, DIP_RELATIVE_PATH}, service_layer::ServicePlayer, LockedMaxima, Maxima, MaximaOptionsBuilder}};
-
+use maxima::{content::manager::{ContentManager, QueuedGameBuilder}, core::{dip::{DiPManifest, DIP_RELATIVE_PATH}, service_layer::ServicePlayer, LockedMaxima, Maxima, MaximaOptionsBuilder}, util::registry::{check_registry_validity, set_up_registry}};
 use crate::{
     bridge::{
         game_details::game_details_request,
@@ -64,6 +63,7 @@ pub struct InteractThreadDownloadProgressResponse {
 }
 
 pub enum MaximaLibRequest {
+    StartService,
     LoginRequestOauth,
     GetGamesRequest,
     GetFriendsRequest,
@@ -79,6 +79,8 @@ pub enum MaximaLibRequest {
 pub enum MaximaLibResponse {
     LoginResponse(Result<InteractThreadLoginResponse, anyhow::Error>),
     LoginCacheEmpty,
+    ServiceNeedsStarting,
+    ServiceStarted,
     GameInfoResponse(InteractThreadGameListResponse),
     FriendInfoResponse(InteractThreadFriendListResponse),
     UserAvatarResponse(InteractThreadUserAvatarResponse),
@@ -93,7 +95,6 @@ pub enum MaximaLibResponse {
     DownloadFinished(String),
     DownloadQueueUpdate(Option<String>, Vec<String>)
 }
-
 pub struct BridgeThread {
     pub backend_listener: Receiver<MaximaLibResponse>,
     pub backend_commander: Sender<MaximaLibRequest>,
@@ -151,6 +152,58 @@ impl BridgeThread {
         rtm_responder: Sender<MaximaEventResponse>,
         ctx: &Context,
     ) -> Result<()> {
+        // first things first check registry
+        // the flow is different for windows/linux but windows needs an extra user prompt,
+        // so we're doing both here, instead of selectively cfg'd functions!
+        #[cfg(not(windows))] {
+            if let Err(err) = check_registry_validity() {
+                warn!("{}, fixing...", err);
+                set_up_registry()?;
+            }
+        } #[cfg(windows)] {
+            use maxima::{
+                core::background_service::request_registry_setup,
+                util::{
+                    registry::check_registry_validity,
+                    service::{register_service_user, is_service_running, is_service_valid, start_service}
+                }
+            };
+            if !is_elevated::is_elevated() {
+                if !is_service_valid()? {
+                    info!("Installing service...");
+                    backend_responder.send(MaximaLibResponse::ServiceNeedsStarting)?;
+                    'wait_for_user_to_authorize: loop {
+                        let request = backend_cmd_listener.try_recv();
+                        if request.is_err() {
+                            continue;
+                        }
+
+                        match request.unwrap() {
+                            MaximaLibRequest::StartService => {
+                                register_service_user()?;
+                                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                break 'wait_for_user_to_authorize;
+                            },
+                            MaximaLibRequest::ShutdownRequest => {
+                                return Ok(())
+                            }
+                            _ => {},
+                        }
+                    }
+                    
+                }
+
+                if !is_service_running()? {
+                    info!("Starting service...");
+                    start_service().await?;
+                }
+            }
+
+            if let Err(err) = check_registry_validity() {
+                warn!("{}, fixing...", err);
+                request_registry_setup().await?;
+            }
+        }
         let maxima_arc: LockedMaxima = Maxima::new_with_options(
             MaximaOptionsBuilder::default()
                 .dummy_local_user(false)
@@ -158,34 +211,59 @@ impl BridgeThread {
                 .build()?,
         ).await?;
 
-        {
+        
+        let logged_in =  {
             let maxima = maxima_arc.lock().await;
             if maxima.start_lsx(maxima_arc.clone()).await.is_ok() {
                 info!("LSX started");
             } else {
                 info!("LSX failed to start!");
             }
-
+        
             let mut auth_storage = maxima.auth_storage().lock().await;
-            let logged_in = auth_storage.logged_in().await?;
-            if logged_in {
-                drop(auth_storage);
+            auth_storage.logged_in().await?
+        };
+        
+        if !logged_in {
+            backend_responder.send(MaximaLibResponse::LoginCacheEmpty)?;
+            'outer: loop {
+                let request = backend_cmd_listener.try_recv();
+                if request.is_err() {
+                    continue;
+                }
 
-                let user = maxima.local_user().await?;
-                
+                match request.unwrap() {
+                    MaximaLibRequest::LoginRequestOauth => {
+                        let channel = backend_responder.clone();
+                        let maxima = maxima_arc.clone();
+                        let context = ctx.clone();
+                        async move { login_oauth(maxima, channel, &context).await }.await?;
+                        break 'outer;
+                    },
+                    MaximaLibRequest::ShutdownRequest => {
+                        return Ok(())
+                    }
+                    _ => {},
+                }
+            }
+        }
+
+        {
+            let maxima = maxima_arc.lock().await;
+            let user = maxima.local_user().await?;
+            
+            if logged_in {
                 let lmessage = MaximaLibResponse::LoginResponse(Ok(
                     InteractThreadLoginResponse {
                         you: user.player().as_ref().unwrap().to_owned()
                     }
                 ));
-                
-
                 backend_responder.send(lmessage)?;
-                get_user_avatar_request(backend_responder.clone(), user.id().to_string(), user.player().as_ref().unwrap().avatar().as_ref().unwrap().medium().path().to_string(), &ctx).await?;
-                ctx.request_repaint();
-            } else {
-                backend_responder.send(MaximaLibResponse::LoginCacheEmpty)?;
             }
+            
+
+            get_user_avatar_request(backend_responder.clone(), user.id().to_string(), user.player().as_ref().unwrap().avatar().as_ref().unwrap().medium().path().to_string(), &ctx).await?;
+            ctx.request_repaint();
         }
 
         let _ = EventThread::new(&ctx.clone(), maxima_arc.clone(), rtm_cmd_listener, rtm_responder);
@@ -241,12 +319,7 @@ impl BridgeThread {
             }
 
             match request? {
-                MaximaLibRequest::LoginRequestOauth => {
-                    let channel = backend_responder.clone();
-                    let maxima = maxima_arc.clone();
-                    let context = ctx.clone();
-                    async move { login_oauth(maxima, channel, &context).await }.await?;
-                }
+                MaximaLibRequest::LoginRequestOauth | MaximaLibRequest::StartService => { info!("bro tried to log in twice") }
                 MaximaLibRequest::GetGamesRequest => {
                     let channel = backend_responder.clone();
                     let maxima = maxima_arc.clone();
