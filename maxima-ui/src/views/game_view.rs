@@ -1,5 +1,7 @@
+use eframe::glow::OBJECT_TYPE;
 use egui::{pos2, vec2, Color32, Margin, Mesh, Pos2, Rect, RichText, Rounding, ScrollArea, Shape, Stroke, Ui};
 use log::debug;
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use crate::{bridge_thread, set_app_modal, widgets::enum_dropdown::enum_dropdown, GameDetails, GameDetailsWrapper, GameInfo, GameUIImages, GameUIImagesWrapper, InstallModalState, MaximaEguiApp, PageType, PopupModal};
 
 use strum_macros::EnumIter;
@@ -422,6 +424,7 @@ const DARK_GREY: Color32 = Color32::from_rgb(53, 53, 53);
 
 fn show_game_list_buttons(app : &mut MaximaEguiApp, ui : &mut Ui) {
   puffin::profile_function!();
+  let matcher = SkimMatcherV2::default();
   let icon_size = vec2(10. * app.game_view_bar.game_size,10. * app.game_view_bar.game_size);
     ui.style_mut().visuals.widgets.inactive.bg_fill = Color32::WHITE; //scroll bar
     //create a rect that takes up all the vertical space in the window, and prohibits anything from going beyond that without us knowing, so we can add a scroll bar
@@ -502,7 +505,7 @@ fn show_game_list_buttons(app : &mut MaximaEguiApp, ui : &mut Ui) {
         let /*ps3 has no*/games = app.games.iter();
         
         let mut games: Vec<(&String, &GameInfo)> = games.filter(|obj| 
-          obj.1.name.to_lowercase().contains(&app.game_view_bar.search_buffer.to_lowercase())
+          matcher.fuzzy_match(&obj.1.name, &app.game_view_bar.search_buffer).is_some()
         ).collect();
         games.sort_by(|(_, a_game),(_, b_game)| {
           a_game.name.cmp(&b_game.name)

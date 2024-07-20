@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use egui::{pos2, vec2, Align2, Color32, FontId, Id, Rect, Rounding, Stroke, Ui, Vec2};
 use maxima::rtm::client::BasicPresence;
 
@@ -68,6 +68,7 @@ const FRIEND_HIGHLIGHT_ROUNDING: Rounding = Rounding { nw: 6.0, ne: 4.0, sw: 6.0
 const ITEM_SPACING: Vec2 = vec2(5.0, 5.0);
 pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
   puffin::profile_function!();
+  let matcher = SkimMatcherV2::default();
   let max_width = ui.available_width(); // this gets expanded somehow, i don't know why, it's easier to do it this way
   ui.style_mut().spacing.item_spacing = ITEM_SPACING;
   let context = ui.ctx().clone();
@@ -143,9 +144,9 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
       
       let mut friends : Vec<&mut UIFriend> = app.friends.iter_mut().filter(|obj| 
         match app.friends_view_bar.status_filter {
-            FriendsViewBarStatusFilter::Name => obj.name.to_ascii_lowercase().contains(&app.friends_view_bar.search_buffer),
+            FriendsViewBarStatusFilter::Name => matcher.fuzzy_match(&obj.name, &app.friends_view_bar.search_buffer).is_some(),
             FriendsViewBarStatusFilter::Game => if let Some(game) = &obj.game {
-              game.to_ascii_lowercase().contains(&app.friends_view_bar.search_buffer)
+              matcher.fuzzy_match(game, &app.friends_view_bar.search_buffer).is_some()
             } else {
               false
             }
