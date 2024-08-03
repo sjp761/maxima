@@ -82,8 +82,8 @@
             "away" : "Away",
             "online" : "Online",
             "offline" : "Offline",
-            "prepend" : false,
-            "playing" : "In"
+            "presence_basic" : "In {game}",
+            "presence_rich" : "In {game}: {rich}"
         }
     },
     "settings_view": {

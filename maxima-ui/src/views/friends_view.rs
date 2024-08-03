@@ -3,7 +3,7 @@ use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use egui::{pos2, vec2, Align2, Color32, FontId, Id, Rect, Rounding, Stroke, Ui, Vec2};
 use maxima::rtm::client::BasicPresence;
 
-use crate::{bridge_thread, main, ui_image::UIImage, widgets::enum_dropdown::enum_dropdown, MaximaEguiApp, FRIEND_INGAME_COLOR};
+use crate::{bridge_thread, main, translation_manager::positional_replace, ui_image::UIImage, widgets::enum_dropdown::enum_dropdown, MaximaEguiApp, FRIEND_INGAME_COLOR};
 
 use strum_macros::EnumIter;
 
@@ -211,7 +211,6 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
               Some(img)
             },
           };
-          let game_hack: String;
           let (friend_status, friend_color) = 
           match friend.online {
             BasicPresence::Unknown => (&app.locale.localization.friends_view.status.unknown as &String, Color32::DARK_RED),
@@ -221,20 +220,12 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
             BasicPresence::Online => {
               
               if let Some(game) = &friend.game  {
-                if app.locale.localization.friends_view.status.prepend { // Do any languages actually do this?      
-                  if let Some(presence) = &friend.game_presence {
-                    game_hack = format!("{} {}: {}", &game, &app.locale.localization.friends_view.status.playing, &presence);
-                  } else {
-                    game_hack = format!("{} {}", &game, &app.locale.localization.friends_view.status.playing);
-                  }
+                ( if let Some(presence) = &friend.game_presence {
+                  &positional_replace!(&app.locale.localization.friends_view.status.presence_rich, "game", &game, "rich", &presence)
                 } else {
-                  if let Some(presence) = &friend.game_presence {
-                    game_hack = format!("{} {}: {}", &app.locale.localization.friends_view.status.playing, &game, &presence);
-                  } else {
-                    game_hack = format!("{} {}", &app.locale.localization.friends_view.status.playing, &game);
-                  }
-                }
-                (&game_hack, FRIEND_INGAME_COLOR)
+                  &positional_replace!(&app.locale.localization.friends_view.status.presence_basic, "game", &game)
+                }, 
+                FRIEND_INGAME_COLOR)
                 
               } else {
                 (&app.locale.localization.friends_view.status.online, Color32::GREEN)

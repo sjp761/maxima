@@ -827,7 +827,7 @@ impl eframe::App for MaximaEguiApp {
                                                     if let Some(game) = &self.games.get(game_slug) {
                                                         let offset = vec2(0.0, 0.5);
                                                         rtl.painter().text(point-offset, Align2::RIGHT_BOTTOM, &self.user_name, FontId::proportional(15.0), Color32::WHITE);
-                                                        rtl.painter().text(point+offset, Align2::RIGHT_TOP, format!("{} {}", &self.locale.localization.friends_view.status.playing, &game.name), FontId::proportional(10.0), Color32::WHITE);
+                                                        rtl.painter().text(point+offset, Align2::RIGHT_TOP, positional_replace!(&self.locale.localization.friends_view.status.presence_basic, "game", &game.name), FontId::proportional(10.0), Color32::WHITE);
                                                     }
                                                 } else {
                                                     rtl.painter().text(point, Align2::RIGHT_CENTER, &self.user_name, FontId::proportional(15.0), Color32::WHITE);
