@@ -3,7 +3,7 @@ use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use egui::{pos2, vec2, Align2, Color32, FontId, Id, Rect, Rounding, Stroke, Ui, Vec2};
 use maxima::rtm::client::BasicPresence;
 
-use crate::{bridge_thread, main, translation_manager::positional_replace, ui_image::UIImage, widgets::enum_dropdown::enum_dropdown, MaximaEguiApp, FRIEND_INGAME_COLOR};
+use crate::{bridge_thread, main, translation_manager::positional_replace, widgets::enum_dropdown::enum_dropdown, MaximaEguiApp, FRIEND_INGAME_COLOR};
 
 use strum_macros::EnumIter;
 
@@ -33,16 +33,6 @@ pub struct FriendsViewBar {
   pub friend_sel : String,
 }
 
-pub enum UIFriendImageWrapper {
-  /// The user doesn't have an avatar or otherwise the app doesn't want it
-  DoNotLoad,
-  /// Avatar exists but is not loaded
-  Unloaded(String),
-  /// Avatar is being loaded
-  Loading,
-  /// Avatar can be rendered
-  Available(Arc<UIImage>)
-}
 
 pub struct UIFriend {
   pub name : String,
@@ -50,14 +40,8 @@ pub struct UIFriend {
   pub online : BasicPresence,
   pub game : Option<String>,
   pub game_presence : Option<String>,
-  pub avatar: UIFriendImageWrapper,
 }
 
-impl UIFriend {
-  pub fn set_avatar_loading_flag(&mut self) {
-    self.avatar = UIFriendImageWrapper::Loading;
-  }
-}
 
 const F9B233: Color32 = Color32::from_rgb(249, 178, 51);
 const DARK_GREY: Color32 = Color32::from_rgb(64, 64, 64);
@@ -201,22 +185,6 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
           let buttons = app.friends_view_bar.friend_sel.eq(&friend.id) && friend_rect_hovered;
           if buttons { app.force_friends = true; }
           let how_buttons = context.animate_bool_with_easing(Id::new("friendlistbuttons_".to_owned()+&friend.id), buttons, ease_out_cubic);
-          let avatar: Option<&Arc<UIImage>> = match &friend.avatar {
-            UIFriendImageWrapper::DoNotLoad => {
-              None
-            },
-            UIFriendImageWrapper::Unloaded(url) => {
-              let _ = app.backend.backend_commander.send(bridge_thread::MaximaLibRequest::GetUserAvatarRequest(friend.id.clone(), url.to_string()));
-              friend.set_avatar_loading_flag();
-              None
-            },
-            UIFriendImageWrapper::Loading => {
-              None
-            },
-            UIFriendImageWrapper::Available(img) => {
-              Some(img)
-            },
-          };
           let (friend_status, friend_color) = 
           match friend.online {
             BasicPresence::Unknown => (&app.locale.localization.friends_view.status.unknown as &String, Color32::DARK_RED),
@@ -287,7 +255,7 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
                 }
               });
             }
-            
+
             let pfp_rect = Rect {
               min: main_res.rect.min + vec2(2.0, 2.0),
               max: main_res.rect.min + vec2(2.0, 2.0) + vec2(PFP_SIZE, PFP_SIZE)
@@ -298,10 +266,10 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
               max: pfp_rect.max + vec2(1.0, 1.0)
             };
 
-            if let Some(pfp) = avatar {
-              main_painter.image(pfp.renderable, pfp_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            if let Some(pfp) = app.img_cache.get(crate::ui_image::UIImageType::Avatar(friend.id.clone())) {
+              main_painter.image(pfp.id(), pfp_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             } else {
-              main_painter.image(app.user_pfp_renderable, pfp_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+              main_painter.image(app.img_cache.placeholder_avatar.id(), pfp_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             }
   
             main_painter.rect(outline_rect, Rounding::same(4.0), Color32::TRANSPARENT, Stroke::new(2.0, friend_color));

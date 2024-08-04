@@ -2,7 +2,7 @@ use eframe::glow::OBJECT_TYPE;
 use egui::{pos2, vec2, Color32, Margin, Mesh, Pos2, Rect, RichText, Rounding, ScrollArea, Shape, Stroke, Ui};
 use log::debug;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
-use crate::{bridge_thread, set_app_modal, widgets::enum_dropdown::enum_dropdown, GameDetails, GameDetailsWrapper, GameInfo, GameUIImages, GameUIImagesWrapper, InstallModalState, MaximaEguiApp, PageType, PopupModal};
+use crate::{bridge_thread, set_app_modal, widgets::enum_dropdown::enum_dropdown, GameDetails, GameDetailsWrapper, GameInfo, InstallModalState, MaximaEguiApp, PageType, PopupModal};
 
 use strum_macros::EnumIter;
 
@@ -54,18 +54,11 @@ pub fn game_view_details_panel(app : &mut MaximaEguiApp, ui: &mut Ui) {
     puffin::profile_function!();
     if app.games.len() < 1 { return }
     let game: &mut GameInfo = if let Some(game) = app.games.get_mut(&app.game_sel) { game } else { return };
-    let game_images: Option<&GameUIImages> = match &game.images {
-        GameUIImagesWrapper::Unloaded => {
-            debug!("Loading images for {:?}", game.name);
-            app.backend.backend_commander.send(bridge_thread::MaximaLibRequest::GetGameImagesRequest(game.slug.clone())).unwrap();
-            game.images = GameUIImagesWrapper::Loading;
-            None
-        },
-        GameUIImagesWrapper::Loading => {
-            None
-        },
-        GameUIImagesWrapper::Available(images) => {
-            Some(images) },
+    let (hero, logo) = {
+      (
+        app.img_cache.get(crate::ui_image::UIImageType::Hero(game.slug.clone())),
+        app.img_cache.get(crate::ui_image::UIImageType::Logo(game.slug.clone()))
+      )
     };
 
     let game_details: Option<&GameDetails> = match &game.details {
@@ -86,8 +79,8 @@ pub fn game_view_details_panel(app : &mut MaximaEguiApp, ui: &mut Ui) {
 
     let mut hero_rect = Rect::clone(&ui.available_rect_before_wrap());
     let aspect_ratio: f32 = 
-    if let Some(images) = game_images {
-        images.hero.size.x / images.hero.size.y
+    if let Some(handle) = &hero {
+        handle.aspect_ratio()
     } else {
         16.0 / 9.0
     };
@@ -123,9 +116,9 @@ pub fn game_view_details_panel(app : &mut MaximaEguiApp, ui: &mut Ui) {
         logo_transition_frac = bezier_ease(hero_vis_frac);
 
         { puffin::profile_scope!("hero image");
-        if let Some(images) = game_images {
+        if let Some(handle) = hero {
             if let Some(gvbg) = &app.game_view_bg_renderer {
-            gvbg.draw(ui, hero_rect, images.hero.size, images.hero.renderable, hero_vis_frac);
+            gvbg.draw(ui, hero_rect, handle.size_vec2(), handle.id(), hero_vis_frac);
             //TODO: negative allocation fix
             //ui.allocate_space(hero_rect.size().max(vec2(0.0, 0.0)));
             }
@@ -135,7 +128,7 @@ pub fn game_view_details_panel(app : &mut MaximaEguiApp, ui: &mut Ui) {
         }
         }
 
-        if hero_vis_frac < 1.0 && game_images.is_some(){
+        if hero_vis_frac < 1.0 /* && hero.is_some() */ {
         // TODO: find a better solution
         let mut mesh = Mesh::default();
         
@@ -376,12 +369,11 @@ pub fn game_view_details_panel(app : &mut MaximaEguiApp, ui: &mut Ui) {
         });
 
     }); // ScrollArea
-    if let Some(images) = game_images {
-        if let Some(logo) = &images.logo {
-        let logo_size_pre = if logo.size.x >= logo.size.y {
+      if let Some(handle) = logo {
+        let logo_size_pre = if handle.size_vec2().x >= handle.size_vec2().y {
             // wider than it is tall, scale based on X as max
-            let mult_frac = 320.0 / logo.size.x;
-            logo.size.y * mult_frac
+            let mult_frac = 320.0 / handle.size_vec2().x;
+            handle.size_vec2().y * mult_frac
         } else {
             // taller than it is wide, scale based on Y
             // fringe edge case, here in case EA decides they want to pull something really fucking stupid
@@ -393,11 +385,8 @@ pub fn game_view_details_panel(app : &mut MaximaEguiApp, ui: &mut Ui) {
             Pos2 { x: (egui::lerp(hero_rect.min.x..=hero_rect.max.x-180.0, frac2)), y: (hero_rect.min.y) },
             Pos2 { x: (egui::lerp(hero_rect.max.x..=hero_rect.max.x-20.0, frac2)), y: (egui::lerp(hero_rect.max.y..=hero_rect.min.y+80.0, frac2)) }
         );
-        ui.put(logo_rect, egui::Image::new((logo.renderable, logo_size)));
-        }
-    } else {
-        //ui.put(hero_rect, egui::Label::new("NO LOGO"));
-    }
+        ui.put(logo_rect, egui::Image::new((handle.id(), logo_size)));
+      }
     }); // Vertical
     
 }

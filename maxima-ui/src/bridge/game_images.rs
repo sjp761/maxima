@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use egui::Context;
-use log::{debug, error};
+use log::{debug, error, info};
 use maxima::{
     core::{
         service_layer::{ServiceGame, ServiceGameImagesRequestBuilder, SERVICE_REQUEST_GAMEIMAGES},
@@ -14,9 +14,7 @@ use std::{
 };
 
 use crate::{
-    bridge_thread::{InteractThreadGameUIImagesResponse, MaximaLibResponse},
-    ui_image::{GameImageType, UIImage},
-    GameUIImages,
+    bridge_thread::MaximaLibResponse, ui_image::UIImageCacheLoaderCommand,
 };
 
 async fn get_preferred_hero_image(images: &Option<ServiceGame>) -> Option<String> {
@@ -68,10 +66,9 @@ async fn get_logo_image(images: &Option<ServiceGame>) -> Option<String> {
 pub async fn game_images_request(
     maxima_arc: LockedMaxima,
     slug: String,
-    channel: Sender<MaximaLibResponse>,
+    channel: Sender<UIImageCacheLoaderCommand>,
     ctx: &Context,
 ) -> Result<()> {
-    debug!("got request to load game images for {:?}", slug);
     let game_hero = maxima_dir()
         .unwrap()
         .join("cache/ui/images/")
@@ -95,60 +92,19 @@ pub async fn game_images_request(
             .locale(maxima.locale().short_str().to_owned())
             .build()?).await?
         } else { None };
-    let hero_url: Option<String> = if has_hero {
-        debug!("Using cached hero image for {:?}", slug);
-        None
-    } else {
-        get_preferred_hero_image(&images).await
-    };
-    let logo_url: Option<String> = if has_logo {
-        debug!("Using cached logo for {:?}", slug);
-        None
-    } else {
-        get_logo_image(&images).await
-    };
 
-    let ctx = ctx.clone();
-    let is_logo = logo_url.is_some() || has_logo;
-    tokio::task::spawn(async move {
-        let hero = UIImage::load(
-            slug.clone(),
-            GameImageType::Hero,
-            if has_hero { None } else { hero_url },
-            ctx.clone(),
-        );
-
-        let logo = UIImage::load(
-            slug.clone(),
-            GameImageType::Logo,
-            if has_logo { None } else { logo_url },
-            ctx.clone(),
-        );
-        
-        let hero = hero.await;
-        let logo = logo.await;
-
-        if hero.is_ok() {
-            let res = MaximaLibResponse::GameUIImagesResponse(InteractThreadGameUIImagesResponse {
-                slug: slug.clone(),
-                response: Ok(GameUIImages {
-                    logo: if is_logo {
-                        Some(logo.expect("no logo").into())
-                    } else {
-                        None
-                    },
-                    hero: hero.expect("no hero").into(),
-                }),
-            });
-            debug!("sending {}'s GameUIImages back to UI", &slug);
-            let _ = channel.send(res);
-            egui::Context::request_repaint(&ctx);
-        } else {
-            if !hero.is_ok() {
-                error!("hero image not ok");
-            }
+    if !has_hero {
+        if let Some(hero) = get_preferred_hero_image(&images).await {
+            channel.send(UIImageCacheLoaderCommand::ProvideRemote(crate::ui_image::UIImageType::Hero(slug.clone()), hero)).unwrap()
         }
-    });
-    tokio::task::yield_now().await; // LMAO
+    }
+
+    if !has_logo {
+        if let Some(logo) = get_logo_image(&images).await {
+            channel.send(UIImageCacheLoaderCommand::ProvideRemote(crate::ui_image::UIImageType::Logo(slug), logo)).unwrap()
+        } else {
+            channel.send(UIImageCacheLoaderCommand::Stub(crate::ui_image::UIImageType::Logo(slug))).unwrap()
+        }
+    }
     Ok(())
 }

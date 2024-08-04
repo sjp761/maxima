@@ -1,7 +1,7 @@
 use egui::{pos2, vec2, Align2, Color32, FontId, Mesh, Rect, Rounding, Shape, Stroke, Ui, Widget};
 use humansize::DECIMAL;
 
-use crate::{bridge_thread, GameUIImages, GameUIImagesWrapper, MaximaEguiApp, APP_MARGIN};
+use crate::{bridge_thread, MaximaEguiApp, APP_MARGIN};
 
 #[derive(Clone)]
 pub struct QueuedDownload {
@@ -19,18 +19,12 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
     ui.allocate_ui(size, |ui| {
         let game_dl = game;
         let game = app.games.get_mut(&game.slug).unwrap();
-        let game_images: Option<&GameUIImages> = match &game.images { // TODO: just replace this entire system with the one i made in a newer project
-        GameUIImagesWrapper::Unloaded => {
-            app.backend.backend_commander.send(bridge_thread::MaximaLibRequest::GetGameImagesRequest(game.slug.clone())).unwrap();
-            game.images = GameUIImagesWrapper::Loading;
-            None
-        },
-        GameUIImagesWrapper::Loading => {
-            None
-        },
-        GameUIImagesWrapper::Available(images) => {
-            Some(images) },
-        };
+        let (hero, logo) = {
+            (
+              app.img_cache.get(crate::ui_image::UIImageType::Hero(game.slug.clone())),
+              app.img_cache.get(crate::ui_image::UIImageType::Logo(game.slug.clone()))
+            )
+          };
         let container_rect = Rect {
             min: ui.cursor().min,
             max: ui.cursor().min + size
@@ -40,9 +34,9 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
 
         ui.painter().rect_filled(container_rect, Rounding::same(corner_radius), Color32::BLACK);
 
-        if let Some(img) = game_images {
+        if let Some(img) = hero {
             let img_rounding = Rounding { nw: corner_radius, ne: 0.0, sw: corner_radius, se: 0.0 };
-            let img_response = ui.add(egui::Image::new((img.hero.renderable, img.hero.size)).rounding(img_rounding).max_size(size));
+            let img_response = ui.add(egui::Image::new((img.id(), size)).rounding(img_rounding).max_size(size));
 
             let top_left =        pos2(img_response.rect.max.x - 80.0, img_response.rect.min.y);
             let top_right =       pos2(img_response.rect.max.x - 00.0, img_response.rect.min.y);
@@ -65,9 +59,9 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
             mesh.add_triangle(3, 4, 2);
             ui.painter().add(Shape::mesh(mesh));
 
-            if let Some(logo) = &img.logo {
+            if let Some(handle) = &logo {
                 let logo_rect = img_response.rect.clone().shrink(26.0);
-                ui.put(logo_rect, egui::Image::new((logo.renderable, logo.size)).maintain_aspect_ratio(true).fit_to_exact_size(logo_rect.size()));
+                ui.put(logo_rect, egui::Image::new(handle).maintain_aspect_ratio(true).fit_to_exact_size(logo_rect.size()));
                 //ui.painter().image(logo.renderable, logo_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             }
 

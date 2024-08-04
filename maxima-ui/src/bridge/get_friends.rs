@@ -5,13 +5,13 @@ use maxima::{core::LockedMaxima, rtm::client::BasicPresence};
 use std::sync::mpsc::Sender;
 
 use crate::{
-    bridge_thread::{MaximaLibResponse, InteractThreadFriendListResponse},
-    views::friends_view::{UIFriend, UIFriendImageWrapper},
+    bridge_thread::{InteractThreadFriendListResponse, MaximaLibResponse}, ui_image::UIImageCacheLoaderCommand, views::friends_view::UIFriend
 };
 
 pub async fn get_friends_request(
     maxima_arc: LockedMaxima,
     channel: Sender<MaximaLibResponse>,
+    remote_provider_channel: Sender<UIImageCacheLoaderCommand>,
     ctx: &Context,
 ) -> Result<()> {
     debug!("recieved request to load friends");
@@ -23,14 +23,13 @@ pub async fn get_friends_request(
 
     let friends = maxima.friends(0).await?;
     for bitchass in friends {
-
+        remote_provider_channel.send(UIImageCacheLoaderCommand::ProvideRemote(crate::ui_image::UIImageType::Avatar(bitchass.id().to_string()), bitchass.avatar().as_ref().unwrap().medium().path().to_string())).unwrap();
         let friend_info = UIFriend {
             name: bitchass.display_name().to_string(),
             id: bitchass.id().to_string(),
             online: BasicPresence::Offline,
             game: None,
             game_presence: None,
-            avatar: UIFriendImageWrapper::Unloaded(bitchass.avatar().as_ref().unwrap().medium().path().to_string()),
         };
 
         let res = MaximaLibResponse::FriendInfoResponse(InteractThreadFriendListResponse {

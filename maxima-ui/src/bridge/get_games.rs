@@ -6,7 +6,7 @@ use std::sync::mpsc::Sender;
 
 use crate::{
     bridge_thread::{InteractThreadGameListResponse, MaximaLibResponse},
-    GameDetailsWrapper, GameInfo, GameUIImagesWrapper,
+    GameDetailsWrapper, GameInfo,
 };
 
 pub async fn get_games_request(
@@ -32,7 +32,6 @@ pub async fn get_games_request(
             slug: game.base_offer().slug().to_string(),
             offer: game.base_offer().offer().offer_id().to_string(),
             name: game.name(),
-            images: GameUIImagesWrapper::Unloaded,
             details: GameDetailsWrapper::Unloaded,
             dlc: game.extra_offers().clone(),
             installed: game.base_offer().installed().await,
