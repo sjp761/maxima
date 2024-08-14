@@ -82,6 +82,7 @@ enum Mode {
         #[arg(long)]
         client_id: String,
     },
+    JunoTokenRefresh,
     ReadLicenseFile {
         #[arg(long)]
         content_id: String,
@@ -278,7 +279,7 @@ async fn startup() -> Result<()> {
             game_args,
             login,
         } => {
-            let offer_id = {
+            let offer_id = if login.is_none() {
                 let mut maxima = maxima_arc.lock().await;
                 let offer = maxima.mut_library().game_by_base_slug(&slug).await;
                 if offer.is_none() {
@@ -286,19 +287,22 @@ async fn startup() -> Result<()> {
                 }
 
                 offer.unwrap().offer_id().to_owned()
+            } else {
+                slug
             };
 
             start_game(&offer_id, game_path, game_args, login, maxima_arc.clone()).await
-        }
+        },
         Mode::ListGames => list_games(maxima_arc.clone()).await,
         Mode::LocateGame { path } => locate_game(maxima_arc.clone(), &path).await,
         Mode::CloudSync { game_slug, write } => {
             do_cloud_sync(maxima_arc.clone(), &game_slug, write).await
-        }
+        },
         Mode::AccountInfo => print_account_info(maxima_arc.clone()).await,
         Mode::CreateAuthCode { client_id } => {
             create_auth_code(maxima_arc.clone(), &client_id).await
-        }
+        },
+        Mode::JunoTokenRefresh => juno_token_refresh(maxima_arc.clone()).await,
         Mode::ReadLicenseFile { content_id } => read_license_file(&content_id).await,
         Mode::ListFriends => list_friends(maxima_arc.clone()).await,
         Mode::GetUserById { user_id } => get_user_by_id(maxima_arc.clone(), &user_id).await,
@@ -306,7 +310,7 @@ async fn startup() -> Result<()> {
         Mode::TestRTMConnection => test_rtm_connection(maxima_arc.clone()).await,
         Mode::GetLegacyCatalogDef { offer_id } => {
             get_legacy_catalog_def(maxima_arc.clone(), &offer_id).await
-        }
+        },
         Mode::DownloadSpecificFile {
             offer_id,
             build_id,
@@ -486,7 +490,7 @@ async fn download_specific_file(
 
     debug!("URL: {}", url.url());
 
-    let downloader = ZipDownloader::new("test-game", &url.url(), "DownloadTest").await?;
+    let downloader = ZipDownloader::new("test-game", &url.url(), "C:/DownloadTest").await?;
     let num_of_entries = downloader.manifest().entries().len();
     info!("Entries: {}", num_of_entries);
 
@@ -578,6 +582,35 @@ async fn create_auth_code(maxima_arc: LockedMaxima, client_id: &str) -> Result<(
     let auth_code = nucleus_auth_exchange(&context, client_id, "code").await?;
     info!("Auth Code for {}: {}", client_id, auth_code);
     info!("Code verifier: {}", context.code_verifier());
+    Ok(())
+}
+
+async fn juno_token_refresh(maxima_arc: LockedMaxima) -> Result<()> {
+    let mut maxima = maxima_arc.lock().await;
+
+    let mut context = AuthContext::new()?;
+    context.set_access_token(&maxima.access_token().await?);
+
+    context.add_scope("basic.identity");
+    context.add_scope("basic.persona");
+    context.add_scope("basic.entitlement");
+
+    let code = nucleus_auth_exchange(&context, JUNO_PC_CLIENT_ID, "code").await?;
+    context.set_code(&code);
+
+    if context.code().is_none() {
+        bail!("Login failed!");
+    }
+
+    let token_res = nucleus_token_exchange(&context).await;
+    if token_res.is_err() {
+        bail!("Login failed: {}", token_res.err().unwrap().to_string());
+    }
+
+    let token_res = token_res.unwrap();
+    info!("Access Token: {}", token_res.access_token());
+    info!("Refresh Token: {:?}", token_res.refresh_token());
+    info!("Token Type: {}", token_res.token_type());
     Ok(())
 }
 

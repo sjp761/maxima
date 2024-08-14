@@ -77,7 +77,7 @@ pub struct TokenResponse {
     access_token: String,
     token_type: String,
     expires_in: u64,
-    refresh_token: String,
+    refresh_token: Option<String>,
 }
 
 pub async fn nucleus_token_exchange(auth_context: &AuthContext<'_>) -> Result<TokenResponse> {
@@ -90,6 +90,7 @@ pub async fn nucleus_token_exchange(auth_context: &AuthContext<'_>) -> Result<To
         ("client_id", JUNO_PC_CLIENT_ID),
         ("client_secret", JUNO_PC_CLIENT_SECRET),
         ("redirect_uri", "qrc:///html/login_successful.html"),
+        ("token_format", "JWS"), // Force JWT for Kyber
     ];
 
     let client = Client::builder()

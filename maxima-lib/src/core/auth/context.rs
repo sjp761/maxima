@@ -15,6 +15,7 @@ pub struct AuthContext<'a> {
     code_verifier: String,
     code_challenge: String,
     code: Option<String>,
+    scopes: Vec<String>,
     access_token: Option<String>,
     pc_sign: PCSign<'a>,
 }
@@ -26,9 +27,10 @@ impl AuthContext<'_> {
         let signature = PCSign::new()?;
         Ok(Self {
             code_verifier: verifier,
-            code: None,
-            access_token: None,
             code_challenge: challenge,
+            code: None,
+            scopes: Vec::new(),
+            access_token: None,
             pc_sign: signature,
         })
     }
@@ -68,6 +70,10 @@ impl AuthContext<'_> {
         }
     }
 
+    pub fn add_scope(&mut self, scope: &str) {
+        self.scopes.push(scope.to_owned());
+    }
+
     pub fn set_code(&mut self, code: &str) {
         self.code = Some(code.to_owned())
     }
@@ -95,6 +101,11 @@ impl AuthContext<'_> {
             ("pc_sign", &signature),
             ("nonce", &nonce),
         ];
+
+        let scopes = self.scopes.join(" ");
+        if !scopes.is_empty() {
+            query.push(("scope", &scopes));
+        }
 
         if client_id == JUNO_PC_CLIENT_ID {
             query.push(("code_challenge_method", "S256"));

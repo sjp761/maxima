@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use log::info;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,13 @@ impl AuthAccount {
         let expires_at = secs_since_epoch + response.expires_in();
 
         self.access_token = response.access_token().to_owned();
-        self.refresh_token = response.refresh_token().to_owned();
+        self.refresh_token = response
+            .refresh_token()
+            .as_ref()
+            .context("Expected refresh token while storing login response")
+            .unwrap()
+            .to_owned();
+        
         self.expires_at = expires_at;
 
         if self.user_id.is_empty() {

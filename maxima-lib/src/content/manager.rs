@@ -24,7 +24,7 @@ use crate::{
     util::native::maxima_dir,
 };
 
-use super::{downloader::ZipDownloader, ContentService};
+use super::{downloader::ZipDownloader, zip::ZipFileEntry, ContentService};
 
 const QUEUE_FILE: &str = "download_queue.json";
 
@@ -79,6 +79,8 @@ pub struct GameDownloader {
     offer_id: String,
 
     downloader: Arc<ZipDownloader>,
+    entries: Vec<ZipFileEntry>,
+
     cancel_token: CancellationToken,
     completed_bytes: Arc<AtomicUsize>,
     total_count: usize,
@@ -95,11 +97,15 @@ impl GameDownloader {
         debug!("URL: {}", url.url());
 
         let downloader = ZipDownloader::new(&game.offer_id, &url.url(), &game.path).await?;
+        
+        let mut entries = Vec::new();
+        for ele in downloader.manifest().entries() {
+            // TODO: Filtering
+            entries.push(ele.clone());
+        }
 
-        let total_count = downloader.manifest().entries().len();
-        let total_bytes = downloader
-            .manifest()
-            .entries()
+        let total_count = entries.len();
+        let total_bytes = entries
             .iter()
             .map(|x| *x.compressed_size() as usize)
             .sum::<usize>()
@@ -109,6 +115,7 @@ impl GameDownloader {
             offer_id: game.offer_id.to_owned(),
 
             downloader: Arc::new(downloader),
+            entries,
             cancel_token: CancellationToken::new(),
             completed_bytes: Arc::new(AtomicUsize::new(0)),
             total_count,
@@ -118,12 +125,13 @@ impl GameDownloader {
     }
 
     pub fn download(&self) {
-        let (downloader_arc, cancel_token, completed_bytes, notify) = self.prepare_download_vars();
+        let (downloader_arc, entries, cancel_token, completed_bytes, notify) = self.prepare_download_vars();
         let total_count = self.total_count;
         tokio::spawn(async move {
             GameDownloader::start_downloads(
                 total_count,
                 downloader_arc,
+                entries,
                 cancel_token,
                 completed_bytes,
                 notify,
@@ -136,12 +144,14 @@ impl GameDownloader {
         &self,
     ) -> (
         Arc<ZipDownloader>,
+        Vec<ZipFileEntry>,
         CancellationToken,
         Arc<AtomicUsize>,
         Arc<Notify>,
     ) {
         (
             self.downloader.clone(),
+            self.entries.clone(),
             self.cancel_token.clone(),
             self.completed_bytes.clone(),
             self.notify.clone(),
@@ -151,6 +161,7 @@ impl GameDownloader {
     async fn start_downloads(
         total_count: usize,
         downloader_arc: Arc<ZipDownloader>,
+        entries: Vec<ZipFileEntry>,
         cancel_token: CancellationToken,
         completed_bytes: Arc<AtomicUsize>,
         notify: Arc<Notify>,
@@ -159,18 +170,18 @@ impl GameDownloader {
 
         for i in 0..total_count {
             let downloader = downloader_arc.clone();
+            let ele = entries[i].clone();
+
             let cancel_token = cancel_token.clone();
             let completed_bytes = completed_bytes.clone();
 
             handles.push(async move {
-                let ele = &downloader.manifest().entries()[i];
-
                 if ele.name().contains("Cleanup") {
                     info!("Ele: {:?}", ele);
                 }
 
                 tokio::select! {
-                    result = downloader.download_single_file(ele, Some(Box::new(move |bytes| {
+                    result = downloader.download_single_file(&ele, Some(Box::new(move |bytes| {
                         completed_bytes.fetch_add(bytes, Ordering::SeqCst);
                     }))) => {
                         if let Err(err) = result {
