@@ -1,6 +1,6 @@
 use std::{
-    fs::{create_dir_all, File},
-    io::Write,
+    fs::create_dir_all,
+    io::{Read, Write},
     path::PathBuf,
 };
 
@@ -8,6 +8,9 @@ use aes::cipher::{
     block_padding::Pkcs7, generic_array::GenericArray, BlockDecryptMut, BlockEncryptMut, KeyIvInit,
 };
 use anyhow::{bail, Result};
+use chrono::{DateTime, Duration, Utc};
+use log::warn;
+use tokio::fs::{self, File};
 
 use base64::{engine::general_purpose, Engine};
 
@@ -79,6 +82,30 @@ pub enum LicenseAuth {
     Direct(String, String),
 }
 
+pub async fn needs_license_update(content_id: &str) -> Result<bool> {
+    let path = get_license_dir()?.join(format!("{}.dlf", content_id));
+    if !path.exists() {
+        return Ok(true);
+    }
+
+    let bytes = tokio::fs::read(path).await;
+    if bytes.is_err() {
+        return Ok(true);
+    }
+
+    let license = decrypt_license(&bytes.unwrap()[65..]);
+    if license.is_err() {
+        warn!("Failed to decrypt game license when checking for update");
+        return Ok(true);
+    }
+
+    let license = license.unwrap();
+
+    // Not actually sure how long licenses last, two weeks is a guesstimate
+    let date: DateTime<Utc> = license.start_time.parse()?;
+    Ok(Utc::now() - date > Duration::weeks(2))
+}
+
 pub async fn request_and_save_license(
     auth: &LicenseAuth,
     content_id: &str,
@@ -102,7 +129,7 @@ pub async fn request_and_save_license(
         None,
     )
     .await?;
-    save_licenses(&license, state).unwrap();
+    save_licenses(&license, state).await?;
 
     Ok(())
 }
@@ -171,12 +198,12 @@ pub fn decrypt_license(data: &[u8]) -> Result<License> {
 pub fn encrypt_license(data: &str) -> Result<Vec<u8>> {
     let key = GenericArray::from_slice(&OOA_CRYPTO_KEY);
     let iv = GenericArray::from_slice(&[0u8; 16]);
-    
+
     let cipher = Aes128CbcEnc::new(key, iv);
     Ok(cipher.encrypt_padded_vec_mut::<Pkcs7>(data.as_bytes()))
 }
 
-pub fn save_license(license: &License, state: OOAState, path: PathBuf) -> Result<()> {
+pub async fn save_license(license: &License, state: OOAState, path: PathBuf) -> Result<()> {
     let mut data = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>".to_string();
     data.push_str(quick_xml::se::to_string(license)?.as_str());
 
@@ -197,27 +224,26 @@ pub fn save_license(license: &License, state: OOAState, path: PathBuf) -> Result
         .flatten()
         .collect();
 
-    let mut file = File::create(path).unwrap();
-    file.write_all(license_blob.as_slice())?;
-    file.flush()?;
-
+    fs::write(path, license_blob).await?;
     Ok(())
 }
 
-pub fn save_licenses(license: &License, state: OOAState) -> Result<()> {
+pub async fn save_licenses(license: &License, state: OOAState) -> Result<()> {
     let path = get_license_dir()?;
 
     save_license(
         &license,
         state,
         path.join(format!("{}.dlf", license.content_id)),
-    )?;
+    )
+    .await?;
 
     save_license(
         &license,
         state,
         path.join(format!("{}_cached.dlf", license.content_id)),
-    )?;
+    )
+    .await?;
 
     Ok(())
 }

@@ -12,7 +12,7 @@ use anyhow::{bail, Result};
 
 use crate::{
     core::cloudsync::CloudSyncLockMode,
-    ooa::{request_and_save_license, LicenseAuth},
+    ooa::{needs_license_update, request_and_save_license, LicenseAuth},
     util::{registry::bootstrap_path, simple_crypto},
 };
 
@@ -145,11 +145,6 @@ pub async fn start_game(
 
             let content_id = offer.offer().content_id().to_owned();
 
-            info!(
-                "Requesting pre-game license for {}...",
-                offer.offer().display_name()
-            );
-
             (
                 content_id,
                 false,
@@ -184,14 +179,25 @@ pub async fn start_game(
         LaunchMode::Offline(_) => {}
         LaunchMode::Online(_) => {
             let auth = LicenseAuth::AccessToken(maxima.access_token().await?);
-            request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
 
-            if offer.as_ref().unwrap().offer().has_cloud_save() {
+            let offer = offer.as_ref().unwrap();
+            if needs_license_update(&content_id).await? {
+                info!(
+                    "Requesting new game license for {}...",
+                    offer.offer().display_name()
+                );
+
+                request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
+            } else {
+                info!("Existing game license is still valid, not updating");
+            }
+
+            if offer.offer().has_cloud_save() {
                 info!("Syncing with cloud save...");
 
                 let result = maxima
                     .cloud_sync()
-                    .obtain_lock(offer.as_ref().unwrap(), CloudSyncLockMode::Read)
+                    .obtain_lock(offer, CloudSyncLockMode::Read)
                     .await;
                 if let Err(err) = result {
                     error!("Failed to obtain CloudSync read lock: {}", err);
