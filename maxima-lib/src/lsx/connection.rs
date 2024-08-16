@@ -139,11 +139,7 @@ pub fn get_os_pid(context: &ActiveGameContext) -> Result<u32> {
         log::info!("Testing '{}' against '{}' (1)", cmd, context.game_path());
         
         // Wine path handling
-        if cfg!(unix) {
-            if !cmd.starts_with("Z:") {
-                continue;
-            }
-    
+        if cfg!(unix) && cmd.starts_with("Z:") {
             cmd = cmd.replace("Z:", "").replace('\\', "/");
         }
 

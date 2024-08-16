@@ -166,6 +166,7 @@ pub async fn start_game(
         bail!("Game path not found");
     };
 
+    let dir = path.parent().unwrap().to_str().unwrap();
     #[cfg(unix)]
     let path = case_insensitive_path(path.clone()).await;
     let path = path.to_str().unwrap();
@@ -288,7 +289,7 @@ pub async fn start_game(
 
     maxima.playing = Some(ActiveGameContext::new(
         &launch_id,
-        path,
+        dir,
         &content_id,
         offer,
         mode,
