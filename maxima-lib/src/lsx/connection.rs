@@ -129,21 +129,16 @@ pub fn get_os_pid(context: &ActiveGameContext) -> Result<u32> {
     let sys = System::new_all();
     for e in sys.processes() {
         let (p_pid, process) = e;
-        log::info!("Testing process {}", p_pid.clone().as_u32());
-
         if process.cmd().is_empty() {
             continue;
         }
 
         let mut cmd = process.cmd()[0].to_owned();
-        log::info!("Testing '{}' against '{}' (1)", cmd, context.game_path());
         
         // Wine path handling
         if cfg!(unix) && cmd.starts_with("Z:") {
             cmd = cmd.replace("Z:", "").replace('\\', "/");
         }
-
-        log::info!("Testing '{}' against '{}' (2)", cmd, context.game_path());
 
         if !cmd.starts_with(context.game_path()) {
             continue;
