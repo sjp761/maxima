@@ -84,8 +84,11 @@ async fn main() {
     init_logger();
     let mut args = Args::parse();
 
-    if let Err(err) = check_desktop_icon() {
-        error!("Failed to register desktop icon! {}", err);
+
+    if !std::env::var("MAXIMA_PACKAGED").is_ok_and(|var| var == "1") {
+        if let Err(err) = check_desktop_icon() {
+            error!("Failed to register desktop icon! {}", err);
+        }
     }
 
     if !cfg!(debug_assertions) {
