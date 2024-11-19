@@ -1,14 +1,7 @@
 [workspace]
 resolver = "2"
-members = [
-    "maxima-bootstrap",
-    "maxima-cli",
-    "maxima-lib",
-    "maxima-service",
-    "maxima-tui",
-    "maxima-ui",
-    "maxima-resources",
-]
+exclude = [ ".gitignore", ".github/*" ]
+members = [ "crates/*" ]
 
 [profile.release]
 strip = true

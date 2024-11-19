@@ -1,0 +1,37 @@
+[package]
+name = "maxima_proto"
+version = "1.0.0"
+edition = "2021"
+authors = ["Sean Kahler <sean@battleda.sh>"]
+categories = ["games"]
+description = "A free and open-source replacement for the EA Desktop Launcher"
+keywords = ["electronic-arts", "linux-gaming"]
+license = "GPL-3.0"
+readme = "README.md"
+repository = "https://github.com/ArmchairDevelopers/Maxima"
+documentation = "https://docs.rs/maxima"
+rust-version = "1.81.0"
+
+[dependencies]
+tokio = { version = "1.28.2", features = [
+    "full",
+    "rt",
+    "rt-multi-thread",
+    "time",
+    "net",
+] }
+serde = { version = "1.0.164", features = ["derive"] }
+serde_json = "1.0.97"
+paste = "1.0.12"
+anyhow = "1.0.71"
+derive-getters = "0.3.0"
+derive_builder = "0.12.0"
+rand = "0.8.5"
+futures = "0.3.30"
+bytes = "1.5.0"
+async-trait = "0.1.81"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
+thiserror = "2.0.3"
+const-fnv1a-hash = "1.1.0"
+typed-builder = "0.20.0"

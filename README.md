@@ -1,4 +1,4 @@
-# Maxima
+# MAXIMA
 ## A free and open-source replacement for the EA Desktop Launcher
 ![Logo](images/1500x500.jpg)
 
@@ -7,7 +7,9 @@
 
 Maxima is an open-source replacement for the EA Desktop/Origin game launcher, running natively on Linux and Windows, with macOS support in progress.
 
-Maxima itself is a library (`maxima-lib`), with provided CLI (`maxima-cli`), TUI (`maxima-tui`), and GUI (`maxima-ui`) frontends. Other launchers compatible with Maxima's license may implement it as a backend. It's used by our sister project, [KYBER](https://uplink.kyber.gg/news/features-overview).
+Maxima itself is a server (`maxima_server`) accessed through a client (`maxima_lib`). This provides support for multiple simultaneous frontends, meaning you can, for example, run the CLI and GUI at the same time, and their states will be synced.
+
+We, by default, provide CLI (`maxima_cli`), TUI (`maxima_tui`), and GUI (`maxima_ui`) frontends. Other launchers compatible with Maxima's license may implement it as a backend. It's used by our sister project, [KYBER](https://uplink.kyber.gg/news/features-overview).
 
 ![UI](images/UI.png)
 
@@ -35,16 +37,16 @@ Maxima itself is a library (`maxima-lib`), with provided CLI (`maxima-cli`), TUI
  - Full EA Desktop interoperability. Games installed with EA Desktop already appear on Maxima, but to take it a step further we'd like the ability to, for example, start a download on EA Desktop and continue it on Maxima.
  - Cleaner/Stabler downloader implementation
  - Progressive/Selective installs
-   - Some games are able to start without being fully installed, and some games contain language-specific files.
+   - Some games are able to start without being fully installed, and some games contain language-specific files
  - Support for the store (buying games)
  - Friend Adding/Removing/Inviting
  - Status setting; locked to "online" at the moment
  - Refactoring Maxima to new architecture allowing multiple frontends to co-exist
  
 **Unsupported:**
- - Battlefield 3/4 are currently unsupported due to how battlelog does game launching. This is on our radar, but isn't a huge priority at the moment.
+ - Battlefield 3/4 are currently unsupported due to how battlelog does game launching. This is on our radar, but isn't a huge priority at the moment
    - Please file an issue if you find more games that don't work
- - Old games like Dead Space 2 and BFBC2 are unsupported due to being pre-"Download-In-Place" era games. They have a different manifest format which we need to make a parser for.
+ - Old games like Dead Space 2 and BFBC2 are unsupported due to being pre-"Download-In-Place" era games. They have a different manifest format which we need to make a parser for
 
 # CLI Usage
 `maxima-cli` standalone will launch an interactive CLI mode to install and launch games.
