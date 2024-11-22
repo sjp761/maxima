@@ -40,6 +40,7 @@ use std::{
 use cloudsync::{CloudSyncClient, CloudSyncLockMode};
 use derive_builder::Builder;
 use derive_getters::Getters;
+use library::LockedGameLibrary;
 use tracing::{error, info, warn};
 use strum_macros::IntoStaticStr;
 
@@ -88,7 +89,7 @@ pub struct Maxima {
     service_layer: ServiceLayerClient,
 
     #[getter(skip)]
-    library: GameLibrary,
+    library: LockedGameLibrary,
 
     playing: Option<ActiveGameContext>,
 
@@ -408,13 +409,13 @@ impl Maxima {
         Ok(dir.join(format!("{}_{}x{}.jpg", id, width, height)))
     }
 
-    pub fn library(&self) -> &GameLibrary {
-        &self.library
-    }
+    // pub fn library(&self) -> &GameLibrary {
+    //     &self.library
+    // }
 
-    pub fn mut_library(&mut self) -> &mut GameLibrary {
-        &mut self.library
-    }
+    // pub fn mut_library(&mut self) -> &mut GameLibrary {
+    //     &mut self.library
+    // }
 
     pub fn content_manager(&mut self) -> &mut ContentManager {
         &mut self.content_manager

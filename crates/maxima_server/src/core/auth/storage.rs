@@ -295,6 +295,10 @@ impl AuthStorage {
         Ok(Some(access_token))
     }
 
+    pub async fn access_token_or_err(&mut self) -> Result<String, CoreError> {
+        self.access_token().await?.ok_or(CoreError::Unauthenticated)
+    }
+
     /// Add an account from a token response and set it as the currently selected one
     pub async fn add_account(&mut self, response: &TokenResponse) -> Result<(), AuthError> {
         let mut account = AuthAccount::from_token_response(response).await?;

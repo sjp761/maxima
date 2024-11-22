@@ -316,7 +316,7 @@ impl ProtoConnectionManager {
             .send_request_raw(
                 component,
                 command,
-                serde_json::to_vec(&message).expect("Failed to "),
+                serde_json::to_vec(&message).expect("Failed to serialize request"),
             )
             .await
         {

@@ -34,6 +34,7 @@ use tokio::{
     fs::{File, OpenOptions},
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
 };
+use tracing::debug;
 
 const AUTH_HEADER: &str = "X-Origin-AuthToken";
 const LOCK_HEADER: &str = "X-Origin-Sync-Lock";
@@ -535,6 +536,7 @@ impl<'a> CloudSyncLock<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct CloudSyncClient {
     auth: LockedAuthStorage,
     client: Client,
@@ -631,7 +633,9 @@ mod tests {
             return Err(CloudSyncError::NotSignedIn);
         }
 
-        let mut library = GameLibrary::new(auth.clone()).await;
+        let library = GameLibrary::new(auth.clone()).await;
+        let mut library = library.lock().await;
+
         let offer = library
             .game_by_base_slug("star-wars-battlefront-2")
             .await?
@@ -654,7 +658,9 @@ mod tests {
             return Err(CloudSyncError::NotSignedIn);
         }
 
-        let mut library = GameLibrary::new(auth.clone()).await;
+        let library = GameLibrary::new(auth.clone()).await;
+        let mut library = library.lock().await;
+
         let offer = library
             .game_by_base_slug("star-wars-battlefront-2")
             .await?

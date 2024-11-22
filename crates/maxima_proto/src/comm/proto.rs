@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 use super::{client::ClientProtoRequest, router::ProtoResult};
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProtoError {
     /// This is messy because ProtoError is inside the component error
     /// enums, which makes this sort of cyclic. This is needed for the
@@ -141,6 +142,7 @@ macro_rules! proto_component {
                 const_fnv1a_hash::fnv1a_hash_32(stringify!($component_name).as_bytes(), None);
 
             #[derive(thiserror::Error, Debug, serde::Serialize, serde::Deserialize)]
+            #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
             pub enum [<$component_name Error>] {
                 #[error("Proto error: {0}")]
                 Proto(#[from] crate::comm::proto::ProtoError),

@@ -81,7 +81,6 @@ macro_rules! ecommerce_type {
         }
     ) => {
         paste::paste! {
-            // Main struct definition
             $(#[$message_attr])*
             #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
             #[serde(rename_all = "camelCase")]

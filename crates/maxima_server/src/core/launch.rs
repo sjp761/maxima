@@ -1,11 +1,11 @@
 use base64::{engine::general_purpose, Engine};
 use derive_getters::Getters;
-use tracing::{error, info};
 use std::{env, fmt::Display, path::PathBuf, sync::Arc};
 use tokio::{
     process::{Child, Command},
     sync::Mutex,
 };
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
@@ -171,7 +171,10 @@ impl Display for LaunchMode {
 }
 
 pub async fn start_game(
-    maxima_arc: Arc<Mutex<Maxima>>,
+    auth_storage: &AuthStorage,
+    library: &mut GameLibrary,
+    cloud_sync: &CloudSyncClient,
+    user_man: &UserManager,
     mode: LaunchMode,
     options: LaunchOptions,
 ) -> Result<(), LaunchError> {
@@ -238,7 +241,7 @@ pub async fn start_game(
     match mode {
         LaunchMode::Offline(_) => {}
         LaunchMode::Online(_) => {
-            let auth = LicenseAuth::AccessToken(maxima.access_token().await?);
+            let auth = LicenseAuth::AccessToken(auth_storage.access_token_or_err().await?);
 
             let offer = offer.as_ref().unwrap();
             if needs_license_update(&content_id).await? {
@@ -255,10 +258,7 @@ pub async fn start_game(
             if options.cloud_saves && offer.offer().has_cloud_save() {
                 info!("Syncing with cloud save...");
 
-                let result = maxima
-                    .cloud_sync()
-                    .obtain_lock(offer, CloudSyncLockMode::Read)
-                    .await;
+                let result = cloud_sync.obtain_lock(offer, CloudSyncLockMode::Read).await;
                 if let Err(err) = result {
                     error!("Failed to obtain CloudSync read lock: {}", err);
                 } else {
@@ -308,7 +308,7 @@ pub async fn start_game(
     let b64 = general_purpose::STANDARD.encode(serde_json::to_string(&bootstrap_args)?);
     child.arg(b64);
 
-    let user = maxima.local_user().await?;
+    let user = user_man.local_user().await?;
     let launch_id = Uuid::new_v4().to_string();
 
     child
@@ -365,7 +365,7 @@ pub async fn start_game(
 
     let child = child.spawn().expect("Failed to start child");
 
-    maxima.playing = Some(ActiveGameContext::new(
+    library.add_context(ActiveGameContext::new(
         &launch_id,
         dir,
         options.cloud_saves,
