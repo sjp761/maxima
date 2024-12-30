@@ -370,7 +370,7 @@ service_layer_enum!(OwnershipStatus, {
 });
 
 service_layer_type!(GameProductUserTrial, {
-    trial_time_remaining_seconds: u32,
+    trial_time_remaining_seconds: Option<u32>,
 });
 
 service_layer_type!(GameProductUser, {
