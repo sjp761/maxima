@@ -388,6 +388,7 @@ service_layer_type!(PurchaseStatus, {
 service_layer_enum!(TrialType, {
     PlayFirstTrial,
     OpenTrial,
+    UngatedTrial,
 });
 
 service_layer_type!(TrialDetails, {
