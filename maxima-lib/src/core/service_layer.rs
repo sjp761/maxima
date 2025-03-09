@@ -362,6 +362,7 @@ service_layer_enum!(OwnershipMethod, {
     SteamVault,
     SteamSubscription,
     Epic,
+    EpicVault,
 });
 
 service_layer_enum!(OwnershipStatus, {
