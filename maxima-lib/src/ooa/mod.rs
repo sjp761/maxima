@@ -9,7 +9,7 @@ use aes::cipher::{
 };
 use anyhow::{bail, Result};
 use chrono::{DateTime, Duration, Utc};
-use log::warn;
+use log::{debug, warn};
 use tokio::fs::{self, File};
 
 use base64::{engine::general_purpose, Engine};
@@ -20,6 +20,8 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 
 use crate::core::{auth::hardware::HardwareInfo, endpoints::API_PROXY_NOVAFUSION_LICENSES};
+#[cfg(unix)]
+use crate::unix::fs::case_insensitive_path;
 
 pub const OOA_CRYPTO_KEY: [u8; 16] = [
     65, 50, 114, 45, 208, 130, 239, 176, 220, 100, 87, 197, 118, 104, 202, 9,
@@ -51,6 +53,7 @@ pub struct License {
     pub game_token: Option<String>,
     pub grant_time: String,
     pub start_time: String,
+    pub nonce: String
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -69,6 +72,9 @@ pub fn detect_ooa_state(game_path: PathBuf) -> OOAState {
         return OOAState::Disabled;
     }
 
+    #[cfg(unix)]
+    let core_dir = case_insensitive_path(core_dir);
+
     if core_dir.join("activation.exe").exists() {
         return OOAState::SignatureEncoded;
     }
@@ -83,9 +89,9 @@ pub async fn detect_ooa_version(game_path: PathBuf) -> Result<u32> {
     let awc = game_path.join("Core/awc.dll");
 
     #[cfg(unix)]
-    let activation_dll = case_insensitive_path(activation_dll).await;
+    let activation_dll = case_insensitive_path(activation_dll);
     #[cfg(unix)]
-    let awc = case_insensitive_path(awc).await;
+    let awc = case_insensitive_path(awc);
 
     let dest_dll = if activation_dll.exists() {
         activation_dll
@@ -109,14 +115,19 @@ pub async fn detect_ooa_version(game_path: PathBuf) -> Result<u32> {
     let major = version.Major;
     let minor = version.Minor;
     let patch = version.Patch;
+    debug!("Activation version {major}.{minor}.{patch}");
 
     if major >= 5 {
+        // >=5.0.0
         return Ok(4);
-    } else if major == 4 && (minor > 7 || minor == 7 && patch >= 6) {
+    } else if major == 4 && (minor > 7 || (minor == 7 && patch >= 6)) {
+        // >=4.7.6
         return Ok(3);
-    } else if major == 4 && minor >= 7 {
+    } else if major == 4 && minor == 7 {
+        // >=4.7.0
         return Ok(2);
-    } else if major >= 4 {
+    } else if major == 4 {
+        // >=4.0.0
         return Ok(1);
     } else {
         return Ok(0);
@@ -168,6 +179,7 @@ pub async fn request_and_save_license(
     }
 
     let version = detect_ooa_version(game_path).await.unwrap_or(1);
+    debug!("OOA version is {version}");
 
     let hw_info = HardwareInfo::new(version)?;
     let license = request_license(
@@ -193,7 +205,9 @@ pub async fn request_license(
     let mut query = Vec::new();
     query.push(("contentId", content_id));
     query.push(("machineHash", machine_hash));
-    log::debug!("Using hash {}", machine_hash);
+    let nonce: String = rand::random_iter::<u8>().take(4).map(|byte| format!("{byte:02x}")).collect();
+    query.push(("nonce", &nonce));
+    debug!("Using hash {}", machine_hash);
 
     match auth {
         LicenseAuth::AccessToken(access_token) => {
@@ -281,6 +295,7 @@ pub async fn save_license(license: &License, state: OOAState, path: PathBuf) -> 
 pub async fn save_licenses(license: &License, state: OOAState) -> Result<()> {
     let path = get_license_dir()?;
 
+    debug!("Saving the license {license:#?}");
     save_license(
         &license,
         state,

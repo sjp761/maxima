@@ -37,7 +37,7 @@ impl OwnedOffer {
             return false;
         }
         #[cfg(unix)]
-        let path = case_insensitive_path(path).await;
+        let path = case_insensitive_path(path);
         path.exists()
     }
 
@@ -86,7 +86,7 @@ impl OwnedOffer {
         {
             let ic_path = PathBuf::from(self.install_check_path().await);
             #[cfg(unix)]
-            let ic_path = case_insensitive_path(ic_path).await;
+            let ic_path = case_insensitive_path(ic_path);
             ic_path
         } else {
             let path = PathBuf::from(

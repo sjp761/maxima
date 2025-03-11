@@ -168,7 +168,7 @@ pub async fn start_game(
 
     let dir = path.parent().unwrap().to_str().unwrap();
     #[cfg(unix)]
-    let path = case_insensitive_path(path.clone()).await;
+    let path = case_insensitive_path(path.clone());
     let path = path.to_str().unwrap();
     info!("Game path: {}", path);
 
@@ -301,17 +301,22 @@ pub async fn start_game(
 
 #[cfg(unix)]
 pub async fn mx_linux_setup() -> Result<()> {
-    use crate::unix::wine::{check_eac_runtime_validity, check_wine_validity, install_eac, install_wine, setup_wine_registry};
+    use crate::unix::wine::{check_runtime_validity, check_wine_validity, get_lutris_runtimes, install_runtime, install_wine, setup_wine_registry};
 
     info!("Verifying wine dependencies...");
 
     let skip = std::env::var("MAXIMA_DISABLE_WINE_VERIFICATION").is_ok();
-    if !skip && !check_wine_validity().await? {
-        install_wine().await?;
-    }
-
-    if !skip && !check_eac_runtime_validity().await? {
-        install_eac().await?;
+    if !skip {
+        if !check_wine_validity().await? {
+            install_wine().await?;
+        }
+        let runtimes = get_lutris_runtimes().await?;
+        if !check_runtime_validity("eac_runtime", &runtimes).await? {
+            install_runtime("eac_runtime", &runtimes).await?;
+        }
+        if !check_runtime_validity("umu", &runtimes).await? {
+            install_runtime("umu", &runtimes).await?;
+        }
     }
 
     setup_wine_registry().await?;

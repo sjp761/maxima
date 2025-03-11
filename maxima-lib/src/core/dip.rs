@@ -55,6 +55,7 @@ dip_type!(
     data {
         file_path: String,
         execute_elevated: Option<bool>,
+        #[serde(default)]
         trial: bool,
     }
 );
@@ -162,7 +163,7 @@ impl DiPManifest {
         let install_path = PathBuf::from(remove_trailing_slash(install_path.to_str().unwrap()));
         let args = self.collect_touchup_args(&install_path);
         let path = install_path.join(&self.touchup.path());
-        let path = case_insensitive_path(path).await;
+        let path = case_insensitive_path(path);
         run_wine_command(path, Some(args), None, true, CommandType::Run).await?;
 
         invalidate_mx_wine_registry().await;

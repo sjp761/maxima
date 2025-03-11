@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-pub async fn case_insensitive_path(path: PathBuf) -> PathBuf {
+pub fn case_insensitive_path(path: PathBuf) -> PathBuf {
     if path.exists() {
         return path;
     }

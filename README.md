@@ -22,8 +22,8 @@ Maxima itself is a library (`maxima-lib`), with povided CLI (`maxima-cli`), TUI 
  - Playing games installed with EA Desktop on Maxima + vice versa
  - Displaying your in-game status to your friends, and viewing your friends' status'
  - Locating games
- - Running games under [wine-ge](https://github.com/GloriousEggroll/wine-ge-custom) on Linux/SteamDeck
-   - `wine-ge` is automatically installed, but base `wine` must already be installed on the system. We're looking into implementing [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) to fix this.
+ - Running games under [proton](https://github.com/GloriousEggroll/proton-ge-custom) on Linux/SteamDeck
+   - `proton-ge` is automatically installed together with [umu](https://github.com/Open-Wine-Components/umu-launcher).
 
 **In-Dev:**
  - MacOS support

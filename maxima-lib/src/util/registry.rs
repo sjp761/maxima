@@ -162,7 +162,7 @@ pub async fn parse_registry_path(key: &str) -> PathBuf {
     };
 
     #[cfg(unix)]
-    let path = case_insensitive_path(path).await;
+    let path = case_insensitive_path(path);
     path
 }
 
@@ -185,7 +185,7 @@ pub async fn parse_partial_registry_path(key: &str) -> PathBuf {
     };
 
     #[cfg(unix)]
-    let path = case_insensitive_path(path).await;
+    let path = case_insensitive_path(path);
     path
 }
 

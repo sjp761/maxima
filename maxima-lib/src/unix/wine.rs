@@ -56,7 +56,7 @@ impl std::fmt::Display for CommandType {
 const VERSION_FILE: &str = "dependency-versions.toml";
 
 #[derive(Deserialize, Default)]
-struct LutrisRuntime {
+pub(crate) struct LutrisRuntime {
     name: String,
     created_at: String,
     url: String,
@@ -67,6 +67,7 @@ struct LutrisRuntime {
 struct Versions {
     proton: String,
     eac_runtime: String,
+    umu: String
 }
 
 /// Returns internal prtoton pfx path
@@ -78,8 +79,16 @@ pub fn proton_dir() -> Result<PathBuf> {
     Ok(maxima_dir()?.join("wine/proton"))
 }
 
+pub fn wine_dir() -> Result<PathBuf> {
+    Ok(maxima_dir()?.join("wine"))
+}
+
 pub fn eac_dir() -> Result<PathBuf> {
     Ok(maxima_dir()?.join("wine/eac_runtime"))
+}
+
+pub fn umu_bin() -> Result<PathBuf> {
+    Ok(maxima_dir()?.join("wine/umu/umu-run"))
 }
 
 fn versions() -> Result<Versions> {
@@ -118,7 +127,7 @@ pub(crate) async fn check_wine_validity() -> Result<bool> {
     Ok(version == release.unwrap().tag_name)
 }
 
-async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>> {
+pub(crate) async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>> {
     let client = reqwest::Client::builder()
         .user_agent("ArmchairDevelopers/Maxima")
         .build()
@@ -129,30 +138,39 @@ async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>> {
     Ok(data)
 }
 
-pub(crate) async fn check_eac_runtime_validity() -> Result<bool> {
-    let eac_path = eac_dir()?;
-    if !eac_path.exists() {
+pub(crate) async fn check_runtime_validity(key: &str, runtimes: &[LutrisRuntime]) -> Result<bool> {
+    let versions = versions()?;
+    let version = match key {
+        "umu" => &versions.umu,
+        "eac_runtime" => &versions.eac_runtime,
+        _ => bail!("Runtime {key} is not implemented")
+    };
+    let path = wine_dir()?.join(key);
+    if !path.exists() {
         return Ok(false);
     }
-    let version = versions()?.eac_runtime;
-    let runtimes = get_lutris_runtimes().await?;
-    let eac_runtime = runtimes.iter().find(|r| r.name == "eac_runtime");
+    let runtime_version = runtimes.iter().find(|r| r.name == key);
 
-    Ok(eac_runtime.is_some_and(|r| r.created_at == version))
+    Ok(runtime_version.is_some_and(|r| &r.created_at == version))
 }
 
-pub(crate) async fn install_eac() -> Result<()> {
-    info!("Downloading EasyAntiCheat runtime");
-    let runtimes = get_lutris_runtimes().await?;
-    let eac_runtime = runtimes.iter().find(|r| r.name == "eac_runtime").unwrap();
-    let path = eac_dir()?;
+pub(crate) async fn install_runtime(key: &str, runtimes: &[LutrisRuntime]) -> Result<()> {
+    info!("Downloading {key}");
+    let runtime = runtimes.iter().find(|r| r.name == key).unwrap();
+    let mut versions = versions()?;
+    let path = wine_dir()?.join(key);
+    let runtime_ver = match key {
+        "umu" => &mut versions.umu,
+        "eac_runtime" => &mut versions.eac_runtime,
+        _ => bail!("Runtime {key} is not implemented")
+    };
 
-    let res = ureq::get(&eac_runtime.url)
+    let res = ureq::get(&runtime.url)
         .set("User-Agent", "ArmchairDevelopers/Maxima")
         .call()?;
 
     if res.status() != StatusCode::OK {
-        bail!("Failed to download eac runtime");
+        bail!("Failed to download {key} runtime");
     }
 
     let mut body: Vec<u8> = vec![];
@@ -163,13 +181,18 @@ pub(crate) async fn install_eac() -> Result<()> {
     }
 
     create_dir_all(&path)?;
+    
+    let data: Box<dyn std::io::Read> = if runtime.url.ends_with(".xz") {
+        Box::new(XzDecoder::new(&body[..]))
+    } else {
+        Box::new(&body[..])
+    };
 
-    let xz = XzDecoder::new(&body[..]);
-    let archive = Archive::new(xz);
+    let archive = Archive::new(data);
     extract_archive(path, archive)?;
 
-    let mut versions = versions()?;
-    versions.eac_runtime = eac_runtime.created_at.clone();
+    let created_at = runtime.created_at.clone();
+    *runtime_ver = created_at;
     set_versions(versions)
 }
 
@@ -203,8 +226,9 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     let proton_path = proton_dir()?;
     let proton_prefix_path = wine_prefix_dir()?;
     let eac_path = eac_dir()?;
+    let umu_bin = umu_bin()?;
 
-    let wine_path = env::var("MAXIMA_WINE_COMMAND").unwrap_or_else(|_| "umu-run".to_owned());
+    let wine_path = env::var("MAXIMA_WINE_COMMAND").unwrap_or_else(|_| umu_bin.to_string_lossy().to_string());
 
     // Create command with all necessary wine env variables
     let mut binding = Command::new(wine_path.clone());
@@ -219,7 +243,7 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
         .env("LD_PRELOAD", "") // Fixes some log errors for some games
         .arg(arg);
 
-    if wine_path != "umu-run" {
+    if !wine_path.ends_with("umu-run") {
         // wsock32 is used as a proxy for Northstar (Titanfall 2). TODO: provide user-facing option for this!
         child = child.env("WINEDLLOVERRIDES", "CryptBase,wsock32,bcrypt,dxgi,d3d11,d3d12,d3d12core=n,b;winemenubuilder.exe=d");
     }
