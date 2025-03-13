@@ -123,7 +123,7 @@ impl PreDiPManifest {
         let args = self.collect_touchup_args(&install_path);
 
         let path = install_path.join(remove_leading_slash(&self.executable.file_path));
-        let path = case_insensitive_path(path).await;
+        let path = case_insensitive_path(path);
         run_wine_command(path, Some(args), None, true, CommandType::Run).await?;
 
         invalidate_mx_wine_registry().await;
