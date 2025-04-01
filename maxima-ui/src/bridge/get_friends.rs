@@ -1,11 +1,13 @@
-use anyhow::{Ok, Result, bail};
+use anyhow::{bail, Ok, Result};
 use egui::Context;
 use log::debug;
 use maxima::{core::LockedMaxima, rtm::client::BasicPresence};
 use std::sync::mpsc::Sender;
 
 use crate::{
-    bridge_thread::{InteractThreadFriendListResponse, MaximaLibResponse}, ui_image::UIImageCacheLoaderCommand, views::friends_view::UIFriend
+    bridge_thread::{InteractThreadFriendListResponse, MaximaLibResponse},
+    ui_image::UIImageCacheLoaderCommand,
+    views::friends_view::UIFriend,
 };
 
 pub async fn get_friends_request(
@@ -23,7 +25,12 @@ pub async fn get_friends_request(
 
     let friends = maxima.friends(0).await?;
     for bitchass in friends {
-        remote_provider_channel.send(UIImageCacheLoaderCommand::ProvideRemote(crate::ui_image::UIImageType::Avatar(bitchass.id().to_string()), bitchass.avatar().as_ref().unwrap().medium().path().to_string())).unwrap();
+        remote_provider_channel
+            .send(UIImageCacheLoaderCommand::ProvideRemote(
+                crate::ui_image::UIImageType::Avatar(bitchass.id().to_string()),
+                bitchass.avatar().as_ref().unwrap().medium().path().to_string(),
+            ))
+            .unwrap();
         let friend_info = UIFriend {
             name: bitchass.display_name().to_string(),
             id: bitchass.id().to_string(),
@@ -37,7 +44,7 @@ pub async fn get_friends_request(
         });
         channel.send(res)?;
 
-        ctx.request_repaint();   
+        ctx.request_repaint();
     }
 
     Ok(())

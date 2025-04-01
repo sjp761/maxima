@@ -38,7 +38,7 @@
                 "windows" : "Windows",
                 "mac" : "Mac"
             },
-            "search_bar_hint" : "Search",
+            "search_bar_hint" : "Search Games",
             "running_suffix" : "Running"
         },
         "main" : {
@@ -69,7 +69,7 @@
                 "name" : "Name",
                 "game" : "Game"
             },
-            "search_hint" : "Search friends list"
+            "search_hint" : "Search Friends"
         },
         "friend_actions" : {
             "profile" : "Profile",

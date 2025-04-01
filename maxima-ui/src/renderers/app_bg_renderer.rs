@@ -22,7 +22,15 @@ impl AppBgRenderer {
         })
     }
 
-    pub fn draw(&self, ui: &mut egui::Ui, rect: egui::Rect, img_size: Vec2, img: TextureId, game: f32, flags: FrontendPerformanceSettings) {
+    pub fn draw(
+        &self,
+        ui: &mut egui::Ui,
+        rect: egui::Rect,
+        img_size: Vec2,
+        img: TextureId,
+        game: f32,
+        flags: FrontendPerformanceSettings,
+    ) {
         puffin::profile_function!("app background renderer");
         let render = self.render.clone();
 
@@ -62,9 +70,7 @@ impl ABGUnsafe {
 
         unsafe {
             //here we go lmao
-            let program = gl
-                .create_program()
-                .expect("Cannot create OpenGL shader program");
+            let program = gl.create_program().expect("Cannot create OpenGL shader program");
             if !glsl_version.is_new_shader_interface() {
                 //uh? not sure what else to do here but fuck you lmao!
                 error!("no painting for shader version {:?}", glsl_version);
@@ -73,7 +79,7 @@ impl ABGUnsafe {
 
             let vsource = include_str!("../../shaders/abg.vert");
             let fsource = include_str!("../../shaders/abg.frag");
-            
+
             let shader_src = [
                 (glow::VERTEX_SHADER, vsource),
                 (glow::FRAGMENT_SHADER, fsource),
@@ -82,9 +88,7 @@ impl ABGUnsafe {
             let shaders: Vec<_> = shader_src
                 .iter()
                 .map(|(shader_type, shader_source)| {
-                    let shader = gl
-                        .create_shader(*shader_type)
-                        .expect("Cannot create shader");
+                    let shader = gl.create_shader(*shader_type).expect("Cannot create shader");
                     gl.shader_source(
                         shader,
                         &format!("{}\n{}", glsl_version.version_declaration(), shader_source),
@@ -128,18 +132,18 @@ impl ABGUnsafe {
     fn paint(
         &self,
         gl: &glow::Context,
-        dimensions: Vec2,
-        img_dimensions: Vec2,
+        size: Vec2,
+        img_size: Vec2,
         img: glow::Texture,
         game_fade: f32,
-        flags: FrontendPerformanceSettings
+        flags: FrontendPerformanceSettings,
     ) {
         puffin::profile_function!();
         use glow::HasContext as _;
         unsafe {
             gl.use_program(Some(self.program));
-            gl.uniform_3_f32(Some(&self.app_dimensions), dimensions.x, dimensions.y, game_fade);
-            gl.uniform_2_f32(Some(&self.img_dimensions), img_dimensions.x, img_dimensions.y,);
+            gl.uniform_3_f32(Some(&self.app_dimensions), size.x, size.y, game_fade);
+            gl.uniform_2_f32(Some(&self.img_dimensions), img_size.x, img_size.y);
             let mut bitflags: u32 = 0;
             if flags.disable_blur {
                 bitflags = bitflags | 0x000001;

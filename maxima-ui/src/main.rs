@@ -1,29 +1,30 @@
 #![feature(slice_pattern)]
-use anyhow::bail;
 use clap::{arg, command, Parser};
-
 use desktop::check_desktop_icon;
-use egui::{pos2, Align2, FontId, IconData, Layout, ViewportBuilder, Widget};
-use egui::style::{ScrollStyle, Spacing};
-use egui::Style;
-use log::{error, warn};
-use maxima::core::library::OwnedOffer;
+use egui::{
+    pos2,
+    style::{ScrollStyle, Spacing},
+    style::{WidgetVisuals, Widgets},
+    vec2, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, Layout, Margin, Rect,
+    Response, Rounding, Stroke, Style, TextureId, Ui, Vec2, ViewportBuilder, Visuals, Widget,
+};
+use log::error;
+use maxima::{core::library::OwnedOffer, util::log::init_logger};
+use std::{collections::HashMap, default::Default, ops::RangeInclusive, path::PathBuf};
 use strum_macros::EnumIter;
-use views::downloads_view::{downloads_view, QueuedDownload};
-use views::undefinied_view::coming_soon_view;
-use std::collections::HashMap;
-use std::default::Default;
-use std::path::PathBuf;
-use std::{ops::RangeInclusive, rc::Rc, sync::Arc};
-use ui_image::UIImageCache;
-use views::friends_view::UIFriend;
+use ui_image::{UIImageCache, UIImageType};
+use views::{
+    debug_view::debug_view,
+    downloads_view::{downloads_view, QueuedDownload},
+    friends_view::{
+        friends_view, FriendsViewBar, FriendsViewBarPage, FriendsViewBarStatusFilter, UIFriend,
+    },
+    game_view::{games_view, GameViewBar, GameViewBarGenre, GameViewBarPlatform},
+    settings_view::settings_view,
+    undefinied_view::{coming_soon_view, undefined_view},
+};
 
 use eframe::egui_glow;
-use egui::{
-    style::{WidgetVisuals, Widgets},
-    vec2, Color32, FontData, FontDefinitions, FontFamily, Margin, Rect, Response, Rounding, Stroke,
-    TextureId, Ui, Vec2, Visuals,
-};
 use egui_extras::{Size, StripBuilder};
 use egui_glow::glow;
 
@@ -31,21 +32,8 @@ use bridge_thread::{BridgeThread, InteractThreadLocateGameResponse};
 
 use app_bg_renderer::AppBgRenderer;
 use game_view_bg_renderer::GameViewBgRenderer;
-use renderers::app_bg_renderer;
-use renderers::game_view_bg_renderer;
+use renderers::{app_bg_renderer, game_view_bg_renderer};
 use translation_manager::{positional_replace, TranslationManager};
-use views::friends_view::{FriendsViewBar, FriendsViewBarPage, FriendsViewBarStatusFilter};
-
-use maxima::util::{log::init_logger, registry::set_up_registry};
-
-use views::debug_view::debug_view;
-use views::friends_view::friends_view;
-use views::game_view::games_view;
-use views::settings_view::settings_view;
-use views::{
-    game_view::GameViewBar, game_view::GameViewBarGenre, game_view::GameViewBarPlatform,
-    undefinied_view::undefined_view,
-};
 
 pub mod bridge;
 pub mod util;
@@ -53,18 +41,18 @@ mod views;
 pub mod widgets;
 
 mod bridge_processor;
-mod event_processor;
 mod bridge_thread;
+mod desktop;
+mod enum_locale_map;
+mod event_processor;
 mod event_thread;
 mod renderers;
 mod translation_manager;
-mod enum_locale_map;
 mod ui_image;
-mod desktop;
 
 const ACCENT_COLOR: Color32 = Color32::from_rgb(8, 171, 244);
 const APP_MARGIN: Vec2 = vec2(12.0, 12.0); //TODO: user setting
-const FRIEND_INGAME_COLOR: Color32 = Color32::from_rgb(39, 106, 252);// temp
+const FRIEND_INGAME_COLOR: Color32 = Color32::from_rgb(39, 106, 252); // temp
 
 #[derive(Parser, Debug, Copy, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -118,10 +106,15 @@ async fn main() {
 
     let native_options = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
-        .with_inner_size([1280.0, 720.0])
-        .with_min_inner_size([940.0, 480.0])
-        .with_app_id("io.github.ArmchairDevelopers.Maxima")
-        .with_icon(eframe::icon_data::from_png_bytes(&include_bytes!("../../maxima-resources/assets/logo.png")[..]).unwrap()),
+            .with_inner_size([1280.0, 720.0])
+            .with_min_inner_size([940.0, 480.0])
+            .with_app_id("io.github.ArmchairDevelopers.Maxima")
+            .with_icon(
+                eframe::icon_data::from_png_bytes(
+                    &include_bytes!("../../maxima-resources/assets/logo.png")[..],
+                )
+                .unwrap(),
+            ),
         ..Default::default()
     };
     eframe::run_native(
@@ -152,7 +145,8 @@ enum PageType {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-enum PopupModal { // ATM Machine
+// ATM Machine
+enum PopupModal {
     GameSettings(String),
     GameInstall(String),
 }
@@ -211,7 +205,7 @@ impl GameSettings {
         Self {
             cloud_saves: true,
             launch_args: String::new(),
-            exe_override: String::new()
+            exe_override: String::new(),
         }
     }
 }
@@ -237,7 +231,7 @@ pub enum BackendStallState {
     UserNeedsToInstallService,
     UserNeedsToLogIn,
     LoggingIn,
-    BingChilling
+    BingChilling,
 }
 
 pub struct InstallModalState {
@@ -278,7 +272,7 @@ pub struct MaximaEguiApp {
     /// selected game
     game_sel: String,
     /// friends
-    friends: Vec<UIFriend>, 
+    friends: Vec<UIFriend>,
     /// width of the friends sidebar
     friends_width: f32,
     /// force visibility of friends sidebar
@@ -294,9 +288,9 @@ pub struct MaximaEguiApp {
     /// Image cache
     img_cache: UIImageCache,
     /// Translations
-    locale: TranslationManager, 
+    locale: TranslationManager,
     /// If a core thread has crashed and made the UI unstable
-    critical_bg_thread_crashed: bool, 
+    critical_bg_thread_crashed: bool,
     /// pepega
     backend: BridgeThread,
     /// what the backend doin?
@@ -322,7 +316,7 @@ pub enum FrontendLanguage {
 
 #[derive(serde::Serialize, serde::Deserialize, Copy, Clone)]
 pub struct FrontendPerformanceSettings {
-    disable_blur: bool
+    disable_blur: bool,
 }
 
 impl FrontendPerformanceSettings {
@@ -422,7 +416,7 @@ impl MaximaEguiApp {
         let mut fonts = FontDefinitions::default();
 
         fonts.font_data.insert(
-            "comic_sans".to_owned(),
+            "ibm_plex".to_owned(),
             FontData::from_static(include_bytes!("../fonts/IBMPlexSans-Regular.ttf")),
         );
 
@@ -430,13 +424,9 @@ impl MaximaEguiApp {
             .families
             .get_mut(&FontFamily::Proportional)
             .unwrap()
-            .insert(0, "comic_sans".to_owned());
+            .insert(0, "ibm_plex".to_owned());
 
-        fonts
-            .families
-            .get_mut(&FontFamily::Monospace)
-            .unwrap()
-            .push("comic_sans".to_owned());
+        fonts.families.get_mut(&FontFamily::Monospace).unwrap().push("ibm_plex".to_owned());
 
         cc.egui_ctx.set_style(style);
         cc.egui_ctx.set_fonts(fonts);
@@ -446,7 +436,9 @@ impl MaximaEguiApp {
 
         let settings: FrontendSettings = if let Some(storage) = cc.storage {
             eframe::get_value(storage, "settings").unwrap_or(FrontendSettings::new())
-        } else { FrontendSettings::new() };
+        } else {
+            FrontendSettings::new()
+        };
 
         let (img_cache, remote_provider_channel) = UIImageCache::new(cc.egui_ctx.clone());
 
@@ -463,7 +455,7 @@ impl MaximaEguiApp {
                 page: FriendsViewBarPage::All,
                 status_filter: FriendsViewBarStatusFilter::Name,
                 search_buffer: String::new(),
-                friend_sel : String::new(),
+                friend_sel: String::new(),
             },
             user_name: "User".to_owned(),
             user_id: String::new(),
@@ -538,34 +530,24 @@ fn custom_window_frame(
         ..Default::default()
     };
 
-    /*if !enabled {
-        let mut warning_margin = Margin::same(0.0 - );
-        warning_margin.bottom = APP_MARGIN.y;
-        egui::Frame::default()
-            .fill(Color32::RED)
-            .outer_margin(warning_margin)
-            .show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.heading(
-                        egui::RichText::new(
-                            &self
-                                .locale
-                                .localization
-                                .errors
-                                .critical_thread_crashed,
-                        )
-                        .color(Color32::BLACK)
-                        .size(16.0),
-                    );
-                });
-            });
-    }*/
-
-    CentralPanel::default()
-    .frame(panel_frame).show(ctx, |ui| {
-        let warning_rect = Rect { min: pos2(0.0,0.0), max: pos2(ui.available_width() + APP_MARGIN.x * 2.0, APP_MARGIN.y * 3.0) };
-        ui.painter().rect_filled(warning_rect, Rounding::same(0.0), Color32::RED);
-        ui.painter().text(warning_rect.center(), Align2::CENTER_CENTER, crash_text, FontId::proportional(16.0), Color32::BLACK);
+    CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
+        if !enabled {
+            let warning_rect = Rect {
+                min: Pos2::ZERO,
+                max: pos2(
+                    ui.available_width() + APP_MARGIN.x * 2.0,
+                    APP_MARGIN.y * 3.0,
+                ),
+            };
+            ui.painter().rect_filled(warning_rect, Rounding::same(0.0), Color32::RED);
+            ui.painter().text(
+                warning_rect.center(),
+                Align2::CENTER_CENTER,
+                crash_text,
+                FontId::proportional(16.0),
+                Color32::BLACK,
+            );
+        }
         ui.add_enabled_ui(enabled, add_contents);
     });
 }
@@ -617,12 +599,15 @@ macro_rules! set_app_modal {
             match modal {
                 PopupModal::GameSettings(slug) => {
                     if $arg1.settings.game_settings.get(&slug).is_none() {
-                        $arg1.settings.game_settings.insert(slug.clone(), crate::GameSettings::new());
+                        $arg1
+                            .settings
+                            .game_settings
+                            .insert(slug.clone(), crate::GameSettings::new());
                     }
-                },
+                }
                 PopupModal::GameInstall(_) => {
                     $arg1.installer_state = InstallModalState::new(&$arg1.settings);
-                },
+                }
             }
             $arg1.modal = $arg2;
         } else {
@@ -633,6 +618,350 @@ macro_rules! set_app_modal {
 
 pub(crate) use set_app_modal;
 
+impl MaximaEguiApp {
+    fn tab_bar(&mut self, header: &mut Ui) {
+        puffin::profile_function!();
+        let navbar = egui::Frame::default()
+            .stroke(Stroke::new(2.0, Color32::WHITE))
+            .inner_margin(Margin::same(0.0))
+            .outer_margin(Margin::same(2.0))
+            .rounding(Rounding::same(4.0));
+        navbar.show(header, |ui| {
+            ui.horizontal(|ui| {
+                let loc = &self.locale.localization.menubar;
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.style_mut().visuals.widgets.inactive.rounding = Rounding::ZERO;
+                tab_button(ui, &mut self.page_view, PageType::Games, &loc.games);
+                tab_button(ui, &mut self.page_view, PageType::Store, &loc.store);
+                tab_button(ui, &mut self.page_view, PageType::Settings, &loc.settings);
+                tab_button(ui, &mut self.page_view, PageType::Downloads, &loc.downloads);
+                #[cfg(debug_assertions)]
+                if self.debug {
+                    tab_button(ui, &mut self.page_view, PageType::Debug, "Debug");
+                }
+            });
+        });
+    }
+
+    fn you(&mut self, profile: &mut Ui) {
+        puffin::profile_function!();
+        profile.with_layout(egui::Layout::right_to_left(egui::Align::Center), |rtl| {
+            rtl.style_mut().spacing.item_spacing.x = 0.0;
+            rtl.allocate_space(vec2(2.0, 2.0));
+            rtl.style_mut().spacing.item_spacing.x = APP_MARGIN.x;
+
+            let uid = self.user_id.clone();
+            let img_response = if let Some(av) = self.img_cache.get(UIImageType::Avatar(uid)) {
+                rtl.image((av.id(), vec2(36.0, 36.0)))
+            } else {
+                rtl.image((self.img_cache.placeholder_avatar.id(), vec2(36.0, 36.0)))
+            };
+            let stroke = Stroke::new(2.0, {
+                if self.playing_game.is_some() {
+                    FRIEND_INGAME_COLOR
+                } else {
+                    Color32::GREEN
+                }
+            });
+            rtl.painter().rect(
+                img_response.rect.expand(1.0),
+                Rounding::same(4.0),
+                Color32::TRANSPARENT,
+                stroke,
+            );
+            let point = img_response.rect.left_center() + vec2(-rtl.spacing().item_spacing.x, 2.0);
+
+            if let Some(game_slug) = &self.playing_game {
+                if let Some(game) = &self.games.get(game_slug) {
+                    let offset = vec2(0.0, 0.5);
+                    rtl.painter().text(
+                        point - offset,
+                        Align2::RIGHT_BOTTOM,
+                        &self.user_name,
+                        FontId::proportional(15.0),
+                        Color32::WHITE,
+                    );
+                    rtl.painter().text(
+                        point + offset,
+                        Align2::RIGHT_TOP,
+                        positional_replace!(
+                            &self.locale.localization.friends_view.status.presence_basic,
+                            "game",
+                            &game.name
+                        ),
+                        FontId::proportional(10.0),
+                        Color32::WHITE,
+                    );
+                }
+            } else {
+                rtl.painter().text(
+                    point,
+                    Align2::RIGHT_CENTER,
+                    &self.user_name,
+                    FontId::proportional(15.0),
+                    Color32::WHITE,
+                );
+            }
+        });
+    }
+
+    fn main(&mut self, app_rect: Rect, ui: &mut Ui) {
+        let outside_spacing = ui.spacing().item_spacing.x.clone();
+        ui.add_enabled_ui(self.modal.is_none(), |ui| {
+            ui.spacing_mut().item_spacing.y = outside_spacing;
+            let strip = StripBuilder::new(ui).size(Size::exact(38.0)).size(Size::remainder());
+            strip.vertical(|mut strip| {
+                strip.cell(|ui| {
+                    puffin::profile_scope!("top bar");
+                    StripBuilder::new(ui)
+                        .size(Size::remainder())
+                        .size(Size::exact(300.0))
+                        .horizontal(|mut strip| {
+                            strip.cell(|header| {
+                                self.tab_bar(header);
+                            });
+                            strip.cell(|profile| {
+                                self.you(profile);
+                            });
+                        });
+                });
+
+                strip.cell(|main| {
+                    puffin::profile_scope!("main content");
+
+                    let avail_rect = main.available_rect_before_wrap();
+                    let bigmain_rect = Rect {
+                        min: avail_rect.min,
+                        max: avail_rect.max
+                            - vec2(
+                                self.friends_width + main.style().spacing.item_spacing.x,
+                                0.0,
+                            ),
+                    };
+                    let friends_rect = Rect {
+                        min: pos2(
+                            main.available_rect_before_wrap().max.x - self.friends_width,
+                            avail_rect.min.y,
+                        ),
+                        max: avail_rect.max,
+                    };
+
+                    main.allocate_ui_at_rect(bigmain_rect, |bigmain| {
+                        puffin::profile_scope!("main view");
+                        match self.page_view {
+                            PageType::Games => games_view(self, bigmain),
+                            PageType::Settings => settings_view(self, bigmain),
+                            PageType::Debug => debug_view(self, bigmain),
+                            PageType::Store => coming_soon_view(self, bigmain),
+                            PageType::Downloads => downloads_view(self, bigmain),
+                            _ => undefined_view(self, bigmain),
+                        }
+                    });
+                    main.allocate_ui_at_rect(friends_rect, |friends| {
+                        friends_view(self, friends);
+                    });
+                });
+            });
+        });
+        let mut clear = false;
+        if let Some(modal) = &self.modal {
+            ui.allocate_ui_at_rect(app_rect, |contents| {
+                    egui::Frame::default()
+                    .fill(Color32::from_black_alpha(200))
+                    .outer_margin(Margin::symmetric((app_rect.width() - 600.0) / 2.0, (app_rect.height() - 400.0) / 2.0))
+                    .inner_margin(Margin::same(12.0))
+                    .rounding(Rounding::same(8.0))
+                    .stroke(Stroke::new(4.0, Color32::WHITE))
+                    .show(contents, |ui| {
+                        ui.style_mut().spacing.interact_size = vec2(100.0, 30.0);
+                        ui.spacing_mut().icon_width = 30.0;
+                        match modal {
+                            PopupModal::GameSettings(slug) => 'outer: {
+                                let game = if let Some(game) = self.games.get_mut(slug) { game } else { break 'outer; };
+                                //let game_settings = game.settings.borrow_mut();
+                                ui.horizontal(|header| {
+                                    header.heading(positional_replace!(self.locale.localization.modals.game_settings.header, "game", &game.name));
+                                    header.with_layout(Layout::right_to_left(egui::Align::Center), |close_button| {
+                                        if close_button.add_sized(vec2(80.0, 30.0), egui::Button::new(&self.locale.localization.modals.close.to_ascii_uppercase())).clicked() {
+                                            clear = true
+                                        }
+                                    });
+                                });
+                                ui.separator();
+                                if game.installed {
+                                    if let Some(settings) = self.settings.game_settings.get_mut(&game.slug) {
+                                        ui.add_enabled(/* game.has_cloud_saves */ false, egui::Checkbox::new(&mut settings.cloud_saves, &self.locale.localization.modals.game_settings.cloud_saves));
+
+                                        ui.label(&self.locale.localization.modals.game_settings.launch_arguments);
+                                        ui.add_sized(vec2(ui.available_width(), ui.style().spacing.interact_size.y), egui::TextEdit::singleline(&mut settings.launch_args).vertical_align(egui::Align::Center));
+
+                                        ui.separator();
+
+
+                                        let button_size = vec2(100.0, 30.0);
+
+                                        ui.label(&self.locale.localization.modals.game_settings.executable_override);
+                                        ui.horizontal(|ui| {
+                                            let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x), 30.0);
+                                            ui.add_sized(size, egui::TextEdit::singleline(&mut settings.exe_override).vertical_align(egui::Align::Center));
+                                            ui.add_sized(button_size, egui::Button::new("BROWSE"));
+                                        });
+
+                                        ui.separator();
+                                    }
+
+                                    ui.add_enabled(false, egui::Button::new(format!("  {}  ", &self.locale.localization.modals.game_settings.uninstall.to_ascii_uppercase())));
+                                } else {
+                                    ui.label(&self.locale.localization.modals.game_settings.not_installed);
+                                }
+                            },
+                            PopupModal::GameInstall(slug) => 'outer: {
+                                let game = if let Some(game) = self.games.get_mut(slug) { game } else { break 'outer; };
+                                ui.horizontal(|header| {
+                                    header.heading(positional_replace!(self.locale.localization.modals.game_install.header, "game", &game.name));
+                                    header.with_layout(Layout::right_to_left(egui::Align::Center), |close_button| {
+                                        close_button.add_enabled_ui(!self.installer_state.locating, |close_button| {
+                                            if close_button.add_sized(vec2(80.0, 30.0), egui::Button::new(&self.locale.localization.modals.close.to_ascii_uppercase())).clicked() {
+                                                clear = true
+                                            }
+                                        });
+                                    });
+                                });
+
+                                ui.separator();
+
+                                if !self.args.allow_bf3 && (slug.eq("battlefield-3") || slug.eq("battlefield-4")) {
+                                    ui.heading("Battlefield 3 and 4 are currently unsupported due to how battlelog complicates game launching. This is on our radar, but isn't a huge priority at the moment.");
+                                    break 'outer;
+                                }
+
+                                let button_size = vec2(100.0, 30.0);
+
+                                ui.label(&self.locale.localization.modals.game_install.locate_installed);
+                                if let Some(resp) = &self.installer_state.locate_response {
+                                    match resp {
+                                        InteractThreadLocateGameResponse::Success => {
+                                            self.installer_state.should_close = true;
+                                            game.installed = true;
+                                        },
+                                        InteractThreadLocateGameResponse::Error(err) => {
+                                            ui.spacing_mut().item_spacing.x = 0.0;
+
+                                            egui::Label::new(egui::RichText::new(&self.locale.localization.modals.game_install.locate_failed).color(Color32::RED)).ui(ui);
+                                            ui.horizontal_wrapped(|ui| {
+                                                ui.label("Please report this on ");
+                                                ui.hyperlink_to("GitHub Issues", "https://github.com/ArmchairDevelopers/Maxima/issues/new");
+                                                ui.label(".");
+                                            });
+                                            ui.label("Make sure to specify:");
+                                            ui.horizontal_wrapped(|ui| {
+                                                egui::Label::new("• You were locating ").selectable(false).ui(ui);
+                                                egui::Label::new(egui::RichText::new(format!("{}", game.name)).color(Color32::WHITE)).ui(ui);
+                                            });
+                                            ui.horizontal_wrapped(|ui| {
+                                                egui::Label::new("• ").selectable(false).ui(ui);
+                                                egui::Label::new(egui::RichText::new(format!("{}", err.reason)).color(Color32::WHITE)).ui(ui);
+                                            });
+                                            ui.horizontal_wrapped(|ui| {
+                                                egui::Label::new("And attach ").selectable(false).ui(ui);
+                                                egui::Label::new(egui::RichText::new(&err.xml_path).color(Color32::WHITE)).ui(ui);
+                                            });
+                                        }
+                                    }
+                                } else if self.installer_state.locating {
+                                    ui.heading(&self.locale.localization.modals.game_install.locate_in_progress);
+                                } else {
+                                    ui.horizontal(|ui| {
+                                        let size = vec2(400.0 - (24.0 + ui.style().spacing.item_spacing.x*2.0), 30.0);
+                                        ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.locate_path).vertical_align(egui::Align::Center));
+                                        ui.add_sized(button_size, egui::Button::new("BROWSE"));
+                                        ui.add_enabled_ui(PathBuf::from(&self.installer_state.locate_path).exists(), |ui| {
+
+                                            if ui.add_sized(button_size, egui::Button::new(&self.locale.localization.modals.game_install.locate_action.to_ascii_uppercase())).clicked() {
+                                                self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::LocateGameRequest(slug.clone(), self.installer_state.locate_path.clone())).unwrap();
+                                                self.installer_state.locating = true;
+                                            }
+                                        });
+                                    });
+                                }
+                                ui.label("");
+                                ui.label(&self.locale.localization.modals.game_install.fresh_download);
+                                ui.add_enabled_ui(!self.installer_state.locating, |ui| {
+                                    let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x*2.0), 30.0);
+                                    ui.horizontal(|ui| {
+                                        ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::new(2.0, F9B233);
+                                        ui.style_mut().visuals.widgets.hovered.expansion = -2.0;
+                                        ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(2.0);
+                                        ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.install_folder).vertical_align(egui::Align::Center));
+                                    });
+                                    let path = PathBuf::from(self.installer_state.install_folder.clone());
+                                    let valid = path.exists();
+                                    ui.add_enabled_ui(valid, |ui| {
+                                        if ui.add_sized(button_size, egui::Button::new(&self.locale.localization.modals.game_install.fresh_action)).clicked() {
+                                            if self.installing_now.is_none() {
+                                                self.installing_now = Some(QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
+                                            } else {
+                                                self.install_queue.insert(game.offer.clone(),QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
+                                            }
+                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), path.join(slug))).unwrap();
+
+                                            clear = true;
+                                        }
+                                    });
+                                    if !self.installer_state.install_folder.is_empty() {
+                                        ui.horizontal_wrapped(|folder_hint| {
+                                            egui::Label::new(&self.locale.localization.modals.game_install.fresh_path_confirmation).selectable(false).ui(folder_hint);
+                                            egui::Label::new(egui::RichText::new(format!("{}",
+                                                path.join(slug).display())).color(Color32::WHITE)).selectable(false).ui(folder_hint);
+                                        });
+                                        if !valid {
+                                            egui::Label::new(egui::RichText::new(&self.locale.localization.modals.game_install.fresh_path_invalid).color(Color32::RED)).ui(ui);
+                                        }
+                                    }
+                                });
+
+                                if self.installer_state.should_close { clear = true; }
+                            }
+                        }
+                        ui.allocate_space(ui.available_size_before_wrap());
+                    });
+                });
+        }
+        if clear {
+            self.modal = None;
+        }
+    }
+
+    fn login(&mut self, app_rect: Rect, ui: &mut Ui) {
+        let main_block_rect = ui.painter().text(
+            app_rect.center(),
+            Align2::CENTER_BOTTOM,
+            &self.locale.localization.startup_flow.login_header,
+            egui::FontId::proportional(30.0),
+            Color32::WHITE,
+        );
+        let button_rect = Rect {
+            min: main_block_rect.center_bottom() + vec2(-60.0, 4.0),
+            max: main_block_rect.center_bottom() + vec2(60.0, 34.0),
+        };
+        if ui
+            .put(
+                button_rect,
+                egui::Button::new(
+                    &self.locale.localization.startup_flow.login_button.to_ascii_uppercase(),
+                ),
+            )
+            .clicked()
+        {
+            self.backend
+                .backend_commander
+                .send(bridge_thread::MaximaLibRequest::LoginRequestOauth)
+                .unwrap();
+            self.backend_state = BackendStallState::LoggingIn;
+        }
+    }
+}
+
 impl eframe::App for MaximaEguiApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, "settings", &self.settings);
@@ -642,395 +971,148 @@ impl eframe::App for MaximaEguiApp {
         puffin::profile_function!();
         bridge_processor::frontend_processor(self, ctx);
         event_processor::frontend_processor(self, ctx);
-        
-        custom_window_frame(!self.critical_bg_thread_crashed,
+
+        custom_window_frame(
+            !self.critical_bg_thread_crashed,
             self.locale.localization.errors.critical_thread_crashed.clone(),
-            ctx, frame, "Maxima", |ui| {
-            if let Some(render) = &self.app_bg_renderer {
-                let mut fullrect = ui.available_rect_before_wrap().clone();
-                fullrect.min -= APP_MARGIN;
-                fullrect.max += APP_MARGIN;
-                let has_game_img = self.backend_state == BackendStallState::BingChilling && self.games.len() > 0;
-                let gaming = self.page_view == PageType::Games && has_game_img;
-                let how_game: f32 = ctx.animate_bool(egui::Id::new("MainAppBackgroundGamePageFadeBool"), gaming);
-                if has_game_img {
-                    if self.game_sel.is_empty() && self.games.len() > 0 {
-                        if let Some(key) = self.games.keys().next() {
-                            self.game_sel = key.clone()
-                        }
-                    }
-                    
-                    match &self.img_cache.get(ui_image::UIImageType::Background(self.games[&self.game_sel].slug.clone())) {
-                        Some(tex) => render.draw(ui, fullrect, tex.size_vec2(), tex.id(), how_game, self.settings.performance_settings),
-                        None => {
-                            match &self.img_cache.get(ui_image::UIImageType::Hero(self.games[&self.game_sel].slug.clone())) {
-                                Some(tex) => render.draw(ui, fullrect, tex.size_vec2(), tex.id(), how_game, self.settings.performance_settings),
-                                None => { render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), 0.0, self.settings.performance_settings); },
+            ctx,
+            frame,
+            "Maxima",
+            |ui| {
+                if let Some(render) = &self.app_bg_renderer {
+                    let mut fullrect = ui.available_rect_before_wrap().clone();
+                    fullrect.min -= APP_MARGIN;
+                    fullrect.max += APP_MARGIN;
+                    let has_game_img = self.backend_state == BackendStallState::BingChilling
+                        && self.games.len() > 0;
+                    let gaming = self.page_view == PageType::Games && has_game_img;
+                    let how_game: f32 = ctx
+                        .animate_bool(egui::Id::new("MainAppBackgroundGamePageFadeBool"), gaming);
+                    if has_game_img {
+                        if self.game_sel.is_empty() && self.games.len() > 0 {
+                            if let Some(key) = self.games.keys().next() {
+                                self.game_sel = key.clone()
                             }
-                        },
-                    }
-                } else {
-                    render.draw(ui, fullrect, fullrect.size(), TextureId::Managed(1), 0.0, self.settings.performance_settings);
-                }
-            }
-            let app_rect = ui.available_rect_before_wrap().clone();
-            match self.backend_state {
-                BackendStallState::Starting => {
-                    ui.painter().text(
-                        app_rect.center(),
-                        Align2::CENTER_CENTER, &self.locale.localization.startup_flow.starting,
-                        FontId::proportional(30.0), Color32::WHITE
-                    );
-                    ui.put(app_rect, egui::Spinner::new().size(300.0));
-                },
-                BackendStallState::UserNeedsToInstallService => {
-                    let main_block_rect = ui.painter().text(app_rect.center(), Align2::CENTER_BOTTOM,
-                    &self.locale.localization.startup_flow.service_installer_description, egui::FontId::proportional(20.0), Color32::GRAY);
-                    ui.painter().text(main_block_rect.center_top() - vec2(0.0, 4.0), Align2::CENTER_BOTTOM,
-                    &self.locale.localization.startup_flow.service_installer_header, egui::FontId::proportional(30.0), Color32::WHITE);
-                    let button_rect = Rect {
-                        min: main_block_rect.center_bottom() + vec2(-60.0,  4.0),
-                        max: main_block_rect.center_bottom() + vec2( 60.0, 34.0)
-                    };
-                    if ui.put(button_rect, egui::Button::new(&self.locale.localization.startup_flow.service_installer_button.to_ascii_uppercase())).clicked() {
-                        self.backend.backend_commander
-                                .send(bridge_thread::MaximaLibRequest::StartService)
-                                .unwrap();
-                        self.backend_state = BackendStallState::Starting;
-                    }
-                },
-                BackendStallState::UserNeedsToLogIn => {
-                    let main_block_rect = ui.painter().text(app_rect.center(), Align2::CENTER_BOTTOM,
-                    &self.locale.localization.startup_flow.login_header, egui::FontId::proportional(30.0), Color32::WHITE);
-                    let button_rect = Rect {
-                        min: main_block_rect.center_bottom() + vec2(-60.0,  4.0),
-                        max: main_block_rect.center_bottom() + vec2( 60.0, 34.0)
-                    };
-                    if ui.put(button_rect, egui::Button::new(&self.locale.localization.startup_flow.login_button.to_ascii_uppercase())).clicked() {
-                        self.backend.backend_commander
-                        .send(bridge_thread::MaximaLibRequest::LoginRequestOauth)
-                        .unwrap();
-                        self.backend_state = BackendStallState::LoggingIn;
-                    }
-                },
-                BackendStallState::LoggingIn => {
-                    ui.painter().text(
-                        app_rect.center(),
-                        Align2::CENTER_CENTER, &self.locale.localization.startup_flow.logging_in,
-                        FontId::proportional(30.0), Color32::WHITE
-                    );
-                    ui.put(app_rect, egui::Spinner::new().size(300.0));
-                },
-                BackendStallState::BingChilling => {
-                    let outside_spacing = ui.spacing().item_spacing.x.clone();
-                    ui.add_enabled_ui(self.modal.is_none(), |non_modal| {
-                        non_modal.spacing_mut().item_spacing.y = outside_spacing;
-                        StripBuilder::new(non_modal)
-                        .size(Size::exact(38.0))
-                        .size(Size::remainder())
-                        .vertical(|mut strip| {
-                            strip.cell(|ui| {
-                                puffin::profile_scope!("top bar");
-                                StripBuilder::new(ui)
-                                .size(Size::remainder())
-                                .size(Size::exact(300.0))
-                                .horizontal(|mut strip| {
-                                    strip.cell(|header| {
-                                        puffin::profile_scope!("tab bar");
-                                        //header.painter().rect_filled(header.available_rect_before_wrap(), Rounding::ZERO, Color32::from_white_alpha(20));
-                                        let navbar = egui::Frame::default()
-                                            .stroke(Stroke::new(2.0, Color32::WHITE))
-                                            .inner_margin(Margin::same(0.0))
-                                            .outer_margin(Margin::same(2.0))
-                                            .rounding(Rounding::same(4.0));
-                                        navbar.show(header, |ui| {
-                                            ui.horizontal(|ui| {
-                                                ui.spacing_mut().item_spacing.x = 0.0;
-                                                ui.style_mut()
-                                                    .visuals
-                                                    .widgets
-                                                    .inactive
-                                                    .rounding = Rounding::ZERO;
-                                                // BEGIN TAB BUTTONS
-                                                tab_button(
-                                                    ui,
-                                                    &mut self.page_view,
-                                                    PageType::Games,
-                                                    &self.locale.localization.menubar.games,
-                                                );
-                                                tab_button(
-                                                    ui,
-                                                    &mut self.page_view,
-                                                    PageType::Store,
-                                                    &self.locale.localization.menubar.store,
-                                                );
-                                                tab_button(
-                                                    ui,
-                                                    &mut self.page_view,
-                                                    PageType::Settings,
-                                                    &self.locale.localization.menubar.settings,
-                                                );
-                                                tab_button(
-                                                    ui,
-                                                    &mut self.page_view,
-                                                    PageType::Downloads,
-                                                    &self.locale.localization.menubar.downloads,
-                                                );
-                                                #[cfg(debug_assertions)]
-                                                if self.debug {
-                                                    tab_button(
-                                                        ui,
-                                                        &mut self.page_view,
-                                                        PageType::Debug,
-                                                        "Debug",
-                                                    );
-                                                }
-                                                //END TAB BUTTONS
-                                            });
-                                        });
-                                    });
-                                    strip.cell(|profile| {
-                                        puffin::profile_scope!("you");
-                                        //profile.painter().rect_filled(profile.available_rect_before_wrap(), Rounding::ZERO, Color32::from_white_alpha(20));
-                                        profile.with_layout(
-                                            egui::Layout::right_to_left(egui::Align::Center), |rtl| {
-                                                rtl.style_mut().spacing.item_spacing.x = 0.0;
-                                                rtl.allocate_space(vec2(2.0, 2.0));
-                                                rtl.style_mut().spacing.item_spacing.x = APP_MARGIN.x;
-                                                
-                                                let img_response = if let Some(av) = self.img_cache.get(ui_image::UIImageType::Avatar(self.user_id.clone())) {
-                                                    rtl.image((av.id(), vec2(36.0, 36.0)))
-                                                } else {
-                                                    rtl.image((self.img_cache.placeholder_avatar.id(), vec2(36.0, 36.0)))
-                                                };
-                                                let stroke = Stroke::new(2.0, {
-                                                    if self.playing_game.is_some() {
-                                                        FRIEND_INGAME_COLOR
-                                                    } else {
-                                                        Color32::GREEN
-                                                    }
-                                                });
-                                                rtl.painter().rect(img_response.rect.expand(1.0), Rounding::same(4.0), Color32::TRANSPARENT, stroke);
-                                                let point = img_response.rect.left_center() + vec2(-rtl.spacing().item_spacing.x, 2.0);
+                        }
 
-                                                if let Some(game_slug) = &self.playing_game {
-                                                    if let Some(game) = &self.games.get(game_slug) {
-                                                        let offset = vec2(0.0, 0.5);
-                                                        rtl.painter().text(point-offset, Align2::RIGHT_BOTTOM, &self.user_name, FontId::proportional(15.0), Color32::WHITE);
-                                                        rtl.painter().text(point+offset, Align2::RIGHT_TOP, positional_replace!(&self.locale.localization.friends_view.status.presence_basic, "game", &game.name), FontId::proportional(10.0), Color32::WHITE);
-                                                    }
-                                                } else {
-                                                    rtl.painter().text(point, Align2::RIGHT_CENTER, &self.user_name, FontId::proportional(15.0), Color32::WHITE);
-                                                }
-                                            },
+                        match &self.img_cache.get(ui_image::UIImageType::Background(
+                            self.games[&self.game_sel].slug.clone(),
+                        )) {
+                            Some(tex) => render.draw(
+                                ui,
+                                fullrect,
+                                tex.size_vec2(),
+                                tex.id(),
+                                how_game,
+                                self.settings.performance_settings,
+                            ),
+                            None => {
+                                match &self.img_cache.get(ui_image::UIImageType::Hero(
+                                    self.games[&self.game_sel].slug.clone(),
+                                )) {
+                                    Some(tex) => render.draw(
+                                        ui,
+                                        fullrect,
+                                        tex.size_vec2(),
+                                        tex.id(),
+                                        how_game,
+                                        self.settings.performance_settings,
+                                    ),
+                                    None => {
+                                        render.draw(
+                                            ui,
+                                            fullrect,
+                                            fullrect.size(),
+                                            TextureId::Managed(1),
+                                            0.0,
+                                            self.settings.performance_settings,
                                         );
-                                    });
-                                });
-                            });
-
-                            strip.cell(|main| {
-                                puffin::profile_scope!("main content");
-
-                                let bigmain_rect = Rect {
-                                    min: main.available_rect_before_wrap().min,
-                                    max: main.available_rect_before_wrap().max - vec2(self.friends_width + main.style().spacing.item_spacing.x, 0.0)
-                                };
-                                let friends_rect = Rect {
-                                    min: pos2(main.available_rect_before_wrap().max.x - self.friends_width, main.available_rect_before_wrap().min.y),
-                                    max: main.available_rect_before_wrap().max
-                                };
-
-                                main.allocate_ui_at_rect(bigmain_rect, |bigmain| {
-                                    puffin::profile_scope!("main view");
-                                    match self.page_view {
-                                        PageType::Games => games_view(self, bigmain),
-                                        PageType::Settings => settings_view(self, bigmain),
-                                        PageType::Debug => debug_view(self, bigmain),
-                                        PageType::Store => coming_soon_view(self, bigmain),
-                                        PageType::Downloads => downloads_view(self, bigmain),
-                                        _ => undefined_view(self, bigmain),
-                                    }
-                                });
-                                main.allocate_ui_at_rect(friends_rect, |friends| {
-                                    friends_view(self, friends);
-                                });
-                            });
-                        });
-                    });
-                    let mut clear = false;
-                    if let Some(modal) = &self.modal {
-                        ui.allocate_ui_at_rect(app_rect, |contents| {
-
-                        
-                            egui::Frame::default()
-                            .fill(Color32::from_black_alpha(200))
-                            .outer_margin(Margin::symmetric((app_rect.width() - 600.0) / 2.0, (app_rect.height() - 400.0) / 2.0))
-                            .inner_margin(Margin::same(12.0))
-                            .rounding(Rounding::same(8.0))
-                            .stroke(Stroke::new(4.0, Color32::WHITE))
-                            .show(contents, |ui| {
-                                ui.style_mut().spacing.interact_size = vec2(100.0, 30.0);
-                                ui.spacing_mut().icon_width = 30.0;
-                                match modal {
-                                    PopupModal::GameSettings(slug) => 'outer: {
-                                        let game = if let Some(game) = self.games.get_mut(slug) { game } else { break 'outer; };
-                                        //let game_settings = game.settings.borrow_mut();
-                                        ui.horizontal(|header| {
-                                            header.heading(positional_replace!(self.locale.localization.modals.game_settings.header, "game", &game.name));
-                                            header.with_layout(Layout::right_to_left(egui::Align::Center), |close_button| {
-                                                if close_button.add_sized(vec2(80.0, 30.0), egui::Button::new(&self.locale.localization.modals.close.to_ascii_uppercase())).clicked() {
-                                                    clear = true
-                                                }
-                                            });
-                                        });
-                                        ui.separator();
-                                        if game.installed {
-                                            if let Some(settings) = self.settings.game_settings.get_mut(&game.slug) {
-                                                ui.add_enabled(/* game.has_cloud_saves */ false, egui::Checkbox::new(&mut settings.cloud_saves, &self.locale.localization.modals.game_settings.cloud_saves));
-                                                
-                                                ui.label(&self.locale.localization.modals.game_settings.launch_arguments);
-                                                ui.add_sized(vec2(ui.available_width(), ui.style().spacing.interact_size.y), egui::TextEdit::singleline(&mut settings.launch_args).vertical_align(egui::Align::Center));
-
-                                                ui.separator();
-
-
-                                                let button_size = vec2(100.0, 30.0);
-
-                                                ui.label(&self.locale.localization.modals.game_settings.executable_override);
-                                                ui.horizontal(|ui| {
-                                                    let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x), 30.0);
-                                                    ui.add_sized(size, egui::TextEdit::singleline(&mut settings.exe_override).vertical_align(egui::Align::Center));
-                                                    ui.add_sized(button_size, egui::Button::new("BROWSE"));
-                                                });
-
-                                                ui.separator();
-                                            }
-
-                                            ui.add_enabled(false, egui::Button::new(format!("  {}  ", &self.locale.localization.modals.game_settings.uninstall.to_ascii_uppercase())));
-                                        } else {
-                                            ui.label(&self.locale.localization.modals.game_settings.not_installed);
-                                        }
-                                    },
-                                    PopupModal::GameInstall(slug) => 'outer: {
-                                        let game = if let Some(game) = self.games.get_mut(slug) { game } else { break 'outer; };
-                                        ui.horizontal(|header| {
-                                            header.heading(positional_replace!(self.locale.localization.modals.game_install.header, "game", &game.name));
-                                            header.with_layout(Layout::right_to_left(egui::Align::Center), |close_button| {
-                                                close_button.add_enabled_ui(!self.installer_state.locating, |close_button| {
-                                                    if close_button.add_sized(vec2(80.0, 30.0), egui::Button::new(&self.locale.localization.modals.close.to_ascii_uppercase())).clicked() {
-                                                        clear = true
-                                                    }
-                                                });
-                                            });
-                                        });
-
-                                        ui.separator();
-
-                                        if !self.args.allow_bf3 && (slug.eq("battlefield-3") || slug.eq("battlefield-4")) {
-                                            ui.heading("Battlefield 3 and 4 are currently unsupported due to how battlelog complicates game launching. This is on our radar, but isn't a huge priority at the moment.");
-                                            break 'outer;
-                                        }
-
-                                        let button_size = vec2(100.0, 30.0);
-
-                                        ui.label(&self.locale.localization.modals.game_install.locate_installed);
-                                        if let Some(resp) = &self.installer_state.locate_response {
-                                            match resp {
-                                                InteractThreadLocateGameResponse::Success => {
-                                                    self.installer_state.should_close = true;
-                                                    game.installed = true;
-                                                },
-                                                InteractThreadLocateGameResponse::Error(err) => {
-                                                    ui.spacing_mut().item_spacing.x = 0.0;
-                                                    
-                                                    egui::Label::new(egui::RichText::new(&self.locale.localization.modals.game_install.locate_failed).color(Color32::RED)).ui(ui);
-                                                    ui.horizontal_wrapped(|ui| {
-                                                        ui.label("Please report this on ");
-                                                        ui.hyperlink_to("GitHub Issues", "https://github.com/ArmchairDevelopers/Maxima/issues/new");
-                                                        ui.label(".");
-                                                    });
-                                                    ui.label("Make sure to specify:");
-                                                    ui.horizontal_wrapped(|ui| {
-                                                        egui::Label::new("• You were locating ").selectable(false).ui(ui);
-                                                        egui::Label::new(egui::RichText::new(format!("{}", game.name)).color(Color32::WHITE)).ui(ui);
-                                                    });
-                                                    ui.horizontal_wrapped(|ui| {
-                                                        egui::Label::new("• ").selectable(false).ui(ui);
-                                                        egui::Label::new(egui::RichText::new(format!("{}", err.reason)).color(Color32::WHITE)).ui(ui);
-                                                    });
-                                                    ui.horizontal_wrapped(|ui| {
-                                                        egui::Label::new("And attach ").selectable(false).ui(ui);
-                                                        egui::Label::new(egui::RichText::new(&err.xml_path).color(Color32::WHITE)).ui(ui);
-                                                    });
-                                                    
-                                                }
-                                            }
-                                        } else if self.installer_state.locating {
-                                            ui.heading(&self.locale.localization.modals.game_install.locate_in_progress);
-                                        } else {
-                                            ui.horizontal(|ui| {
-                                                let size = vec2(400.0 - (24.0 + ui.style().spacing.item_spacing.x*2.0), 30.0);
-                                                ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.locate_path).vertical_align(egui::Align::Center));
-                                                ui.add_sized(button_size, egui::Button::new("BROWSE"));
-                                                ui.add_enabled_ui(PathBuf::from(&self.installer_state.locate_path).exists(), |ui| {
-
-                                                    if ui.add_sized(button_size, egui::Button::new(&self.locale.localization.modals.game_install.locate_action.to_ascii_uppercase())).clicked() {
-                                                        self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::LocateGameRequest(slug.clone(), self.installer_state.locate_path.clone())).unwrap();
-                                                        self.installer_state.locating = true;
-                                                    }
-                                                });
-                                            });
-                                        }
-                                        ui.label("");
-                                        ui.label(&self.locale.localization.modals.game_install.fresh_download);
-                                        ui.add_enabled_ui(!self.installer_state.locating, |ui| {
-                                            let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x*2.0), 30.0);
-                                            ui.horizontal(|ui| {
-                                                ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::new(2.0, F9B233);
-                                                ui.style_mut().visuals.widgets.hovered.expansion = -2.0;
-                                                ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(2.0);
-                                                ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.install_folder).vertical_align(egui::Align::Center));
-                                            });
-                                            let path = PathBuf::from(self.installer_state.install_folder.clone());
-                                            let valid = path.exists();
-                                            ui.add_enabled_ui(valid, |ui| {
-                                                if ui.add_sized(button_size, egui::Button::new(&self.locale.localization.modals.game_install.fresh_action)).clicked() {
-                                                    if self.installing_now.is_none() {
-                                                        self.installing_now = Some(QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
-                                                    } else {
-                                                        self.install_queue.insert(game.offer.clone(),QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
-                                                    }
-                                                    self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), path.join(slug))).unwrap();
-
-                                                    clear = true;
-                                                }
-                                            });
-                                            if !self.installer_state.install_folder.is_empty() {
-                                                ui.horizontal_wrapped(|folder_hint| {
-                                                    egui::Label::new(&self.locale.localization.modals.game_install.fresh_path_confirmation).selectable(false).ui(folder_hint);
-                                                    egui::Label::new(egui::RichText::new(format!("{}",
-                                                        path.join(slug).display())).color(Color32::WHITE)).selectable(false).ui(folder_hint);
-                                                });
-                                                if !valid {
-                                                    egui::Label::new(egui::RichText::new(&self.locale.localization.modals.game_install.fresh_path_invalid).color(Color32::RED)).ui(ui);
-                                                }
-                                            }
-                                        });
-                                        
-
-                                        if self.installer_state.should_close { clear = true; }
                                     }
                                 }
-                                ui.allocate_space(ui.available_size_before_wrap());
-                            });
-                        });
+                            }
+                        }
+                    } else {
+                        render.draw(
+                            ui,
+                            fullrect,
+                            fullrect.size(),
+                            TextureId::Managed(1),
+                            0.0,
+                            self.settings.performance_settings,
+                        );
                     }
-                    if clear {
-                        self.modal = None;
+                }
+                let app_rect = ui.available_rect_before_wrap().clone();
+                match self.backend_state {
+                    BackendStallState::Starting => {
+                        ui.painter().text(
+                            app_rect.center(),
+                            Align2::CENTER_CENTER,
+                            &self.locale.localization.startup_flow.starting,
+                            FontId::proportional(30.0),
+                            Color32::WHITE,
+                        );
+                        ui.put(app_rect, egui::Spinner::new().size(300.0));
                     }
-                },
-            };
-        });
+                    BackendStallState::UserNeedsToInstallService => {
+                        let main_block_rect = ui.painter().text(
+                            app_rect.center(),
+                            Align2::CENTER_BOTTOM,
+                            &self.locale.localization.startup_flow.service_installer_description,
+                            egui::FontId::proportional(20.0),
+                            Color32::GRAY,
+                        );
+                        ui.painter().text(
+                            main_block_rect.center_top() - vec2(0.0, 4.0),
+                            Align2::CENTER_BOTTOM,
+                            &self.locale.localization.startup_flow.service_installer_header,
+                            egui::FontId::proportional(30.0),
+                            Color32::WHITE,
+                        );
+                        let button_rect = Rect {
+                            min: main_block_rect.center_bottom() + vec2(-60.0, 4.0),
+                            max: main_block_rect.center_bottom() + vec2(60.0, 34.0),
+                        };
+                        if ui
+                            .put(
+                                button_rect,
+                                egui::Button::new(
+                                    &self
+                                        .locale
+                                        .localization
+                                        .startup_flow
+                                        .service_installer_button
+                                        .to_ascii_uppercase(),
+                                ),
+                            )
+                            .clicked()
+                        {
+                            self.backend
+                                .backend_commander
+                                .send(bridge_thread::MaximaLibRequest::StartService)
+                                .unwrap();
+                            self.backend_state = BackendStallState::Starting;
+                        }
+                    }
+                    BackendStallState::UserNeedsToLogIn => {
+                        self.login(app_rect, ui);
+                    }
+                    BackendStallState::LoggingIn => {
+                        ui.painter().text(
+                            app_rect.center(),
+                            Align2::CENTER_CENTER,
+                            &self.locale.localization.startup_flow.logging_in,
+                            FontId::proportional(30.0),
+                            Color32::WHITE,
+                        );
+                        ui.put(app_rect, egui::Spinner::new().size(300.0));
+                    }
+                    BackendStallState::BingChilling => {
+                        self.main(app_rect, ui);
+                    }
+                };
+            },
+        );
         puffin::GlobalProfiler::lock().new_frame();
     }
 

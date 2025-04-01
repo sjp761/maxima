@@ -23,20 +23,22 @@ pub async fn game_details_request(
 ) -> Result<()> {
     let maxima = maxima_arc.lock().await;
 
-    let yeah = maxima.service_layer().request(
+    let rq = maxima.service_layer().request(
         SERVICE_REQUEST_GAMESYSTEMREQUIREMENTS,
         ServiceGameSystemRequirementsRequestBuilder::default()
             .slug(slug.clone())
             .locale(maxima.locale().short_str().to_owned())
             .build()?,
     );
-    let yeah: ServiceGameSystemRequirements = yeah.await?;
+    let rq: ServiceGameSystemRequirements = rq.await?;
 
     //TODO: parse async
 
-    let (min, rec) = if yeah.system_requirements().len() >= 1 {
-        (Some(html_to_easymark(yeah.system_requirements()[0].minimum())),
-         Some(html_to_easymark(yeah.system_requirements()[0].recommended())))
+    let (min, rec) = if rq.system_requirements().len() >= 1 {
+        (
+            Some(html_to_easymark(rq.system_requirements()[0].minimum())),
+            Some(html_to_easymark(rq.system_requirements()[0].recommended())),
+        )
     } else {
         (None, None)
     };

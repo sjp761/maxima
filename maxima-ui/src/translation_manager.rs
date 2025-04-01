@@ -57,7 +57,6 @@ pub struct LocalizedGameInstallModal {
     pub fresh_path_invalid: String,
     /// Button that initiates the download
     pub fresh_action: String,
-    
 }
 
 #[derive(Deserialize)]
@@ -98,7 +97,7 @@ pub struct LocalizedStartupFlow {
     /// Describes what the windows service does, and that it's needed for maxima to work
     pub service_installer_description: String,
     /// Button that initiates windows service installation
-    pub service_installer_button: String
+    pub service_installer_button: String,
 }
 
 #[derive(Deserialize)]
@@ -326,21 +325,27 @@ impl TranslationManager {
 
         serde_json::from_str(locale_json).unwrap()
     }
-    
+
     pub fn new(lang: &FrontendLanguage) -> Self {
         let locale = match lang {
             FrontendLanguage::SystemDefault => {
                 let locale: Option<String> = sys_locale::get_locale();
-                if let Some(code) = locale { code } else { "en-US".to_owned() }
-            },
+                if let Some(code) = locale {
+                    code
+                } else {
+                    "en-US".to_owned()
+                }
+            }
             FrontendLanguage::EnUS => "en-US".to_owned(),
         };
-        
+
         let s = Self::get_for_locale(locale.as_str());
         Self { localization: s }
     }
 
     pub fn new_with(code: &str) -> Self {
-        Self { localization: Self::get_for_locale(code) }
+        Self {
+            localization: Self::get_for_locale(code),
+        }
     }
 }

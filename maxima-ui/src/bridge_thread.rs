@@ -3,17 +3,30 @@ use egui::Context;
 use log::{error, info, warn};
 
 use std::{
-    panic, path::PathBuf, sync::mpsc::{Receiver, Sender}, time::{Duration, SystemTime}
+    panic,
+    path::PathBuf,
+    sync::mpsc::{Receiver, Sender},
+    time::{Duration, SystemTime},
 };
 
-use maxima::{content::manager::{ContentManager, QueuedGameBuilder}, core::{manifest::{self, MANIFEST_RELATIVE_PATH}, service_layer::ServicePlayer, LockedMaxima, Maxima, MaximaOptionsBuilder}, util::registry::{check_registry_validity, set_up_registry}};
 use crate::{
     bridge::{
-        game_details::game_details_request,
-        get_friends::get_friends_request,
-        get_games::get_games_request,
-        login_oauth::login_oauth, start_game::start_game_request,
-    }, event_thread::{EventThread, MaximaEventRequest, MaximaEventResponse}, ui_image::UIImageCacheLoaderCommand, views::friends_view::UIFriend, GameDetails, GameInfo, GameSettings
+        game_details::game_details_request, get_friends::get_friends_request,
+        get_games::get_games_request, login_oauth::login_oauth, start_game::start_game_request,
+    },
+    event_thread::{EventThread, MaximaEventRequest, MaximaEventResponse},
+    ui_image::UIImageCacheLoaderCommand,
+    views::friends_view::UIFriend,
+    GameDetails, GameInfo, GameSettings,
+};
+use maxima::{
+    content::manager::{ContentManager, QueuedGameBuilder},
+    core::{
+        manifest::{self, MANIFEST_RELATIVE_PATH},
+        service_layer::ServicePlayer,
+        LockedMaxima, Maxima, MaximaOptionsBuilder,
+    },
+    util::registry::{check_registry_validity, set_up_registry},
 };
 
 pub struct InteractThreadLoginResponse {
@@ -22,7 +35,7 @@ pub struct InteractThreadLoginResponse {
 
 pub struct InteractThreadGameListResponse {
     pub game: GameInfo,
-    pub settings: GameSettings
+    pub settings: GameSettings,
 }
 
 pub struct InteractThreadFriendListResponse {
@@ -41,7 +54,7 @@ pub struct InteractThreadLocateGameFailure {
 
 pub enum InteractThreadLocateGameResponse {
     Success,
-    Error(InteractThreadLocateGameFailure)
+    Error(InteractThreadLocateGameFailure),
 }
 
 pub struct InteractThreadDownloadProgressResponse {
@@ -71,12 +84,11 @@ pub enum MaximaLibResponse {
     GameDetailsResponse(InteractThreadGameDetailsResponse),
     LocateGameResponse(InteractThreadLocateGameResponse),
     // Alerts, rather than responses:
-    
     InteractionThreadDiedResponse,
     ActiveGameChanged(Option<String>),
     DownloadProgressChanged(String, InteractThreadDownloadProgressResponse),
     DownloadFinished(String),
-    DownloadQueueUpdate(Option<String>, Vec<String>)
+    DownloadQueueUpdate(Option<String>, Vec<String>),
 }
 pub struct BridgeThread {
     pub backend_listener: Receiver<MaximaLibResponse>,
@@ -87,10 +99,13 @@ pub struct BridgeThread {
 }
 
 impl BridgeThread {
-    fn update_queue(content_manager: &ContentManager, backend_responder: Sender<MaximaLibResponse>) {
+    fn update_queue(
+        content_manager: &ContentManager,
+        backend_responder: Sender<MaximaLibResponse>,
+    ) {
         let current = if let Some(now) = content_manager.queue().current() {
             Some(now.offer_id().to_owned())
-        }else {
+        } else {
             None
         };
 
@@ -99,8 +114,10 @@ impl BridgeThread {
         for game in content_manager.queue().queued() {
             queue.push(game.offer_id().to_owned());
         }
-        
-        backend_responder.send(MaximaLibResponse::DownloadQueueUpdate(current, queue)).unwrap();
+
+        backend_responder
+            .send(MaximaLibResponse::DownloadQueueUpdate(current, queue))
+            .unwrap();
     }
 
     pub fn new(ctx: &Context, remote_provider_channel: Sender<UIImageCacheLoaderCommand>) -> Self {
@@ -115,7 +132,15 @@ impl BridgeThread {
         tokio::task::spawn(async move {
             let die_fallback_transmittter = backend_responder.clone();
             //panic::set_hook(Box::new( |_| {}));
-            let result = BridgeThread::run(backend_cmd_listener, backend_responder, rtm_cmd_listener, rtm_responder, remote_provider_channel, &context).await;
+            let result = BridgeThread::run(
+                backend_cmd_listener,
+                backend_responder,
+                rtm_cmd_listener,
+                rtm_responder,
+                remote_provider_channel,
+                &context,
+            )
+            .await;
             if let Err(result) = result {
                 die_fallback_transmittter
                     .send(MaximaLibResponse::InteractionThreadDiedResponse)
@@ -126,7 +151,12 @@ impl BridgeThread {
             }
         });
 
-        Self { backend_listener, backend_commander, rtm_listener, rtm_commander }
+        Self {
+            backend_listener,
+            backend_commander,
+            rtm_listener,
+            rtm_commander,
+        }
     }
 
     async fn run(
@@ -140,18 +170,23 @@ impl BridgeThread {
         // first things first check registry
         // the flow is different for windows/linux but windows needs an extra user prompt,
         // so we're doing both here, instead of selectively cfg'd functions!
-        #[cfg(not(windows))] {
+        #[cfg(not(windows))]
+        {
             if let Err(err) = check_registry_validity() {
                 warn!("{}, fixing...", err);
                 set_up_registry()?;
             }
-        } #[cfg(windows)] {
+        }
+        #[cfg(windows)]
+        {
             use maxima::{
                 core::background_service::request_registry_setup,
                 util::{
                     registry::check_registry_validity,
-                    service::{register_service_user, is_service_running, is_service_valid, start_service}
-                }
+                    service::{
+                        is_service_running, is_service_valid, register_service_user, start_service,
+                    },
+                },
             };
             if !is_elevated::is_elevated() {
                 if !is_service_valid()? {
@@ -168,14 +203,11 @@ impl BridgeThread {
                                 register_service_user()?;
                                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                                 break 'wait_for_user_to_authorize;
-                            },
-                            MaximaLibRequest::ShutdownRequest => {
-                                return Ok(())
                             }
-                            _ => {},
+                            MaximaLibRequest::ShutdownRequest => return Ok(()),
+                            _ => {}
                         }
                     }
-                    
                 }
 
                 if !is_service_running()? {
@@ -194,21 +226,21 @@ impl BridgeThread {
                 .dummy_local_user(false)
                 .load_auth_storage(true)
                 .build()?,
-        ).await?;
+        )
+        .await?;
 
-        
-        let logged_in =  {
+        let logged_in = {
             let maxima = maxima_arc.lock().await;
             if maxima.start_lsx(maxima_arc.clone()).await.is_ok() {
                 info!("LSX started");
             } else {
                 info!("LSX failed to start!");
             }
-        
+
             let mut auth_storage = maxima.auth_storage().lock().await;
             auth_storage.logged_in().await?
         };
-        
+
         if !logged_in {
             backend_responder.send(MaximaLibResponse::LoginCacheEmpty)?;
             'outer: loop {
@@ -224,11 +256,9 @@ impl BridgeThread {
                         let context = ctx.clone();
                         async move { login_oauth(maxima, channel, &context).await }.await?;
                         break 'outer;
-                    },
-                    MaximaLibRequest::ShutdownRequest => {
-                        return Ok(())
                     }
-                    _ => {},
+                    MaximaLibRequest::ShutdownRequest => return Ok(()),
+                    _ => {}
                 }
             }
         }
@@ -236,25 +266,39 @@ impl BridgeThread {
         {
             let maxima = maxima_arc.lock().await;
             let user = maxima.local_user().await?;
-            
+
             if logged_in {
-                let lmessage = MaximaLibResponse::LoginResponse(Ok(
-                    InteractThreadLoginResponse {
-                        you: user.player().as_ref().unwrap().to_owned()
-                    }
-                ));
+                let lmessage = MaximaLibResponse::LoginResponse(Ok(InteractThreadLoginResponse {
+                    you: user.player().as_ref().unwrap().to_owned(),
+                }));
                 backend_responder.send(lmessage)?;
             }
-            let res = remote_provider_channel.send(UIImageCacheLoaderCommand::ProvideRemote(crate::ui_image::UIImageType::Avatar(user.id().to_string()), user.player().as_ref().unwrap().avatar().as_ref().unwrap().medium().path().to_string()));
+            let res = remote_provider_channel.send(UIImageCacheLoaderCommand::ProvideRemote(
+                crate::ui_image::UIImageType::Avatar(user.id().to_string()),
+                user.player()
+                    .as_ref()
+                    .unwrap()
+                    .avatar()
+                    .as_ref()
+                    .unwrap()
+                    .medium()
+                    .path()
+                    .to_string(),
+            ));
             if let Err(err) = res {
                 error!("failed to send user pfp to loader: {:?}", err);
             }
             ctx.request_repaint();
         }
 
-        let _ = EventThread::new(&ctx.clone(), maxima_arc.clone(), rtm_cmd_listener, rtm_responder);
+        let _ = EventThread::new(
+            &ctx.clone(),
+            maxima_arc.clone(),
+            rtm_cmd_listener,
+            rtm_responder,
+        );
 
-        let mut future  = SystemTime::now();
+        let mut future = SystemTime::now();
         future = future.checked_add(Duration::from_millis(50)).unwrap();
         let mut playing_cache: Option<String> = None;
         'outer: loop {
@@ -262,7 +306,7 @@ impl BridgeThread {
             if now >= future {
                 // this sucks but it's non-blocking so oh well what are you going to do about it! it's on a non-ui thread anyway, i'm wasteful with it
                 future = now.checked_add(Duration::from_millis(50)).unwrap();
-                
+
                 let mut maxima = maxima_arc.lock().await;
                 maxima.update().await;
                 let now_playing = maxima.playing();
@@ -271,7 +315,11 @@ impl BridgeThread {
                     if let Some(offer) = ctx.offer() {
                         if playing_cache.is_none() {
                             playing_cache = Some(offer.slug().clone());
-                            backend_responder.send(MaximaLibResponse::ActiveGameChanged(Some(offer.slug().clone()))).unwrap();
+                            backend_responder
+                                .send(MaximaLibResponse::ActiveGameChanged(Some(
+                                    offer.slug().clone(),
+                                )))
+                                .unwrap();
                         }
                     }
                 } else {
@@ -282,20 +330,26 @@ impl BridgeThread {
                 }
 
                 if let Some(dl) = maxima.content_manager().current() {
-                    backend_responder.send(MaximaLibResponse::DownloadProgressChanged(dl.offer_id().to_string(), 
-                    InteractThreadDownloadProgressResponse {  
-                        bytes: dl.bytes_downloaded(),
-                        bytes_total: dl.bytes_total()
-                    })).unwrap();
+                    backend_responder
+                        .send(MaximaLibResponse::DownloadProgressChanged(
+                            dl.offer_id().to_string(),
+                            InteractThreadDownloadProgressResponse {
+                                bytes: dl.bytes_downloaded(),
+                                bytes_total: dl.bytes_total(),
+                            },
+                        ))
+                        .unwrap();
                 }
 
                 for ev in maxima.consume_pending_events() {
                     match ev {
-                        maxima::core::MaximaEvent::ReceivedLSXRequest(_, _) => {},
+                        maxima::core::MaximaEvent::ReceivedLSXRequest(_, _) => {}
                         maxima::core::MaximaEvent::InstallFinished(offer_id) => {
-                            backend_responder.send(MaximaLibResponse::DownloadFinished(offer_id)).unwrap();
+                            backend_responder
+                                .send(MaximaLibResponse::DownloadFinished(offer_id))
+                                .unwrap();
                             Self::update_queue(maxima.content_manager(), backend_responder.clone());
-                        },
+                        }
                     }
                 }
             }
@@ -305,13 +359,17 @@ impl BridgeThread {
             }
 
             match request? {
-                MaximaLibRequest::LoginRequestOauth | MaximaLibRequest::StartService => { error!("bro tried to log in twice") }
+                MaximaLibRequest::LoginRequestOauth | MaximaLibRequest::StartService => {
+                    error!("bro tried to log in twice")
+                }
                 MaximaLibRequest::GetGamesRequest => {
                     let channel = backend_responder.clone();
                     let channel1 = remote_provider_channel.clone();
                     let maxima = maxima_arc.clone();
                     let context = ctx.clone();
-                    tokio::task::spawn(async move { get_games_request(maxima, channel, channel1, &context).await });
+                    tokio::task::spawn(async move {
+                        get_games_request(maxima, channel, channel1, &context).await
+                    });
                     tokio::task::yield_now().await;
                 }
                 MaximaLibRequest::GetFriendsRequest => {
@@ -319,7 +377,9 @@ impl BridgeThread {
                     let channel1 = remote_provider_channel.clone();
                     let maxima = maxima_arc.clone();
                     let context = ctx.clone();
-                    tokio::task::spawn(async move { get_friends_request(maxima, channel, channel1, &context).await });
+                    tokio::task::spawn(async move {
+                        get_friends_request(maxima, channel, channel1, &context).await
+                    });
                     tokio::task::yield_now().await;
                 }
                 MaximaLibRequest::GetGameDetailsRequest(slug) => {
@@ -333,33 +393,68 @@ impl BridgeThread {
                     maxima::core::launch::mx_linux_setup().await?;
                     let mut path = path;
                     if path.ends_with("/") || path.ends_with("\\") {
-                        path.remove(path.len()-1);
+                        path.remove(path.len() - 1);
                     }
                     let path = PathBuf::from(path);
                     let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await;
                     if let std::result::Result::Ok(manifest) = manifest {
                         let guh = manifest.run_touchup(&path).await;
                         if guh.is_err() {
-                            backend_responder.send(MaximaLibResponse::LocateGameResponse(InteractThreadLocateGameResponse::Error(InteractThreadLocateGameFailure { reason: guh.unwrap_err(), xml_path: path.join(MANIFEST_RELATIVE_PATH).to_str().unwrap().to_string() }))).unwrap();
+                            backend_responder
+                                .send(MaximaLibResponse::LocateGameResponse(
+                                    InteractThreadLocateGameResponse::Error(
+                                        InteractThreadLocateGameFailure {
+                                            reason: guh.unwrap_err(),
+                                            xml_path: path
+                                                .join(MANIFEST_RELATIVE_PATH)
+                                                .to_str()
+                                                .unwrap()
+                                                .to_string(),
+                                        },
+                                    ),
+                                ))
+                                .unwrap();
                         } else {
-                            backend_responder.send(MaximaLibResponse::LocateGameResponse(InteractThreadLocateGameResponse::Success)).unwrap();
+                            backend_responder
+                                .send(MaximaLibResponse::LocateGameResponse(
+                                    InteractThreadLocateGameResponse::Success,
+                                ))
+                                .unwrap();
                         }
                     } else {
-                        backend_responder.send(MaximaLibResponse::LocateGameResponse(InteractThreadLocateGameResponse::Error(InteractThreadLocateGameFailure { reason: manifest.unwrap_err(), xml_path: path.join(MANIFEST_RELATIVE_PATH).to_str().unwrap().to_string() }))).unwrap();
+                        backend_responder
+                            .send(MaximaLibResponse::LocateGameResponse(
+                                InteractThreadLocateGameResponse::Error(
+                                    InteractThreadLocateGameFailure {
+                                        reason: manifest.unwrap_err(),
+                                        xml_path: path
+                                            .join(MANIFEST_RELATIVE_PATH)
+                                            .to_str()
+                                            .unwrap()
+                                            .to_string(),
+                                    },
+                                ),
+                            ))
+                            .unwrap();
                     }
                     info!("finished locating");
                     ctx.request_repaint();
                 }
                 MaximaLibRequest::InstallGameRequest(offer, path) => {
                     let mut maxima = maxima_arc.lock().await;
-                    let builds = maxima.content_manager().service().available_builds(&offer).await?;
-                    let build = if let Some(build) = builds.live_build() { build } else { continue; };
+                    let builds =
+                        maxima.content_manager().service().available_builds(&offer).await?;
+                    let build = if let Some(build) = builds.live_build() {
+                        build
+                    } else {
+                        continue;
+                    };
 
                     let game = QueuedGameBuilder::default()
-                    .offer_id(offer)
-                    .build_id(build.build_id().to_owned())
-                    .path(path.to_owned())
-                    .build()?;
+                        .offer_id(offer)
+                        .build_id(build.build_id().to_owned())
+                        .path(path.to_owned())
+                        .build()?;
                     maxima.content_manager().add_install(game).await?;
                 }
                 MaximaLibRequest::StartGameRequest(info, settings) => {

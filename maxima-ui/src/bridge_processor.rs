@@ -1,13 +1,16 @@
-use log::{debug, error, info, warn};
-use std::sync::mpsc::TryRecvError;
 use crate::{
-    bridge_thread, views::downloads_view::QueuedDownload, BackendStallState, GameDetails, GameDetailsWrapper, MaximaEguiApp
+    bridge_thread, views::downloads_view::QueuedDownload, BackendStallState, GameDetails,
+    GameDetailsWrapper, MaximaEguiApp,
 };
+use log::{error, info, warn};
+use std::sync::mpsc::TryRecvError;
 
 pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
     puffin::profile_function!();
-    
-    if app.critical_bg_thread_crashed { return; }
+
+    if app.critical_bg_thread_crashed {
+        return;
+    }
 
     'outer: loop {
         match app.backend.backend_listener.try_recv() {
@@ -19,7 +22,7 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                             continue;
                         }
                         let res = res.unwrap();
-        
+
                         info!("Logged in as {}!", &res.you.display_name());
                         app.user_name = res.you.display_name().clone();
                         app.user_id = res.you.id().clone();
@@ -49,14 +52,14 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                         if res.response.is_err() {
                             continue;
                         }
-        
+
                         let response = res.response.unwrap();
-        
+
                         for (slug, game) in &mut app.games {
                             if !slug.eq(&res.slug) {
                                 continue;
                             }
-        
+
                             game.details = GameDetailsWrapper::Available(GameDetails {
                                 time: response.time,
                                 achievements_unlocked: response.achievements_unlocked,
@@ -76,22 +79,25 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                     }
                     bridge_thread::MaximaLibResponse::ActiveGameChanged(slug) => {
                         app.playing_game = slug;
-                    },
+                    }
                     bridge_thread::MaximaLibResponse::LocateGameResponse(res) => {
                         app.installer_state.locate_response = Some(res);
                         app.installer_state.locating = false;
-                    },
-                    bridge_thread::MaximaLibResponse::DownloadProgressChanged(offer_id, progress) => {
+                    }
+                    bridge_thread::MaximaLibResponse::DownloadProgressChanged(
+                        offer_id,
+                        progress,
+                    ) => {
                         if let Some(dl_ing) = app.installing_now.as_mut() {
                             if dl_ing.offer == offer_id {
                                 dl_ing.downloaded_bytes = progress.bytes;
                                 dl_ing.total_bytes = progress.bytes_total;
                             }
                         }
-                    },
+                    }
                     bridge_thread::MaximaLibResponse::DownloadFinished(_) => {
                         // idk
-                    },
+                    }
                     bridge_thread::MaximaLibResponse::DownloadQueueUpdate(current, queue) => {
                         if let Some(current) = current {
                             if !app.installing_now.as_ref().is_some_and(|n| n.offer == current) {
@@ -112,13 +118,13 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                                     },
                                     offer: current,
                                     downloaded_bytes: 0,
-                                    total_bytes: 0
+                                    total_bytes: 0,
                                 })
                             }
                         } else {
                             app.installing_now = None;
                         }
-        
+
                         app.install_queue.clear();
                         for offer in queue {
                             let i_fucking_hate_this = QueuedDownload {
@@ -134,22 +140,23 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                                 },
                                 offer: offer.clone(),
                                 downloaded_bytes: 0,
-                                total_bytes: 0
+                                total_bytes: 0,
                             };
                             app.install_queue.insert(offer, i_fucking_hate_this);
                         }
-                        
-                    },
+                    }
                 }
                 ctx.request_repaint();
-            },
+            }
             Err(variant) => {
                 match variant {
-                    TryRecvError::Empty => {},
-                    TryRecvError::Disconnected => { app.critical_bg_thread_crashed = true; },
+                    TryRecvError::Empty => {}
+                    TryRecvError::Disconnected => {
+                        app.critical_bg_thread_crashed = true;
+                    }
                 }
                 break 'outer;
-            },
+            }
         }
     }
 }

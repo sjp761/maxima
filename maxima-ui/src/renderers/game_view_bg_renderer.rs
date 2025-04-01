@@ -31,7 +31,7 @@ impl GameViewBgRenderer {
         img_size: Vec2,
         img: TextureId,
         frac: f32,
-        flags: FrontendPerformanceSettings
+        flags: FrontendPerformanceSettings,
     ) {
         puffin::profile_function!("game hero renderer");
         let render = self.render.clone();
@@ -71,9 +71,7 @@ impl GVBGUnsafe {
 
         unsafe {
             //here we go lmao
-            let program = gl
-                .create_program()
-                .expect("Cannot create OpenGL shader program");
+            let program = gl.create_program().expect("Cannot create OpenGL shader program");
             if !glsl_version.is_new_shader_interface() {
                 //uh? not sure what else to do here but fuck you lmao!
                 error!("no painting for shader version {:?}", glsl_version);
@@ -91,9 +89,7 @@ impl GVBGUnsafe {
             let shaders: Vec<_> = shader_src
                 .iter()
                 .map(|(shader_type, shader_source)| {
-                    let shader = gl
-                        .create_shader(*shader_type)
-                        .expect("Cannot create shader");
+                    let shader = gl.create_shader(*shader_type).expect("Cannot create shader");
                     gl.shader_source(
                         shader,
                         &format!("{}\n{}", glsl_version.version_declaration(), shader_source),
@@ -123,8 +119,12 @@ impl GVBGUnsafe {
 
             Some(Self {
                 program: program,
-                frac_uniform: gl.get_uniform_location(program, "u_frac").expect("Failed to find frac uniform"),
-                flag_uniform: gl.get_uniform_location(program, "u_flags").expect("Failed to find flag uniform"),
+                frac_uniform: gl
+                    .get_uniform_location(program, "u_frac")
+                    .expect("Failed to find frac uniform"),
+                flag_uniform: gl
+                    .get_uniform_location(program, "u_flags")
+                    .expect("Failed to find flag uniform"),
             })
         }
     }
@@ -151,14 +151,12 @@ impl GVBGUnsafe {
             // FUCK YOU, 2020 HEADASS WITH THE BEAT SABER MODS, IT WAS NOT WORTH IT
             gl.use_program(Some(self.program));
             gl.uniform_2_f32(
-                gl.get_uniform_location(self.program, "u_dimensions")
-                    .as_ref(),
+                gl.get_uniform_location(self.program, "u_dimensions").as_ref(),
                 dimensions.x,
                 dimensions.y,
             );
             gl.uniform_2_f32(
-                gl.get_uniform_location(self.program, "u_img_dimensions")
-                    .as_ref(),
+                gl.get_uniform_location(self.program, "u_img_dimensions").as_ref(),
                 img_dimensions.x,
                 img_dimensions.y,
             );

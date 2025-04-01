@@ -1,91 +1,100 @@
-use std::sync::Arc;
-use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use egui::{pos2, vec2, Align2, Color32, FontId, Id, Rect, Rounding, Stroke, Ui, Vec2};
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use maxima::rtm::client::BasicPresence;
 
-use crate::{bridge_thread, main, translation_manager::positional_replace, widgets::enum_dropdown::enum_dropdown, MaximaEguiApp, FRIEND_INGAME_COLOR};
+use crate::{
+    translation_manager::positional_replace, widgets::enum_dropdown::enum_dropdown, MaximaEguiApp,
+    FRIEND_INGAME_COLOR,
+};
 
 use strum_macros::EnumIter;
 
 #[derive(Debug, PartialEq, Default, EnumIter)]
 pub enum FriendsViewBarStatusFilter {
-  #[default] Name,
-  Game,
+    #[default]
+    Name,
+    Game,
 }
 
 #[derive(Debug, Eq, PartialEq, Default, EnumIter)]
 pub enum FriendsViewBarPage {
-  #[default] Online,
-  All,
-  Pending,
-  Blocked
+    #[default]
+    Online,
+    All,
+    Pending,
+    Blocked,
 }
 
 pub struct FriendsViewBar {
-  /// What page the user is currently on
-  pub page : FriendsViewBarPage,
-  /// The value of the criteria ComboBox
-  pub status_filter : FriendsViewBarStatusFilter,
-  //search_category : FriendViewBarSearchCategory,
-  /// The buffer for the search box
-  pub search_buffer : String,
-  /// ID of the friend with buttons below
-  pub friend_sel : String,
+    /// What page the user is currently on
+    pub page: FriendsViewBarPage,
+    /// The value of the criteria ComboBox
+    pub status_filter: FriendsViewBarStatusFilter,
+    //search_category : FriendViewBarSearchCategory,
+    /// The buffer for the search box
+    pub search_buffer: String,
+    /// ID of the friend with buttons below
+    pub friend_sel: String,
 }
-
 
 pub struct UIFriend {
-  pub name : String,
-  pub id : String,
-  pub online : BasicPresence,
-  pub game : Option<String>,
-  pub game_presence : Option<String>,
+    pub name: String,
+    pub id: String,
+    pub online: BasicPresence,
+    pub game: Option<String>,
+    pub game_presence: Option<String>,
 }
-
 
 const F9B233: Color32 = Color32::from_rgb(249, 178, 51);
 const DARK_GREY: Color32 = Color32::from_rgb(64, 64, 64);
 const PFP_SIZE: f32 = 36.0;
 const PFP_CORNER_RADIUS: f32 = 2.0;
 const PFP_ELEMENT_SIZE: f32 = PFP_SIZE + PFP_CORNER_RADIUS * 2.0;
-const FRIEND_HIGHLIGHT_ROUNDING: Rounding = Rounding { nw: 6.0, ne: 4.0, sw: 6.0, se: 4.0 }; // the status border is flawed somehow, this "fixes" it slightly more than if i didn't
+const FRIEND_HIGHLIGHT_ROUNDING: Rounding = Rounding {
+    nw: 6.0,
+    ne: 4.0,
+    sw: 6.0,
+    se: 4.0,
+}; // the status border is flawed somehow, this "fixes" it slightly more than if i didn't
 const ITEM_SPACING: Vec2 = vec2(5.0, 5.0);
 
 fn ease_out_cubic(x: f32) -> f32 {
-  let ffs_rust = 1.0 - x;
-  return 1.0 - ffs_rust.powf(3.0);
+    let inv: f32 = 1.0 - x;
+    return 1.0 - inv.powf(3.0);
 }
 
-pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
-  puffin::profile_function!();
-  let matcher = SkimMatcherV2::default();
-  let max_width = ui.available_width(); // this gets expanded somehow, i don't know why, it's easier to do it this way
-  ui.style_mut().spacing.item_spacing = ITEM_SPACING;
-  let context = ui.ctx().clone();
-  // this is a fucking mistake.
-  let sidebar_rect = ui.available_rect_before_wrap();
+pub fn friends_view(app: &mut MaximaEguiApp, ui: &mut Ui) {
+    puffin::profile_function!();
+    let localization = &app.locale.localization.friends_view;
+    let matcher = SkimMatcherV2::default();
+    let max_width = ui.available_width(); // this gets expanded somehow, i don't know why, it's easier to do it this way
+    ui.style_mut().spacing.item_spacing = ITEM_SPACING;
+    let context = ui.ctx().clone();
+    // this is a fucking mistake.
+    let sidebar_rect = ui.available_rect_before_wrap();
 
-  let mut hittest_rect = sidebar_rect.clone().expand2(vec2(12.0,12.0));
-  hittest_rect.min.x += 8.0; // fix overlapping the scrollbar of the left view
-  
-  let friend_rect_hovered = if let Some(pos) = ui.ctx().input(|i| i.pointer.interact_pos()) {
-    hittest_rect.contains(pos) && ui.is_enabled()
-  } else {
-    false
-  } || app.force_friends;
-  app.force_friends = false; // reset, it won't go away without this
-  
-  let hovering_friends = context.animate_bool_with_time_and_easing(egui::Id::new("FriendsListWidthAnimator"), friend_rect_hovered, ui.style().animation_time*2.0, ease_out_cubic);
-  let hover_diff = 300.0 - PFP_ELEMENT_SIZE;
-  app.friends_width = PFP_ELEMENT_SIZE + (hovering_friends * hover_diff);
+    let mut hittest_rect = sidebar_rect.clone().expand2(vec2(12.0, 12.0));
+    hittest_rect.min.x += 8.0; // fix overlapping the scrollbar of the left view
 
-  let top_bar = egui::Frame::default()
-  //.fill(Color32::from_gray(255))
-  //.outer_margin(Margin::same(-4.0))
-  //.inner_margin(Margin::same(5.0))
-  ;
-  
-  top_bar.show(ui, |ui| {
+    let friend_rect_hovered = if let Some(pos) = ui.ctx().input(|i| i.pointer.interact_pos()) {
+        hittest_rect.contains(pos) && ui.is_enabled()
+    } else {
+        false
+    } || app.force_friends;
+    app.force_friends = false; // reset, it won't go away without this
+
+    let hovering_friends = context.animate_bool_with_time_and_easing(
+        egui::Id::new("FriendsListWidthAnimator"),
+        friend_rect_hovered,
+        ui.style().animation_time * 2.0,
+        ease_out_cubic,
+    );
+    let hover_diff = 300.0 - PFP_ELEMENT_SIZE;
+    app.friends_width = PFP_ELEMENT_SIZE + (hovering_friends * hover_diff);
+
+    let top_bar = egui::Frame::default();
+
+    top_bar.show(ui, |ui| {
     ui.vertical(|ui| {
       if friend_rect_hovered { //TODO : smooth transition
         ui.vertical(|ui| { //separating this out for styling reasons
@@ -117,22 +126,38 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
           ui.visuals_mut().widgets.open.bg_stroke = Stroke::new(2.0, DARK_GREY);
           ui.visuals_mut().widgets.open.rounding = Rounding::same(2.0);
 
-        
-          if ui.add_sized([ui.available_width(), 20.0], egui::TextEdit::hint_text(egui::text_edit::TextEdit::singleline(&mut app.friends_view_bar.search_buffer).vertical_align(egui::Align::Center), "Search friends list")).has_focus() {
+          if ui.add_sized(
+            [ui.available_width(), 20.0],
+            egui::text_edit::TextEdit::singleline(&mut app.friends_view_bar.search_buffer)
+            .vertical_align(egui::Align::Center)
+            .hint_text(&localization.toolbar.search_hint)
+        ).has_focus() {
             app.force_friends = true;
           }
           let combo_width = (ui.available_width() / 2.0) - ui.spacing().item_spacing.x; //a lot of accounting for shit when i'm just gonna make it a fixed width anyway
           ui.horizontal(|ui| {
-            let dropdown0 = enum_dropdown(ui, "FriendsListStatusFilterComboBox".to_owned(), &mut app.friends_view_bar.page, combo_width, "", &app.locale);
-            let dropdown1 = enum_dropdown(ui, "FriendsListFilterTypeComboBox".to_owned(), &mut app.friends_view_bar.status_filter, combo_width, "", &app.locale);
+            let dropdown0 = enum_dropdown(
+              ui,
+              "FriendsListStatusFilterComboBox".to_owned(),
+              &mut app.friends_view_bar.page,
+              combo_width,
+              "",
+              &app.locale);
+            let dropdown1 = enum_dropdown(
+              ui,
+              "FriendsListFilterTypeComboBox".to_owned(),
+              &mut app.friends_view_bar.status_filter,
+              combo_width,
+              "",
+              &app.locale);
             if dropdown0.inner.is_some() || dropdown1.inner.is_some() {
               app.force_friends = true;
             }
           });
         });
       }
-      
-      let mut friends : Vec<&mut UIFriend> = app.friends.iter_mut().filter(|obj| 
+
+      let mut friends : Vec<&mut UIFriend> = app.friends.iter_mut().filter(|obj|
         match app.friends_view_bar.status_filter {
             FriendsViewBarStatusFilter::Name => matcher.fuzzy_match(&obj.name, &app.friends_view_bar.search_buffer).is_some(),
             FriendsViewBarStatusFilter::Game => if let Some(game) = &obj.game {
@@ -185,22 +210,22 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
           let buttons = app.friends_view_bar.friend_sel.eq(&friend.id) && friend_rect_hovered;
           if buttons { app.force_friends = true; }
           let how_buttons = context.animate_bool_with_easing(Id::new("friendlistbuttons_".to_owned()+&friend.id), buttons, ease_out_cubic);
-          let (friend_status, friend_color) = 
+          let (friend_status, friend_color) =
           match friend.online {
             BasicPresence::Unknown => (&app.locale.localization.friends_view.status.unknown as &String, Color32::DARK_RED),
             BasicPresence::Offline => (&app.locale.localization.friends_view.status.offline, Color32::GRAY),
             BasicPresence::Dnd => (&app.locale.localization.friends_view.status.do_not_disturb, Color32::RED),
             BasicPresence::Away => (&app.locale.localization.friends_view.status.away, Color32::GOLD),
             BasicPresence::Online => {
-              
+
               if let Some(game) = &friend.game  {
                 ( if let Some(presence) = &friend.game_presence {
                   &positional_replace!(&app.locale.localization.friends_view.status.presence_rich, "game", &game, "rich", &presence)
                 } else {
                   &positional_replace!(&app.locale.localization.friends_view.status.presence_basic, "game", &game)
-                }, 
+                },
                 FRIEND_INGAME_COLOR)
-                
+
               } else {
                 (&app.locale.localization.friends_view.status.online, Color32::GREEN)
               }
@@ -210,8 +235,10 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
           ui.vertical(|ui| {
             ui.spacing_mut().item_spacing.y = 0.0;
             let (main_res, main_painter) = ui.allocate_painter(vec2(width, PFP_ELEMENT_SIZE), egui::Sense::click());
-            
-            if (how_buttons <= 0.0) && !ui.is_rect_visible(main_res.rect.with_min_y(main_res.rect.min.y - (PFP_ELEMENT_SIZE*3.0))) { return; }
+
+            if how_buttons <= 0.0 && !ui.is_rect_visible(main_res.rect.with_min_y(main_res.rect.min.y - (PFP_ELEMENT_SIZE*3.0))) {
+                return
+            }
 
             if main_res.clicked() {
               if buttons { app.friends_view_bar.friend_sel = String::new();     }
@@ -220,7 +247,7 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
             if main_res.is_pointer_button_down_on() || main_res.hovered() || buttons {
               main_painter.rect_filled(main_res.rect, FRIEND_HIGHLIGHT_ROUNDING, Color32::WHITE);
             }
-            
+
             if how_buttons > 0.0 {
               let (_, buttons_rect) = ui.allocate_space(vec2(width, (button_height + button_gap) * how_buttons));
               let size = vec2((width - (ui.style().spacing.item_spacing.x * 2.0)) / 3.0, PFP_ELEMENT_SIZE * 0.6);
@@ -271,7 +298,7 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
             } else {
               main_painter.image(app.img_cache.placeholder_avatar.id(), pfp_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             }
-  
+
             main_painter.rect(outline_rect, Rounding::same(4.0), Color32::TRANSPARENT, Stroke::new(2.0, friend_color));
 
             let text_col = if main_res.is_pointer_button_down_on() || main_res.hovered() || buttons {
@@ -279,7 +306,7 @@ pub fn friends_view(app : &mut MaximaEguiApp, ui: &mut Ui) {
             } else {
               Color32::WHITE
             };
-  
+
             main_painter.text(pfp_rect.center() + vec2(PFP_SIZE/1.5,  2.0), Align2::LEFT_BOTTOM, &friend.name, FontId::proportional(15.0), text_col);
             main_painter.text(pfp_rect.center() + vec2(PFP_SIZE/1.5,  2.0), Align2::LEFT_TOP, friend_status, FontId::proportional(10.0), text_col);
           });

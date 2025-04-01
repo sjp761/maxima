@@ -1,9 +1,16 @@
 use log::{debug, error, info};
-use maxima::core::{launch::{self, LaunchMode}, LockedMaxima};
+use maxima::core::{
+    launch::{self, LaunchMode},
+    LockedMaxima,
+};
 
 use crate::{GameInfo, GameSettings};
 
-pub async fn start_game_request(maxima_arc: LockedMaxima, game_info: GameInfo, game_settings: Option<GameSettings>) {
+pub async fn start_game_request(
+    maxima_arc: LockedMaxima,
+    game_info: GameInfo,
+    game_settings: Option<GameSettings>,
+) {
     let maxima = maxima_arc.lock().await;
     let logged_in = maxima.auth_storage().lock().await.current().is_some();
     if !logged_in {
@@ -20,19 +27,22 @@ pub async fn start_game_request(maxima_arc: LockedMaxima, game_info: GameInfo, g
                 None
             } else {
                 Some(settings.exe_override)
-            }
-        ,
-        launch::parse_arguments(&settings.launch_args))
-
+            },
+            launch::parse_arguments(&settings.launch_args),
+        )
     } else {
         (None, Vec::new())
     };
 
     drop(maxima);
-    let result = launch::start_game(maxima_arc.clone(), LaunchMode::Online(game_info.offer), exe_override, args).await;
+    let result = launch::start_game(
+        maxima_arc.clone(),
+        LaunchMode::Online(game_info.offer),
+        exe_override,
+        args,
+    )
+    .await;
     if result.is_err() {
         error!("Failed to start game! Reason: {}", result.err().unwrap());
     }
-    
-
 }

@@ -1,15 +1,22 @@
-use egui::{load::ImageLoader, vec2, ColorImage, Image, ImageData, TextureHandle, TextureId, TextureOptions, Vec2};
-use image::{DynamicImage, ImageResult};
-use std::{collections::HashMap, fs, path::PathBuf, sync::{mpsc::{Receiver, Sender}, Arc, Mutex}};
-use tokio::fs::File;
-use tokio::io;
+use egui::{ColorImage, TextureHandle, TextureOptions};
+use image::DynamicImage;
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    result::Result::Ok,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
+};
+use tokio::{fs::File, io};
 
 use anyhow::{bail, Context, Result};
 use core::slice::SlicePattern;
 use log::{debug, error, info};
-use std::result::Result::Ok;
 
-use image::{io::Reader as ImageReader};
+use image::io::Reader as ImageReader;
 use maxima::util::native::maxima_dir;
 
 #[derive(Clone, PartialEq, Eq, Hash, std::fmt::Debug)]
@@ -45,20 +52,26 @@ pub fn load_image_bytes(image_bytes: &[u8]) -> Result<egui::ColorImage, String> 
 }
 
 impl UIImageCache {
-    pub fn new(context: egui::Context) -> (Self, Sender<UIImageCacheLoaderCommand>) {
+    pub fn new(ctx: egui::Context) -> (Self, Sender<UIImageCacheLoaderCommand>) {
         let cache = Arc::new(Mutex::new(HashMap::new()));
         let (tx, rx) = std::sync::mpsc::channel::<UIImageCacheLoaderCommand>();
         let tx1 = tx.clone();
 
-
         let yeah = load_image_bytes(include_bytes!("../res/usericon_tmp.png")).unwrap();
-        let placeholder_avatar = context.load_texture("Placeholder Avatar", yeah, TextureOptions::LINEAR);
+        let avatar = ctx.load_texture("Placeholder Avatar", yeah, TextureOptions::LINEAR);
         let send_cache = cache.clone();
         tokio::task::spawn(async move {
-            UIImageCache::run(context, rx, send_cache).await;
+            UIImageCache::run(ctx, rx, send_cache).await;
         });
 
-        (Self { cache, commander: tx, placeholder_avatar }, tx1)
+        (
+            Self {
+                cache,
+                commander: tx,
+                placeholder_avatar: avatar,
+            },
+            tx1,
+        )
     }
 
     fn get_path_for_image(variant: &UIImageType) -> PathBuf {
@@ -69,7 +82,8 @@ impl UIImageCache {
             UIImageType::Hero(slug) => image_cache_root.join(&slug).join("hero.jpg"),
             UIImageType::Logo(slug) => image_cache_root.join(&slug).join("logo.png"),
             UIImageType::Background(slug) => image_cache_root.join(&slug).join("background.jpg"),
-            UIImageType::Avatar(uid) => { // avatars can be both jpeg and png
+            UIImageType::Avatar(uid) => {
+                // avatars can be both jpeg and png
                 let png_cache = avatar_cache_root.join(uid.clone() + "_208x208.png");
                 let jpeg_cache = avatar_cache_root.join(uid.clone() + "_208x208.jpg");
                 if fs::metadata(&jpeg_cache).is_ok() {
@@ -77,7 +91,7 @@ impl UIImageCache {
                 } else {
                     png_cache
                 }
-            },
+            }
         }
     }
 
@@ -85,116 +99,142 @@ impl UIImageCache {
         needle: UIImageType,
         cache: Arc<Mutex<HashMap<UIImageType, Option<TextureHandle>>>>,
         remotes: HashMap<UIImageType, String>,
-        context: egui::Context) -> Result<()> {
+        context: egui::Context,
+    ) -> Result<()> {
         let path = UIImageCache::get_path_for_image(&needle);
 
-            if !path.exists() {
-                debug!("{:?} ({:?}) doesn't exist, downloading", &needle, &path);
-                if let Some(parent) = &path.parent() {
-                    // not sure why it *wouldn't* have a parent but i'm just being safe
-                    // i don't have a way to catch-all the slugs atm, so this is the better solution, it's infrequent and a non-ui thread anyway
-                    if !fs::metadata(&parent).is_ok() {
-                        let res = fs::create_dir_all(&parent);
-                        res.context(format!("Failed to create directory {:?}", &parent))?;
-                    }
+        if !path.exists() {
+            debug!("{:?} ({:?}) doesn't exist, downloading", &needle, &path);
+            if let Some(parent) = &path.parent() {
+                // not sure why it *wouldn't* have a parent but i'm just being safe
+                // i don't have a way to catch-all the slugs atm, so this is the better solution, it's infrequent and a non-ui thread anyway
+                if !fs::metadata(&parent).is_ok() {
+                    let res = fs::create_dir_all(&parent);
+                    res.context(format!("Failed to create directory {:?}", &parent))?;
                 }
-                if let Some(remote) = remotes.get(&needle) {
-                    let result = reqwest::get(remote).await;
-                    let result = result.context(format!("Failed to download {:?}!", &remote))?;
+            }
+            if let Some(remote) = remotes.get(&needle) {
+                let result = reqwest::get(remote).await;
+                let result = result.context(format!("Failed to download {:?}!", &remote))?;
 
-                    let file = File::create(&path).await;
-                    let mut file = file.context(format!("Failed to create {:?}", &path))?;
+                let file = File::create(&path).await;
+                let mut file = file.context(format!("Failed to create {:?}", &path))?;
 
-                    let body = result.bytes().await.unwrap();
-                    io::copy(&mut body.as_slice(), &mut file).await?;
+                let body = result.bytes().await.unwrap();
+                io::copy(&mut body.as_slice(), &mut file).await?;
 
-                    if let Ok(ci) = load_image_bytes(&body) {
-                        cache.lock().unwrap().insert(needle, Some(context.load_texture(path.to_str().unwrap().to_string(), ci, TextureOptions::LINEAR)));
-                    }
-                } else {
-                    debug!("has no remote or local file");
-                    return Ok(());
+                if let Ok(ci) = load_image_bytes(&body) {
+                    cache.lock().unwrap().insert(
+                        needle,
+                        Some(context.load_texture(
+                            path.to_str().unwrap().to_string(),
+                            ci,
+                            TextureOptions::LINEAR,
+                        )),
+                    );
                 }
             } else {
-                let img = ImageReader::open(&path);
-                let img = img.context(format!("Failed to open {:?}", path))?;
-
-                let img_with_format = img.with_guessed_format();
-                let img_with_format = img_with_format.context(format!("Failed to guess format of {:?}!", path))?;
-
-                let img_decoded = img_with_format.decode();
-                let img_decoded = img_decoded.context(format!("Failed to decode {:?}!", &path))?;
-
-                let color_image = match img_decoded.color().channel_count() {
-                    2 => {
-                        let img_a = DynamicImage::ImageRgba8(img_decoded.into_rgba8());
-                        ColorImage::from_rgba_unmultiplied(
-                            [img_a.width() as usize, img_a.height() as usize],
-                            img_a.as_bytes(),
-                        )
-                    }
-                    3 => {
-                        ColorImage::from_rgb(
-                            [img_decoded.width() as usize, img_decoded.height() as usize],
-                            img_decoded.as_bytes(),
-                        )
-                    }
-                    4 => {
-                        ColorImage::from_rgba_unmultiplied(
-                            [img_decoded.width() as usize, img_decoded.height() as usize],
-                            img_decoded.as_bytes(),
-                        )
-                    }
-                    _ => {
-                        bail!("unsupported amount of channels in {:?}!", path);
-                    },
-                };
-                
-                cache.lock().unwrap().insert(needle, Some(context.load_texture(path.to_str().unwrap().to_string(), color_image, TextureOptions::LINEAR)));
+                debug!("has no remote or local file");
+                return Ok(());
             }
-            context.request_repaint();
-            Ok(())
+        } else {
+            let img = ImageReader::open(&path);
+            let img = img.context(format!("Failed to open {:?}", path))?;
+
+            let img = img.with_guessed_format();
+            let img = img.context(format!("Failed to guess format of {:?}!", path))?;
+
+            let img_decoded = img.decode();
+            let img_decoded = img_decoded.context(format!("Failed to decode {:?}!", &path))?;
+
+            let color_image = match img_decoded.color().channel_count() {
+                2 => {
+                    let img_a = DynamicImage::ImageRgba8(img_decoded.into_rgba8());
+                    ColorImage::from_rgba_unmultiplied(
+                        [img_a.width() as usize, img_a.height() as usize],
+                        img_a.as_bytes(),
+                    )
+                }
+                3 => ColorImage::from_rgb(
+                    [img_decoded.width() as usize, img_decoded.height() as usize],
+                    img_decoded.as_bytes(),
+                ),
+                4 => ColorImage::from_rgba_unmultiplied(
+                    [img_decoded.width() as usize, img_decoded.height() as usize],
+                    img_decoded.as_bytes(),
+                ),
+                _ => {
+                    bail!("unsupported amount of channels in {:?}!", path);
+                }
+            };
+
+            cache.lock().unwrap().insert(
+                needle,
+                Some(context.load_texture(
+                    path.to_str().unwrap().to_string(),
+                    color_image,
+                    TextureOptions::LINEAR,
+                )),
+            );
+        }
+        context.request_repaint();
+        Ok(())
     }
 
-    async fn run(context: egui::Context,
+    async fn run(
+        context: egui::Context,
         commander: Receiver<UIImageCacheLoaderCommand>,
-        cache: Arc<Mutex<HashMap<UIImageType, Option<TextureHandle>>>>) {
-
+        cache: Arc<Mutex<HashMap<UIImageType, Option<TextureHandle>>>>,
+    ) {
         let mut remotes: HashMap<UIImageType, String> = HashMap::new();
 
         'outer: loop {
             match commander.try_recv() {
-                Err(error) => if error == std::sync::mpsc::TryRecvError::Disconnected { break 'outer },
+                Err(error) => {
+                    if error == std::sync::mpsc::TryRecvError::Disconnected {
+                        break 'outer;
+                    }
+                }
                 Ok(request) => match request {
                     UIImageCacheLoaderCommand::ProvideRemote(needle, target) => {
                         debug!("remote provided for {:?}", &needle);
                         // undoes a race condition, ui's fast so it can get to the images before the backend can
                         let mut cache = cache.lock().unwrap();
                         if let Some(test_none) = cache.get(&needle) {
-                            if test_none.is_none() { cache.remove(&needle); }
+                            if test_none.is_none() {
+                                cache.remove(&needle);
+                            }
                         }
                         remotes.insert(needle, target);
-                    },
-                    UIImageCacheLoaderCommand::Load(needle) => { // this might cause some slowdown, whoops!
+                    }
+                    UIImageCacheLoaderCommand::Load(needle) => {
+                        // this might cause some slowdown, whoops!
                         let ctx_send = context.clone();
                         let remotes_send = remotes.clone();
                         let cache_send = cache.clone();
-                        
+
                         tokio::task::spawn(async move {
-                            match UIImageCache::load(needle.clone(), cache_send, remotes_send, ctx_send).await {
+                            match UIImageCache::load(
+                                needle.clone(),
+                                cache_send,
+                                remotes_send,
+                                ctx_send,
+                            )
+                            .await
+                            {
                                 Ok(_) => {
                                     debug!("finished async load of {:?}", &needle);
-                                },
+                                }
                                 Err(err) => {
                                     error!("async load of {:?} failed: {:?}", &needle, err);
-                                },
+                                }
                             }
                         });
                         tokio::task::yield_now().await;
-                    },
+                    }
                     UIImageCacheLoaderCommand::Stub(needle) => {
                         cache.lock().unwrap().insert(needle, None);
-                    },
+                    }
                 },
             }
         }
@@ -209,9 +249,11 @@ impl UIImageCache {
         // i'm hardly building this in a performant way but it's robust and solid unlike the previous mess
         let mut cache = self.cache.lock().unwrap();
         if let Some(loading_or_loaded) = cache.get(&needle) {
-         if let Some(loaded) = loading_or_loaded {
-            Some(loaded.clone())
-         } else { None }
+            if let Some(loaded) = loading_or_loaded {
+                Some(loaded.clone())
+            } else {
+                None
+            }
         } else {
             cache.insert(needle.clone(), None);
             self.commander.send(UIImageCacheLoaderCommand::Load(needle)).unwrap();
