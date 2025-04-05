@@ -17,6 +17,13 @@ use super::{
     auth::storage::LockedAuthStorage, endpoints::API_SERVICE_AGGREGATION_LAYER, locale::Locale,
 };
 
+const LARGE_AVATAR_PATH: &str =
+    "https://eaavatarservice.akamaized.net/production/avatar/prod/1/599/416x416.JPEG";
+const MEDIUM_AVATAR_PATH: &str =
+    "https://eaavatarservice.akamaized.net/production/avatar/prod/1/599/208x208.JPEG";
+const SMALL_AVATAR_PATH: &str =
+    "https://eaavatarservice.akamaized.net/production/avatar/prod/1/599/40x40.JPEG";
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedQuery {
@@ -299,8 +306,11 @@ service_layer_type!(Image, {
 });
 
 service_layer_type!(AvatarList, {
+    #[serde(default = "ServiceImage::large_avatar")]
     large: ServiceImage,
+    #[serde(default = "ServiceImage::medium_avatar")]
     medium: ServiceImage,
+    #[serde(default = "ServiceImage::small_avatar")]
     small: ServiceImage,
 });
 
@@ -653,3 +663,29 @@ service_layer_type!(GameHub, {
 service_layer_type!(GameHubCollection, {
     items: Vec<ServiceGameHub>,
 });
+
+impl ServiceImage {
+    fn large_avatar() -> Self {
+        ServiceImage {
+            height: Some(416),
+            width: Some(416),
+            path: LARGE_AVATAR_PATH.to_owned(),
+        }
+    }
+
+    fn medium_avatar() -> Self {
+        ServiceImage {
+            width: Some(208),
+            height: Some(208),
+            path: MEDIUM_AVATAR_PATH.to_owned(),
+        }
+    }
+
+    fn small_avatar() -> Self {
+        ServiceImage {
+            width: Some(40),
+            height: Some(40),
+            path: SMALL_AVATAR_PATH.to_owned(),
+        }
+    }
+}
