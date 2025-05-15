@@ -1,14 +1,18 @@
 use anyhow::Result;
 use log::{debug, info};
 
+use crate::core::service_layer::{
+    ServiceFriends, ServiceGetMyFriendsRequestBuilder, SERVICE_REQUEST_GETMYFRIENDS,
+};
 use crate::{
     lsx::{
         connection::LockedConnectionState,
         types::{
-            LSXErrorSuccess, LSXFriend, LSXFriendState, LSXGetPresence, LSXGetPresenceResponse,
-            LSXGetProfile, LSXGetProfileResponse, LSXImage, LSXPresence, LSXQueryFriends,
-            LSXQueryFriendsResponse, LSXQueryImage, LSXQueryImageResponse, LSXQueryPresence,
-            LSXQueryPresenceResponse, LSXResponseType, LSXSetPresence,
+            LSXBlockedUser, LSXErrorSuccess, LSXFriend, LSXFriendState, LSXGetBlockList,
+            LSXGetBlockListResponse, LSXGetPresence, LSXGetPresenceResponse, LSXGetProfile,
+            LSXGetProfileResponse, LSXImage, LSXPresence, LSXQueryFriends, LSXQueryFriendsResponse,
+            LSXQueryImage, LSXQueryImageResponse, LSXQueryPresence, LSXQueryPresenceResponse,
+            LSXResponseType, LSXSetPresence,
         },
     },
     make_lsx_handler_response,
@@ -161,6 +165,10 @@ pub async fn handle_query_friends_request(
 
     let mut lsx_friends = Vec::new();
     for ele in friends {
+        if ele.relationship() != "FRIEND" {
+            continue;
+        }
+        
         let mut presence = presence_store.get(ele.id());
         if presence.is_none() {
             presence = Some(
@@ -201,15 +209,46 @@ pub async fn handle_query_friends_request(
             attr_Title: "".to_string(),
             attr_UserId: ele.id().parse()?,
             attr_PersonaId: ele.pd().parse()?,
-            attr_AvatarId: "".to_string(),
+            attr_AvatarId: format!("user:{}", ele.id()).to_string(),
             attr_Group: "".to_string(),
             attr_GroupId: "".to_string(),
             attr_Presence: lsx_presence,
-            attr_State: LSXFriendState::None,
+            attr_State: LSXFriendState::Mutual,
         });
     }
 
     make_lsx_handler_response!(Response, QueryFriendsResponse, { friend: lsx_friends })
+}
+
+pub async fn handle_get_block_list_request(
+    state: LockedConnectionState,
+    query: LSXGetBlockList,
+) -> Result<Option<LSXResponseType>> {
+    let mut list: Vec<LSXBlockedUser> = Vec::new();
+
+    let mut maxima = state.write().await;
+    let maxima = maxima.maxima().await;
+    let friends: ServiceFriends = maxima
+        .service_layer()
+        .request(
+            SERVICE_REQUEST_GETMYFRIENDS,
+            ServiceGetMyFriendsRequestBuilder::default()
+                .limit(100)
+                .offset(0)
+                .is_mutual_friends_enabled(false)
+                .build()?,
+        )
+        .await?;
+
+    for blocked in friends.blocked_players().items() {
+        list.push(LSXBlockedUser {
+            attr_UserId: blocked.pd().to_string(),
+            attr_EAID: "".to_string(),
+            attr_PersonaId: blocked.player_v2().psd().to_string(),
+        });
+    }
+
+    make_lsx_handler_response!(Response, GetBlockListResponse, { attr_Return: "Success".to_string(), User: list})
 }
 
 pub async fn handle_query_image_request(

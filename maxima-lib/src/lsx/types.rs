@@ -93,6 +93,7 @@ pub enum LSXEventType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, IntoStaticStr)]
 pub enum LSXRequestType {
     ChallengeResponse(LSXChallengeResponse),
+    GetBlockList(LSXGetBlockList),
     GetConfig(LSXGetConfig),
     GetProfile(LSXGetProfile),
     GetSetting(LSXGetSetting),
@@ -123,6 +124,7 @@ pub enum LSXResponseType {
     GetProfileResponse(LSXGetProfileResponse),
     GetSettingResponse(LSXGetSettingResponse),
     RequestLicenseResponse(LSXRequestLicenseResponse),
+    GetBlockListResponse(LSXGetBlockListResponse),
     GetGameInfoResponse(LSXGetGameInfoResponse),
     GetAllGameInfoResponse(LSXGetAllGameInfoResponse),
     InternetConnectedState(LSXInternetConnectedState),
@@ -281,6 +283,14 @@ lsx_message! {
         ClientId: String,
         Scope: Option<String>,
         AppendAuthSource: Option<String>,
+        version: String,
+    },
+    data {}
+}
+
+lsx_message! {
+    GetBlockList;
+    attr {
         version: String,
     },
     data {}
@@ -485,6 +495,26 @@ lsx_message! {
         License: String
     },
     data {}
+}
+
+lsx_message! {
+    BlockedUser;
+    attr {
+        UserId: String,
+        EAID: String,
+        PersonaId: String,
+    },
+    data {}
+}
+
+lsx_message! {
+    GetBlockListResponse;
+    attr {
+        Return: String
+    },
+    data {
+        User: Vec<LSXBlockedUser>
+    }
 }
 
 lsx_message! {

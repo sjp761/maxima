@@ -599,10 +599,21 @@ service_layer_type!(FriendsOffsetPage, {
     items: Vec<ServiceFriend>,
 });
 
+service_layer_type!(BlockedPlayer, {
+    pd: String,
+    timestamp: String,
+    player_v2: ServicePlayer,
+});
+
+service_layer_type!(BlockedPlayerOffsetPage, {
+    items: Vec<ServiceBlockedPlayer>,
+});
+
 service_layer_type!(Friends, {
     id: String,
     pd: String,
     friends: ServiceFriendsOffsetPage,
+    blocked_players: ServiceBlockedPlayerOffsetPage,
 });
 
 service_layer_type!(SearchPlayerRequest, {

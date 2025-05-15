@@ -36,8 +36,9 @@ use super::{
         license::handle_license_request,
         offer::handle_query_offers_request,
         profile::{
-            handle_presence_request, handle_profile_request, handle_query_friends_request,
-            handle_query_image_request, handle_query_presence_request, handle_set_presence_request,
+            handle_get_block_list_request, handle_presence_request, handle_profile_request,
+            handle_query_friends_request, handle_query_image_request,
+            handle_query_presence_request, handle_set_presence_request,
         },
         progressive_install::{handle_pi_availability_request, handle_pi_installed_chunks_request},
         voip::handle_voip_status_request,
@@ -391,6 +392,7 @@ impl Connection {
             state.clone(), message.value, LSXRequestType;
 
             ChallengeResponse handle_challenge_response,
+            GetBlockList handle_get_block_list_request,
             GetConfig handle_config_request,
             GetProfile handle_profile_request,
             GetSetting handle_settings_request,
