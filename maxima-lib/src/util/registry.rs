@@ -338,12 +338,12 @@ pub fn set_up_registry() -> Result<(), RegistryError> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn set_up_registry() -> Result<()> {
+pub fn set_up_registry() -> Result<(), RegistryError> {
     use std::process::Command;
 
     use log::warn;
 
-    let bin = bootstrap_path();
+    let bin = bootstrap_path()?;
 
     if !bin.try_exists()? {
         warn!(
@@ -454,17 +454,16 @@ fn verify_protocol_handler(protocol: &str) -> Result<bool, RegistryError> {
     }
 
     let expected = format!("maxima-{}.desktop\n", protocol);
-    return Ok(output_str == expected);
+    Ok(output_str == expected)
 }
 
 #[cfg(target_os = "macos")]
-fn verify_protocol_handler(protocol: &str) -> Result<bool> {
+fn verify_protocol_handler(protocol: &str) -> Result<bool, RegistryError> {
     use std::process::Command;
 
     let output = Command::new("open")
         .args([&format!("{}://", protocol), "--args", "--noop"])
-        .output()
-        .expect("Failed to call open");
+        .output()?;
 
     Ok(output.status.success())
 }
