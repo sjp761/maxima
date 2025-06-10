@@ -230,7 +230,7 @@ pub fn module_path() -> Result<PathBuf, NativeError> {
 
 #[cfg(target_os = "macos")]
 pub fn module_path() -> Result<PathBuf, NativeError> {
-    env::current_exe()?
+    Ok(env::current_exe()?)
 }
 
 #[cfg(not(unix))]

@@ -255,7 +255,7 @@ impl HardwareInfo {
 
         use crate::util::system_profiler_utils::SPDisplaysDataType;
 
-        let smbios_data = table_load_from_device()?;
+        let smbios_data = table_load_from_device().unwrap();
         let bios_data = smbios_data.first::<SMBiosSystemInformation>();
         let board_data = smbios_data.first::<SMBiosBaseboardInformation>();
 
@@ -282,7 +282,7 @@ impl HardwareInfo {
         let mut gpu_pnp_id: Option<String> = None;
         let output = Command::new("system_profiler")
             .args(["SPDisplaysDataType", "-json"])
-            .output()?;
+            .output().unwrap();
         if output.status.success() {
             let json = String::from_utf8_lossy(&output.stdout);
             let result: SPDisplaysDataType = serde_json::from_str(&json).unwrap();
@@ -298,7 +298,7 @@ impl HardwareInfo {
         }
 
         let mut disk_sn = String::from("None");
-        let output = Command::new("diskutil").args(["info", "/"]).output()?;
+        let output = Command::new("diskutil").args(["info", "/"]).output().unwrap();
         // Check if the command was successful
         if output.status.success() {
             // Convert the output bytes to a UTF-8 string
@@ -327,6 +327,7 @@ impl HardwareInfo {
             volume_sn: String::from("43000000"),
             mac,
             cpu_details,
+            hostname,
         }
     }
 

@@ -62,16 +62,13 @@ pub enum RegistryError {
     #[error("invalid qrc protocol")]
     InvalidQrcProtocol,
 
-    #[cfg(target_os = "linux")]
+    // Linux
     #[error("xdg-mime command is not available. Please install xdg-utils")]
     XdgMime,
-    #[cfg(target_os = "linux")]
     #[error("Failed to set MIME type association for {type}: {error}")]
     MimeSet { r#type: String, error: String },
-    #[cfg(target_os = "linux")]
     #[error("failed to query mime status")]
     XdgQueryFailed,
-    #[cfg(target_os = "linux")]
     #[error("QRC protocol is not registered")]
     QrcUnregistered,
 }
