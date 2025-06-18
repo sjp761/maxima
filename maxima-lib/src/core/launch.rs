@@ -41,6 +41,8 @@ pub enum LaunchError {
     Json(#[from] serde_json::Error),
 
     #[error(transparent)]
+    Auth(#[from] AuthError),
+    #[error(transparent)]
     CloudSync(#[from] CloudSyncError),
     #[error(transparent)]
     Library(#[from] LibraryError),
@@ -52,8 +54,6 @@ pub enum LaunchError {
     ServiceLayer(#[from] ServiceLayerError),
     #[error(transparent)]
     Token(#[from] TokenError),
-    #[error(transparent)]
-    Auth(#[from] AuthError),
 
     #[error("no offer was found for id `{0}`")]
     NoOfferFound(String),
