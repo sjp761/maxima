@@ -10,8 +10,16 @@ use uuid::Uuid;
 
 use crate::{
     core::{
-        auth::storage::TokenError, cloudsync::CloudSyncError, cloudsync::CloudSyncLockMode,
-        library::LibraryError, library::OwnedOffer, service_layer::ServiceLayerError, Maxima,
+        auth::{
+            context::AuthContext,
+            nucleus_auth_exchange,
+            storage::{AuthError, TokenError},
+        },
+        clients::JUNO_PC_CLIENT_ID,
+        cloudsync::{CloudSyncError, CloudSyncLockMode},
+        library::{LibraryError, OwnedOffer},
+        service_layer::ServiceLayerError,
+        Maxima,
     },
     ooa::{needs_license_update, request_and_save_license, LicenseAuth, LicenseError},
     util::{
@@ -30,9 +38,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Error, Debug)]
 pub enum LaunchError {
     #[error(transparent)]
-    CloudSync(#[from] CloudSyncError),
-    #[error(transparent)]
     Json(#[from] serde_json::Error),
+
+    #[error(transparent)]
+    CloudSync(#[from] CloudSyncError),
     #[error(transparent)]
     Library(#[from] LibraryError),
     #[error(transparent)]
@@ -43,6 +52,8 @@ pub enum LaunchError {
     ServiceLayer(#[from] ServiceLayerError),
     #[error(transparent)]
     Token(#[from] TokenError),
+    #[error(transparent)]
+    Auth(#[from] AuthError),
 
     #[error("no offer was found for id `{0}`")]
     NoOfferFound(String),
@@ -295,7 +306,8 @@ pub async fn start_game(
         .env("EAFreeTrialGame", "false")
         .env("EAGameLocale", maxima.locale.full_str())
         .env("EAGenericAuthToken", access_token.to_owned())
-        .env("EALaunchCode", "")
+        .env("EALaunchCode", "unavailable")
+        .env("EALaunchOwner", "EA")
         .env(
             "EALaunchEAID",
             user.player()
@@ -312,17 +324,20 @@ pub async fn start_game(
         )
         .env("EASecureLaunchTokenTemp", user.id())
         .env("EASteamProxyIpcPort", "0")
-        .env("OriginSessionKey", launch_id.to_owned())
-        .env("ContentId", content_id.to_owned())
+        .env("OriginSessionKey", launch_id.clone())
+        .env("ContentId", content_id.clone())
         .env("EAOnErrorExitRetCode", "1");
 
     match mode {
         LaunchMode::Offline(_) => todo!(),
         LaunchMode::Online(ref offer_id) => {
+            let short_token = request_opaque_ooa_token(&access_token).await?;
+
             child
-                .env("EAConnectionId", offer_id.to_owned())
-                .env("EALicenseToken", offer_id.to_owned())
-                .env("EALaunchUserAuthToken", access_token);
+                .env("EAConnectionId", offer_id.clone())
+                .env("EALicenseToken", offer_id.clone())
+                .env("EALaunchUserAuthToken", short_token)
+                .env("EAAccessTokenJWS", access_token);
         }
         LaunchMode::OnlineOffline(_, ref persona, ref password) => {
             child
@@ -345,6 +360,26 @@ pub async fn start_game(
     ));
 
     Ok(())
+}
+
+async fn request_opaque_ooa_token(access_token: &str) -> Result<String, AuthError> {
+    let mut context = AuthContext::new()?;
+    context.set_access_token(&access_token);
+    context.set_token_format("OPAQUE");
+    context.set_expires_in(550);
+
+    // These scopes match the token EA Desktop requests for this
+    context.add_scope("basic.commerce.cartv2");
+    context.add_scope("service.atom");
+    context.add_scope("dp.client.default");
+    context.add_scope("signin");
+    context.add_scope("social_recommendation_user");
+    context.add_scope("basic.optin.write");
+    context.add_scope("basic.commerce.cartv2.write");
+    context.add_scope("basic.billing");
+    context.add_scope("external.social_information_ups_admin");
+
+    nucleus_auth_exchange(&context, JUNO_PC_CLIENT_ID, "token").await
 }
 
 #[cfg(unix)]

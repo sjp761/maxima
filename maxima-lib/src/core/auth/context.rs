@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::core::{
     auth::{hardware::HardwareHashError, pc_sign::PCSign, storage::AuthError},
     clients::JUNO_PC_CLIENT_ID,
@@ -15,6 +17,8 @@ pub struct AuthContext<'a> {
     code: Option<String>,
     scopes: Vec<String>,
     access_token: Option<String>,
+    token_format: Option<String>,
+    expires_in: Option<i64>,
     pc_sign: PCSign<'a>,
 }
 
@@ -30,20 +34,19 @@ impl AuthContext<'_> {
             code: None,
             scopes: Vec::new(),
             access_token: None,
+            token_format: None,
+            expires_in: None,
             pc_sign: signature,
         })
     }
 
-    /// Generates 32 byte long buffer used for code_verifier
     fn generate_code_verifier() -> String {
         let rand_bytes: [u8; 32] = random();
-
         URL_SAFE_NO_PAD.encode(&rand_bytes)
     }
 
     fn generate_challenge(code_verifier: &String) -> String {
         let hash = Sha256::new().update(code_verifier.as_bytes()).finalize();
-
         URL_SAFE_NO_PAD.encode(hash)
     }
 
@@ -57,16 +60,12 @@ impl AuthContext<'_> {
         Ok(payload.to_string() + "." + URL_SAFE_NO_PAD.encode(value).as_ref())
     }
 
-    /// Returns String representation of code_verifier
     pub fn code_verifier(&self) -> &str {
         &self.code_verifier
     }
 
     pub fn code(&self) -> Option<&str> {
-        match &self.code {
-            Some(code) => Some(&code),
-            None => None,
-        }
+        self.code.as_deref()
     }
 
     pub fn add_scope(&mut self, scope: &str) {
@@ -78,14 +77,27 @@ impl AuthContext<'_> {
     }
 
     pub fn access_token(&self) -> Option<&str> {
-        match &self.access_token {
-            Some(access_token) => Some(&access_token),
-            None => None,
-        }
+        self.access_token.as_deref()
     }
 
     pub fn set_access_token(&mut self, token: &str) {
         self.access_token = Some(token.to_owned())
+    }
+
+    pub fn token_format(&self) -> Option<&str> {
+        self.token_format.as_deref()
+    }
+
+    pub fn set_token_format(&mut self, token_format: &str) {
+        self.token_format = Some(token_format.to_owned());
+    }
+
+    pub fn expires_in(&self) -> Option<i64> {
+        self.expires_in
+    }
+
+    pub fn set_expires_in(&mut self, expires_in: i64) {
+        self.expires_in = Some(expires_in);
     }
 
     pub fn nucleus_auth_url(
@@ -97,26 +109,34 @@ impl AuthContext<'_> {
         let nonce = random::<i32>().to_string();
 
         let mut query = vec![
-            ("client_id", client_id),
-            ("sbiod_enabled", "false"),
-            ("response_type", response_type),
-            ("locale", "en_US"),
-            ("pc_sign", &signature),
-            ("nonce", &nonce),
+            ("client_id", Cow::Borrowed(client_id)),
+            ("sbiod_enabled", Cow::Borrowed("false")),
+            ("response_type", Cow::Borrowed(response_type)),
+            ("locale", Cow::Borrowed("en_US")),
+            ("pc_sign", Cow::Borrowed(&signature)),
+            ("nonce", Cow::Borrowed(&nonce)),
         ];
 
         let scopes = self.scopes.join(" ");
         if !scopes.is_empty() {
-            query.push(("scope", &scopes));
+            query.push(("scope", Cow::Owned(scopes)));
         }
 
         if client_id == JUNO_PC_CLIENT_ID {
-            query.push(("code_challenge_method", "S256"));
-            query.push(("code_challenge", &self.code_challenge));
+            query.push(("code_challenge_method", Cow::Borrowed("S256")));
+            query.push(("code_challenge", Cow::Borrowed(&self.code_challenge)));
         }
 
         if let Some(access_token) = &self.access_token {
-            query.push(("access_token", access_token));
+            query.push(("access_token", Cow::Borrowed(access_token)));
+        }
+
+        if let Some(token_format) = &self.token_format {
+            query.push(("token_format", Cow::Borrowed(token_format)));
+        }
+
+        if let Some(expires_in) = self.expires_in {
+            query.push(("expires_in", Cow::Owned(expires_in.to_string())));
         }
 
         let url = reqwest::Url::parse_with_params(API_NUCLEUS_AUTH, query)?;
