@@ -4,9 +4,6 @@ use thiserror::Error;
 pub enum BackgroundServiceClientError {
     #[error(transparent)]
     Native(#[from] crate::util::native::NativeError),
-    #[cfg(windows)]
-    #[error(transparent)]
-    Inject(#[from] dll_syringe::error::InjectError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -15,6 +12,9 @@ pub enum BackgroundServiceClientError {
     Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
     Registry(#[from] crate::util::registry::RegistryError),
+    #[cfg(windows)]
+    #[error(transparent)]
+    Injection(#[from] crate::util::dll_injector::InjectionError),
 
     #[error("request failed: `{0}`")]
     Request(String),

@@ -1,12 +1,11 @@
 use actix_web::{error, http::header::ContentType, HttpResponse};
 use reqwest::StatusCode;
 use thiserror::Error;
-use windows_service::service;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
     #[error(transparent)]
-    Inject(#[from] dll_syringe::error::InjectError),
+    Injection(#[from] maxima::util::dll_injector::InjectionError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]

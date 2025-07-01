@@ -1,9 +1,9 @@
-use dll_syringe::{process::OwnedProcess, Syringe};
 use log::debug;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::core::error::BackgroundServiceClientError;
+use crate::util::dll_injector::DllInjector;
 use crate::util::native::NativeError;
 use crate::util::registry::{set_up_registry, RegistryError};
 use is_elevated::is_elevated;
@@ -23,9 +23,8 @@ pub async fn request_library_injection(
     debug!("Injecting {}", path);
 
     if is_elevated() {
-        let process = OwnedProcess::from_pid(pid)?;
-        let syringe = Syringe::for_process(process);
-        syringe.inject(path)?;
+        let injector = DllInjector::new(pid);
+        injector.inject(path)?;
         return Ok(());
     }
 

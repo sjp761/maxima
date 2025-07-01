@@ -1,8 +1,6 @@
 use std::fs::File;
 
 use actix_web::{get, post, web, HttpResponse, Responder};
-use dll_syringe::process::OwnedProcess;
-use dll_syringe::Syringe;
 use log::info;
 use maxima::util::registry::set_up_registry;
 use maxima::util::service::SERVICE_NAME;
@@ -23,6 +21,7 @@ use windows_service::{
 use crate::service::error::ServerError;
 use crate::service::hash::get_sha256_hash_of_pid;
 use maxima::core::background_service::{ServiceLibraryInjectionRequest, BACKGROUND_SERVICE_PORT};
+use maxima::util::dll_injector::{DllInjector, InjectionError};
 use maxima::util::native::SafeParent;
 
 pub(crate) mod error;
@@ -89,6 +88,11 @@ async fn req_set_up_registry() -> impl Responder {
     format!("Done")
 }
 
+pub fn inject_dll(pid: u32, dll_path: &str) -> Result<(), InjectionError> {
+    let injector = DllInjector::new(pid);
+    injector.inject(dll_path)
+}
+
 // This is for KYBER. Ideally this would be moved to a separate Kyber service,
 // but it isn't a great user experience to have to install two windows services.
 // We'll eventually find a better workaround and move this somewhere else.
@@ -97,7 +101,6 @@ async fn req_inject_library(body: web::Bytes) -> Result<HttpResponse, self::Serv
     info!("Injecting...");
 
     let req: ServiceLibraryInjectionRequest = serde_json::from_slice(&body)?;
-    let process = OwnedProcess::from_pid(req.pid)?;
 
     let hash_result = get_sha256_hash_of_pid(req.pid)?;
 
@@ -110,8 +113,7 @@ async fn req_inject_library(body: web::Bytes) -> Result<HttpResponse, self::Serv
         return Err(self::ServerError::InvalidInjectionTarget);
     }
 
-    let syringe = Syringe::for_process(process);
-    syringe.inject(req.path)?;
+    inject_dll(req.pid, &req.path)?;
 
     Ok(HttpResponse::Ok().body("Injected"))
 }
