@@ -277,7 +277,12 @@ pub async fn start_game(
         }
         LaunchMode::OnlineOffline(_, ref persona, ref password) => {
             let auth = LicenseAuth::Direct(persona.to_owned(), password.to_owned());
-            request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
+
+            if needs_license_update(&content_id).await? {
+                request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
+            } else {
+                info!("Existing game license is still valid, not updating");
+            }
         }
     }
 
