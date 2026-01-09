@@ -1,4 +1,5 @@
-use log::info;
+use std::env;
+use log::{debug, info};
 
 use crate::{
     core::{auth::hardware::HardwareInfo, launch::LaunchMode},
@@ -16,6 +17,10 @@ pub async fn handle_license_request(
     request: LSXRequestLicense,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     info!("Requesting OOA License and Denuvo Token");
+
+    if let Ok(token) = env::var("MAXIMA_DENUVO_TOKEN") {
+        return make_lsx_handler_response!(Response, RequestLicenseResponse, { attr_License: token.to_owned() });
+    }
 
     let arc = state.write().await.maxima_arc();
     let mut maxima = arc.lock().await;
@@ -51,5 +56,9 @@ pub async fn handle_license_request(
 
     info!("Successfully retrieved license tokens");
 
-    make_lsx_handler_response!(Response, RequestLicenseResponse, { attr_License: license.game_token.unwrap() })
+    let token = license.game_token.as_ref().unwrap();
+
+    debug!("Got Denuvo Token: {}", token);
+
+    make_lsx_handler_response!(Response, RequestLicenseResponse, { attr_License: token.to_owned() })
 }
