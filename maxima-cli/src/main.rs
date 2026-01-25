@@ -32,8 +32,6 @@ use maxima::{
         clients::JUNO_PC_CLIENT_ID,
         cloudsync::CloudSyncLockMode,
         launch::{self, LaunchMode, LaunchOptions},
-        library::OwnedTitle,
-        manifest::{self, MANIFEST_RELATIVE_PATH},
         service_layer::{
             ServiceGetBasicPlayerRequestBuilder, ServiceGetLegacyCatalogDefsRequestBuilder,
             ServiceLegacyOffer, ServicePlayer, SERVICE_REQUEST_GETBASICPLAYER,
@@ -43,7 +41,11 @@ use maxima::{
     },
     ooa,
     rtm::client::BasicPresence,
-    util::{log::init_logger, native::take_foreground_focus, registry::check_registry_validity},
+    util::{
+        log::init_logger,
+        native::{maxima_dir, take_foreground_focus},
+        registry::check_registry_validity,
+    },
 };
 
 lazy_static! {
@@ -70,6 +72,7 @@ enum Mode {
     ListGames,
     LocateGame {
         path: String,
+        slug: String,
     },
     CloudSync {
         game_slug: String,
@@ -295,13 +298,21 @@ async fn startup() -> Result<()> {
                     }
                 }
             } else {
-                slug
+                slug.clone()
             };
 
-            start_game(&offer_id, game_path, game_args, login, maxima_arc.clone()).await
+            start_game(
+                &offer_id,
+                &slug,
+                game_path,
+                game_args,
+                login,
+                maxima_arc.clone(),
+            )
+            .await
         }
         Mode::ListGames => list_games(maxima_arc.clone()).await,
-        Mode::LocateGame { path } => locate_game(maxima_arc.clone(), &path).await,
+        Mode::LocateGame { path, slug } => locate_game(maxima_arc.clone(), &path, &slug).await,
         Mode::CloudSync { game_slug, write } => {
             do_cloud_sync(maxima_arc.clone(), &game_slug, write).await
         }
@@ -355,10 +366,9 @@ async fn run_interactive(maxima_arc: LockedMaxima) -> Result<()> {
 }
 
 async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
-    let offer_id = {
-        let mut maxima = maxima_arc.lock().await;
-
-        let mut owned_games = Vec::new();
+    let mut maxima = maxima_arc.lock().await;
+    let mut owned_games = Vec::new();
+    let owned_games_strs = {
         for game in maxima.mut_library().games().await? {
             if !game.base_offer().is_installed().await {
                 continue;
@@ -367,17 +377,19 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
             owned_games.push(game);
         }
 
-        let owned_games_strs = owned_games
+        owned_games
             .iter()
             .map(|g| g.name())
-            .collect::<Vec<String>>();
-
-        let name = Select::new("What game would you like to play?", owned_games_strs).prompt()?;
-        let game: &OwnedTitle = owned_games.iter().find(|g| g.name() == name).unwrap();
-        game.base_offer().offer_id().to_owned()
+            .collect::<Vec<String>>()
     };
 
-    start_game(&offer_id, None, Vec::new(), None, maxima_arc.clone()).await?;
+    let name = Select::new("What game would you like to play?", owned_games_strs).prompt()?;
+    let game = owned_games.iter().find(|g| g.name() == name).unwrap();
+
+    let offer_id = game.base_offer().offer_id().to_owned().clone();
+    let slug = game.base_offer().slug().to_owned().clone();
+    drop(maxima); // To unlock before starting the game, since start_game will also need to lock
+    start_game(&offer_id, &slug, None, Vec::new(), None, maxima_arc.clone()).await?;
 
     Ok(())
 }
@@ -385,7 +397,7 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
 async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
     let mut maxima = maxima_arc.lock().await;
 
-    let offer_id = {
+    let game = {
         let mut owned_games = Vec::new();
         for game in maxima.mut_library().games().await? {
             if game.base_offer().is_installed().await {
@@ -402,9 +414,15 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
 
         let name =
             Select::new("What game would you like to install?", owned_games_strs).prompt()?;
-        let game = owned_games.iter().find(|g| g.name() == name).unwrap();
-        game.base_offer().offer_id().to_owned()
+        owned_games
+            .iter()
+            .find(|g| g.name() == name)
+            .unwrap()
+            .clone()
     };
+
+    let offer_id = game.base_offer().offer_id().to_owned();
+    let slug = game.base_offer().slug().to_owned();
 
     let builds = maxima
         .content_manager()
@@ -423,6 +441,18 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
         Text::new("Where would you like to install the game? (must be an absolute path)")
             .prompt()?,
     );
+
+    #[cfg(unix)]
+    let wine_prefix = {
+        let input =
+            Text::new("Where do you want to store the Wine prefix? (must be an absolute path)")
+                .prompt()?;
+        PathBuf::from(input)
+    };
+
+    #[cfg(not(unix))]
+    let wine_prefix = PathBuf::new();
+
     if !path.is_absolute() {
         error!("Path {:?} is not absolute.", path);
         return Ok(());
@@ -432,6 +462,8 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
         .offer_id(offer_id)
         .build_id(build.build_id().to_owned())
         .path(path.clone())
+        .slug(slug) // Needs the slug here for the manifest touchup after installation, which needs to know the wine prefix path
+        .wine_prefix(Some(wine_prefix))
         .build()?;
 
     let start_time = Instant::now();
@@ -622,7 +654,7 @@ async fn juno_token_refresh(maxima_arc: LockedMaxima) -> Result<()> {
 }
 
 async fn read_license_file(content_id: &str) -> Result<()> {
-    let path = ooa::get_license_dir()?.join(format!("{}.dlf", content_id));
+    let path = ooa::get_license_dir(None)?.join(format!("{}.dlf", content_id));
     let mut data = tokio::fs::read(path).await?;
     data.drain(0..65); // Signature
 
@@ -666,8 +698,8 @@ async fn get_user_by_id(maxima_arc: LockedMaxima, user_id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn get_game_by_slug(maxima_arc: LockedMaxima, slug: &str) -> Result<()> {
-    let maxima = maxima_arc.lock().await;
+async fn get_game_by_slug(maxima_arc: LockedMaxima, _slug: &str) -> Result<()> {
+    let _maxima = maxima_arc.lock().await;
 
     // match maxima.owned_game_by_slug(slug).await {
     //     Ok(game) => info!("Game: {}", game.id()),
@@ -768,10 +800,8 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
     Ok(())
 }
 
-async fn locate_game(maxima_arc: LockedMaxima, path: &str) -> Result<()> {
+async fn locate_game(maxima_arc: LockedMaxima, path: &str, slug: &str) -> Result<()> {
     let path = PathBuf::from(path);
-    let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-    manifest.run_touchup(&path).await?;
     info!("Installed!");
     Ok(())
 }
@@ -809,6 +839,7 @@ async fn do_cloud_sync(maxima_arc: LockedMaxima, game_slug: &str, write: bool) -
 
 async fn start_game(
     offer_id: &str,
+    slug: &str,
     game_path_override: Option<String>,
     game_args: Vec<String>,
     login: Option<String>,

@@ -172,6 +172,8 @@ pub struct LocalizedGameInstallationSettings {
     pub header: String,
     /// Label for a text box for a default path to install games
     pub default_folder: String,
+    /// Label for a text box for the default Wine prefix path
+    pub default_wine_prefix: String,
     /// Checkbox for ignoring the out-of-date launch warning
     pub ignore_ood_warning: String,
 }

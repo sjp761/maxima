@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, sync::Notify};
 use tokio_util::sync::CancellationToken;
-use globset::GlobSet;
 
 use crate::{
     content::{
@@ -30,6 +29,7 @@ use crate::{
         service_layer::ServiceLayerError,
         MaximaEvent,
     },
+    gameinfo::GameInstallInfo,
     util::native::{maxima_dir, NativeError},
 };
 
@@ -40,6 +40,8 @@ pub struct QueuedGame {
     offer_id: String,
     build_id: String,
     path: PathBuf,
+    slug: String,
+    wine_prefix: Option<PathBuf>,
 }
 
 #[derive(Default, Getters, Serialize, Deserialize)]
@@ -126,6 +128,9 @@ impl DownloadQueue {
 
 pub struct GameDownloader {
     offer_id: String,
+    slug: String,
+    path: PathBuf,
+    wine_prefix: Option<PathBuf>,
 
     downloader: Arc<ZipDownloader>,
     entries: Vec<ZipFileEntry>,
@@ -152,14 +157,12 @@ impl GameDownloader {
 
         let mut entries = Vec::new();
 
-        let exclusion_list = get_exclusion_list(game.offer_id.clone());
+        let exclusion_list = get_exclusion_list(game.slug.as_str());
 
-        for ele in downloader.manifest().entries() 
-        {
+        for ele in downloader.manifest().entries() {
             // TODO: Filtering
-            if exclusion_list.is_match(&ele.name())
-            {
-                info!("Excluding file from download: {}", ele.name());
+            if exclusion_list.is_match(&ele.name()) {
+                // info!("Excluding file from download: {}", ele.name()); Spams if a lot of files are excluded
                 continue;
             }
             entries.push(ele.clone());
@@ -174,7 +177,9 @@ impl GameDownloader {
 
         Ok(GameDownloader {
             offer_id: game.offer_id.to_owned(),
-
+            slug: game.slug.to_owned(),
+            path: game.path.to_owned(),
+            wine_prefix: game.wine_prefix.clone(),
             downloader: Arc::new(downloader),
             entries,
             cancel_token: CancellationToken::new(),
@@ -189,6 +194,8 @@ impl GameDownloader {
         let (downloader_arc, entries, cancel_token, completed_bytes, notify) =
             self.prepare_download_vars();
         let total_count = self.total_count;
+        let slug = self.slug.clone();
+        let game_install_info = GameInstallInfo::new(self.path.clone(), self.wine_prefix.clone());
         tokio::spawn(async move {
             let dl = GameDownloader::start_downloads(
                 total_count,
@@ -197,6 +204,8 @@ impl GameDownloader {
                 cancel_token,
                 completed_bytes,
                 notify,
+                slug,
+                game_install_info,
             )
             .await;
             if let Err(err) = dl {
@@ -230,6 +239,8 @@ impl GameDownloader {
         cancel_token: CancellationToken,
         completed_bytes: Arc<AtomicUsize>,
         notify: Arc<Notify>,
+        slug: String,
+        game_install_info: GameInstallInfo,
     ) -> Result<(), DownloaderError> {
         let mut handles = Vec::with_capacity(total_count);
 
@@ -267,10 +278,17 @@ impl GameDownloader {
 
         let path = downloader_arc.path();
 
-        info!("Files downloaded, running touchup...");
-        let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
+        game_install_info.save_to_json(&slug);
+        info!("Files downloaded");
 
-        manifest.run_touchup(path).await?;
+        #[cfg(windows)]
+        // Touchup will be run on linux/mac when first running the game, so we don't need to run it here
+        {
+            info!("Running touchup...");
+            let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
+            manifest.run_touchup(path, &slug).await?;
+        }
+
         info!("Installation finished!");
 
         completed_bytes.fetch_add(1, Ordering::SeqCst);

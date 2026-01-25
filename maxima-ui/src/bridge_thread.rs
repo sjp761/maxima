@@ -26,16 +26,16 @@ use maxima::{
         },
         LockedMaxima, Maxima, MaximaCreationError, MaximaOptionsBuilder, MaximaOptionsBuilderError,
     },
+    gameinfo::GameInstallInfo,
     lsx::service::LSXServerError,
     rtm::RtmError,
     util::{
-        native::NativeError,
+        native::{maxima_dir, NativeError},
         registry::{check_registry_validity, set_up_registry, RegistryError},
     },
 };
 use std::sync::mpsc::{SendError, TryRecvError};
 use std::{
-    panic,
     path::PathBuf,
     sync::mpsc::{Receiver, Sender},
     time::{Duration, SystemTime},
@@ -82,8 +82,8 @@ pub enum MaximaLibRequest {
     GetFriendsRequest,
     GetGameDetailsRequest(String),
     StartGameRequest(GameInfo, Option<GameSettings>),
-    InstallGameRequest(String, PathBuf),
-    LocateGameRequest(String),
+    InstallGameRequest(String, String, PathBuf, Option<PathBuf>), // offer, slug, path, wine prefix (unix only)
+    LocateGameRequest(String, String, Option<PathBuf>), // slug, path, wine prefix (unix only)
     ShutdownRequest,
 }
 
@@ -441,9 +441,10 @@ impl BridgeThread {
                     let context = ctx.clone();
                     async move { game_details_request(maxima, slug.clone(), channel, &context).await }.await
                 }
-                MaximaLibRequest::LocateGameRequest(path) => {
-                    #[cfg(unix)]
-                    maxima::core::launch::mx_linux_setup().await?;
+                MaximaLibRequest::LocateGameRequest(slug, path, wine_prefix) => {
+                    let game_install_info =
+                        GameInstallInfo::new(PathBuf::from(path.clone()), wine_prefix);
+                    game_install_info.save_to_json(&slug);
                     let mut path = path;
                     if path.ends_with("/") || path.ends_with("\\") {
                         path.remove(path.len() - 1);
@@ -451,7 +452,7 @@ impl BridgeThread {
                     let path = PathBuf::from(path);
                     let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await;
                     if let Ok(manifest) = manifest {
-                        let guh = manifest.run_touchup(&path).await;
+                        let guh = manifest.run_touchup(&path, &slug).await;
                         if let Err(err) = guh {
                             let _ = backend_responder.send(MaximaLibResponse::LocateGameResponse(
                                 InteractThreadLocateGameResponse::Error(
@@ -471,6 +472,10 @@ impl BridgeThread {
                             ));
                         }
                     } else {
+                        std::fs::remove_file(
+                            maxima_dir().unwrap().join("gameinfo").join(format!("{}.json", slug)),
+                        )
+                        .ok();
                         let _ = backend_responder.send(MaximaLibResponse::LocateGameResponse(
                             InteractThreadLocateGameResponse::Error(
                                 InteractThreadLocateGameFailure {
@@ -488,7 +493,7 @@ impl BridgeThread {
                     ctx.request_repaint();
                     Ok(())
                 }
-                MaximaLibRequest::InstallGameRequest(offer, path) => {
+                MaximaLibRequest::InstallGameRequest(offer, slug, path, wine_prefix) => {
                     let mut maxima = maxima_arc.lock().await;
                     let builds =
                         maxima.content_manager().service().available_builds(&offer).await?;
@@ -499,9 +504,11 @@ impl BridgeThread {
                     };
 
                     let game = QueuedGameBuilder::default()
-                        .offer_id(offer)
+                        .offer_id(offer.clone())
                         .build_id(build.build_id().to_owned())
                         .path(path.to_owned())
+                        .slug(slug.to_owned())
+                        .wine_prefix(wine_prefix)
                         .build()?;
                     Ok(maxima.content_manager().add_install(game).await?)
                 }

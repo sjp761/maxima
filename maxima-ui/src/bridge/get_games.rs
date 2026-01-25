@@ -1,14 +1,14 @@
 use crate::{
     bridge_thread::{BackendError, InteractThreadGameListResponse, MaximaLibResponse},
     ui_image::UIImageCacheLoaderCommand,
-    GameDetailsWrapper, GameInfo, GameVersionInfo,
+    GameDetailsWrapper, GameInfo, GameSettings, GameVersionInfo,
 };
 use egui::Context;
-use log::{debug, error, info};
+use log::{debug, info};
 use maxima::{
     core::{
         service_layer::{
-            ServiceGame, ServiceGameHub, ServiceGameHubCollection, ServiceGameImagesRequestBuilder,
+            ServiceGame, ServiceGameHubCollection, ServiceGameImagesRequestBuilder,
             ServiceHeroBackgroundImageRequestBuilder, ServiceLayerClient,
             SERVICE_REQUEST_GAMEIMAGES, SERVICE_REQUEST_GETHEROBACKGROUNDIMAGE,
         },
@@ -199,12 +199,11 @@ pub async fn get_games_request(
         return Err(BackendError::LoggedOut);
     }
 
-    let owned_games = maxima.mut_library().games().await?;
+    let owned_games = maxima.mut_library().games().await?.clone();
 
     for game in owned_games {
         let slug = game.base_offer().slug().clone();
         info!("processing {}", &slug);
-
         let downloads = game.base_offer().offer().downloads();
         let opt = if downloads.len() == 1 {
             &downloads[0]
@@ -233,11 +232,10 @@ pub async fn get_games_request(
             has_cloud_saves: game.base_offer().offer().has_cloud_save(),
         };
         let slug = game_info.slug.clone();
-        let settings = crate::GameSettings {
-            //TODO: eventually support cloud saves, the option is here for that but for now, keep it disabled in ui!
-            cloud_saves: true,
-            launch_args: String::new(),
+        let settings = GameSettings {
             exe_override: String::new(),
+            launch_args: String::new(),
+            cloud_saves: true,
         };
         let res = MaximaLibResponse::GameInfoResponse(InteractThreadGameListResponse {
             game: game_info,

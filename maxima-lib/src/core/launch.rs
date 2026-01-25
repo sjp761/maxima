@@ -31,7 +31,11 @@ use crate::{
 use thiserror::Error;
 
 #[cfg(unix)]
-use crate::unix::fs::case_insensitive_path;
+use crate::{
+    core::manifest::{self, MANIFEST_RELATIVE_PATH},
+    gameinfo::load_game_info_from_json,
+    unix::fs::case_insensitive_path,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -114,6 +118,7 @@ pub struct ActiveGameContext {
     launch_id: String,
     game_path: String,
     content_id: String,
+    slug: Option<String>,
     offer: Option<OwnedOffer>,
     mode: LaunchMode,
     injections: Vec<LibraryInjection>,
@@ -131,11 +136,13 @@ impl ActiveGameContext {
         offer: Option<OwnedOffer>,
         mode: LaunchMode,
         process: Child,
+        slug: Option<String>,
     ) -> Self {
         Self {
             launch_id: launch_id.to_owned(),
             game_path: game_path.to_owned(),
             content_id: content_id.to_owned(),
+            slug,
             offer,
             mode,
             injections: Vec::new(),
@@ -158,6 +165,7 @@ impl ActiveGameContext {
 pub struct BootstrapLaunchArgs {
     pub path: String,
     pub args: Vec<String>,
+    pub slug: String,
 }
 
 impl Display for LaunchMode {
@@ -232,8 +240,14 @@ pub async fn start_game(
     let path = path.safe_str()?;
     info!("Game path: {}", path);
 
+    let slug = if let LaunchMode::Online(ref _offer_id) = mode {
+        offer.as_ref().map(|o| o.slug().to_owned())
+    } else {
+        None
+    };
+
     #[cfg(unix)]
-    mx_linux_setup().await?;
+    mx_linux_setup(slug.as_deref()).await?;
 
     match mode {
         LaunchMode::Offline(_) => {}
@@ -241,13 +255,19 @@ pub async fn start_game(
             let auth = LicenseAuth::AccessToken(maxima.access_token().await?);
 
             let offer = offer.as_ref().unwrap();
-            if needs_license_update(&content_id).await? {
+            if needs_license_update(&content_id, slug.as_deref()).await? {
                 info!(
                     "Requesting new game license for {}...",
                     offer.offer().display_name()
                 );
 
-                request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
+                request_and_save_license(
+                    &auth,
+                    &content_id,
+                    path.to_owned().into(),
+                    slug.as_deref(),
+                )
+                .await?;
             } else {
                 info!("Existing game license is still valid, not updating");
             }
@@ -278,8 +298,14 @@ pub async fn start_game(
         LaunchMode::OnlineOffline(_, ref persona, ref password) => {
             let auth = LicenseAuth::Direct(persona.to_owned(), password.to_owned());
 
-            if needs_license_update(&content_id).await? {
-                request_and_save_license(&auth, &content_id, path.to_owned().into()).await?;
+            if needs_license_update(&content_id, slug.as_deref()).await? {
+                request_and_save_license(
+                    &auth,
+                    &content_id,
+                    path.to_owned().into(),
+                    slug.as_deref(),
+                )
+                .await?;
             } else {
                 info!("Existing game license is still valid, not updating");
             }
@@ -303,6 +329,7 @@ pub async fn start_game(
     let bootstrap_args = BootstrapLaunchArgs {
         path: path.to_string(),
         args: game_args,
+        slug: slug.clone().unwrap_or_default(),
     };
 
     let b64 = general_purpose::STANDARD.encode(serde_json::to_string(&bootstrap_args)?);
@@ -373,6 +400,7 @@ pub async fn start_game(
         offer,
         mode,
         child,
+        slug,
     ));
 
     Ok(())
@@ -399,12 +427,13 @@ async fn request_opaque_ooa_token(access_token: &str) -> Result<String, AuthErro
 }
 
 #[cfg(unix)]
-pub async fn mx_linux_setup() -> Result<(), NativeError> {
+pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
     use crate::unix::wine::{
         check_runtime_validity, check_wine_validity, get_lutris_runtimes, install_runtime,
-        install_wine, setup_wine_registry,
+        install_wine, setup_wine_registry, wine_prefix_dir,
     };
 
+    std::fs::create_dir_all(wine_prefix_dir(slug).unwrap())?;
     info!("Verifying wine dependencies...");
 
     let skip = std::env::var("MAXIMA_DISABLE_WINE_VERIFICATION").is_ok();
@@ -421,7 +450,13 @@ pub async fn mx_linux_setup() -> Result<(), NativeError> {
         }
     }
 
-    setup_wine_registry().await?;
+    setup_wine_registry(slug).await?;
+    let install_path = load_game_info_from_json(slug.unwrap()).unwrap().path;
+    let manifest = manifest::read(install_path.join(MANIFEST_RELATIVE_PATH))
+        .await
+        .unwrap();
+
+    let _result = manifest.run_touchup(&install_path, slug.unwrap()).await;
 
     Ok(())
 }

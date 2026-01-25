@@ -132,6 +132,7 @@ async fn platform_launch(args: BootstrapLaunchArgs) -> Result<(), NativeError> {
         None,
         false,
         CommandType::WaitForExitAndRun,
+        Some(&args.slug),
     )
     .await?;
 

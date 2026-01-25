@@ -80,9 +80,7 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                             }
                         }
                     }
-                    DownloadFinished(_) => {
-                        // idk
-                    }
+                    DownloadFinished(_) => {}
                     DownloadQueueUpdate(current, queue) => {
                         if let Some(current) = current {
                             if !app.installing_now.as_ref().is_some_and(|n| n.offer == current) {

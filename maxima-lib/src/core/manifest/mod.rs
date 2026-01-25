@@ -33,14 +33,14 @@ pub const MANIFEST_RELATIVE_PATH: &str = "__Installer/installerdata.xml";
 
 #[async_trait::async_trait]
 pub trait GameManifest: Send + std::fmt::Debug {
-    async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError>;
+    async fn run_touchup(&self, install_path: &PathBuf, slug: &str) -> Result<(), ManifestError>;
     fn execute_path(&self, trial: bool) -> Option<String>;
     fn version(&self) -> Option<String>;
 }
 #[async_trait::async_trait]
 impl GameManifest for DiPManifest {
-    async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError> {
-        self.run_touchup(install_path).await
+    async fn run_touchup(&self, install_path: &PathBuf, slug: &str) -> Result<(), ManifestError> {
+        self.run_touchup(install_path, slug).await
     }
 
     fn execute_path(&self, trial: bool) -> Option<String> {
@@ -54,8 +54,8 @@ impl GameManifest for DiPManifest {
 
 #[async_trait::async_trait]
 impl GameManifest for PreDiPManifest {
-    async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError> {
-        self.run_touchup(install_path).await
+    async fn run_touchup(&self, install_path: &PathBuf, slug: &str) -> Result<(), ManifestError> {
+        self.run_touchup(install_path, slug).await
     }
 
     fn execute_path(&self, _: bool) -> Option<String> {

@@ -191,16 +191,15 @@ impl DiPManifest {
     }
 
     #[cfg(unix)]
-    pub async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError> {
-        use crate::{
-            core::launch::mx_linux_setup,
-            unix::{
-                fs::case_insensitive_path,
-                wine::{invalidate_mx_wine_registry, run_wine_command, CommandType},
-            },
+    pub async fn run_touchup(
+        &self,
+        install_path: &PathBuf,
+        slug: &str,
+    ) -> Result<(), ManifestError> {
+        use crate::unix::{
+            fs::case_insensitive_path,
+            wine::{invalidate_mx_wine_registry, run_wine_command, CommandType},
         };
-
-        mx_linux_setup().await?;
 
         let install_path = PathBuf::from(remove_trailing_slash(
             install_path.to_str().ok_or(ManifestError::Decode)?,
@@ -208,14 +207,18 @@ impl DiPManifest {
         let args = self.collect_touchup_args(&install_path)?;
         let path = install_path.join(&self.touchup.path());
         let path = case_insensitive_path(path);
-        run_wine_command(path, Some(args), None, true, CommandType::Run).await?;
+        run_wine_command(path, Some(args), None, true, CommandType::Run, Some(slug)).await?;
 
         invalidate_mx_wine_registry().await;
         Ok(())
     }
 
     #[cfg(windows)]
-    pub async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError> {
+    pub async fn run_touchup(
+        &self,
+        install_path: &PathBuf,
+        _slug: &str,
+    ) -> Result<(), ManifestError> {
         use crate::util::native::NativeError;
         use tokio::process::Command;
 
