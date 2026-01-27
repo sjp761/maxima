@@ -44,7 +44,12 @@ pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
                     }
                     ServiceStarted => app.backend_state = BackendStallState::Starting,
                     GameInfoResponse(res) => {
-                        app.games.insert(res.game.slug.clone(), res.game);
+                        // Move the game out of the response, keep the slug for storing settings
+                        let game = res.game;
+                        let slug = game.slug.clone();
+                        // Store the game-specific settings coming from the backend into frontend settings
+                        app.settings.game_settings.insert(slug.clone(), res.settings);
+                        app.games.insert(slug, game);
                     }
                     GameDetailsResponse(res) => {
                         let response = res.response;

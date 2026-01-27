@@ -84,8 +84,10 @@ pub enum MaximaLibRequest {
     StartGameRequest(GameInfo, Option<GameSettings>),
     InstallGameRequest(String, PathBuf),
     LocateGameRequest(String),
+    /// Persist UI-side game settings into the core GameSettingsManager
+    SaveGameSettings(String, GameSettings),
     ShutdownRequest,
-}
+} 
 
 pub enum MaximaLibResponse {
     LoginResponse(Result<InteractThreadLoginResponse, anyhow::Error>),
@@ -507,6 +509,16 @@ impl BridgeThread {
                 }
                 MaximaLibRequest::StartGameRequest(info, settings) => {
                     Ok(start_game_request(maxima_arc.clone(), info, settings).await?)
+                }
+                MaximaLibRequest::SaveGameSettings(slug, settings) => {
+                    // Persist the UI settings into the core GameSettingsManager
+                    let mut maxima = maxima_arc.lock().await;
+                    let manager = maxima.mut_game_settings();
+                    // Clone current core settings, update the mutable fields, then save
+                    let mut core_settings = manager.get(&slug).clone();
+                    core_settings.update_from(settings.cloud_saves, settings.launch_args.clone(), settings.exe_override.clone());
+                    manager.save(&slug, core_settings);
+                    Ok(())
                 }
                 MaximaLibRequest::ShutdownRequest => break 'outer Ok(()), //TODO: kill the bridge thread
             };

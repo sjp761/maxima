@@ -1,5 +1,5 @@
 use crate::{
-    bridge_thread, set_app_modal, translation_manager::TranslationManager,
+    bridge_thread, translation_manager::TranslationManager,
     widgets::enum_dropdown::enum_dropdown, GameDetails, GameDetailsWrapper, GameInfo,
     InstallModalState, MaximaEguiApp, PageType, PopupModal,
 };
@@ -87,7 +87,7 @@ fn game_view_action_buttons(app: &mut MaximaEguiApp, game: &GameInfo, ui: &mut U
                         if !app.settings.ignore_ood_games
                             && &game.version.installed != &game.version.latest
                         {
-                            set_app_modal!(app, Some(PopupModal::GameLaunchOOD(game.slug.clone())));
+                            app.modal = Some(PopupModal::GameLaunchOOD(game.slug.clone()));
                         } else {
                             app.playing_game = Some(game.slug.clone());
                             let settings = app.settings.game_settings.get(&game.slug);
@@ -114,14 +114,18 @@ fn game_view_action_buttons(app: &mut MaximaEguiApp, game: &GameInfo, ui: &mut U
                 } else {
                     let install_str = format!("  {}  ", &localization.install.to_uppercase());
                     if game_view_action_button(install_str, buttons) {
-                        set_app_modal!(app, Some(PopupModal::GameInstall(game.slug.clone())));
+                        app.installer_state = InstallModalState::new(&app.settings);
+                        app.modal = Some(PopupModal::GameInstall(game.slug.clone()));
                     }
                 }
             }
 
             let settings_str = format!("  {}  ", &localization.settings.to_uppercase());
             if game_view_action_button(settings_str, buttons) {
-                set_app_modal!(app, Some(PopupModal::GameSettings(game.slug.clone())));
+                if app.settings.game_settings.get(&game.slug).is_none() {
+                    app.settings.game_settings.insert(game.slug.clone(), crate::GameSettings::new());
+                }
+                app.modal = Some(PopupModal::GameSettings(game.slug.clone()));
             }
         });
     });

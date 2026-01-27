@@ -195,7 +195,7 @@ pub async fn get_games_request(
     let service_layer = maxima.service_layer().clone();
     let locale = maxima.locale().short_str().to_owned();
     let logged_in = maxima.auth_storage().lock().await.current().is_some();
-    let game_settings = maxima.game_settings().clone();
+    let mut game_settings = maxima.game_settings().clone();
     if !logged_in {
         return Err(BackendError::LoggedOut);
     }
@@ -213,7 +213,7 @@ pub async fn get_games_request(
             downloads.iter().find(|item| item.download_type() == "LIVE").unwrap()
         };
 
-        let version = if let Ok(version) = game.base_offer().installed_version(&game_settings).await {
+        let version = if let Ok(version) = game.base_offer().installed_version(&mut game_settings).await {
             version
         } else {
             "Unknown".to_owned()
@@ -230,15 +230,16 @@ pub async fn get_games_request(
                 mandatory: opt.treat_updates_as_mandatory().clone(),
             },
             dlc: game.extra_offers().clone(),
-            installed: game.base_offer().is_installed(&game_settings).await,
+            installed: game.base_offer().is_installed(&mut game_settings).await,
             has_cloud_saves: game.base_offer().offer().has_cloud_save(),
         };
         let slug = game_info.slug.clone();
+        // Grab persisted settings from Maxima's GameSettingsManager if available
+        let core_settings = game_settings.get(&slug);
         let settings = crate::GameSettings {
-            //TODO: eventually support cloud saves, the option is here for that but for now, keep it disabled in ui!
-            cloud_saves: true,
-            launch_args: String::new(),
-            exe_override: String::new(),
+            cloud_saves: core_settings.cloud_saves(),
+            launch_args: core_settings.launch_args().to_string(),
+            exe_override: core_settings.exe_override().to_string(),
         };
         let res = MaximaLibResponse::GameInfoResponse(InteractThreadGameListResponse {
             game: game_info,

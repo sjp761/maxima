@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use crate::util::native::maxima_dir;
@@ -28,6 +29,30 @@ impl GameSettings
         settings.wine_prefix = format!("/mnt/games/Games/{}/", slug);
         settings
     }
+
+    /// Public accessors for fields so consumers can read settings.
+    pub fn cloud_saves(&self) -> bool {
+        self.cloud_saves
+    }
+
+    pub fn launch_args(&self) -> &str {
+        &self.launch_args
+    }
+
+    pub fn exe_override(&self) -> &str {
+        &self.exe_override
+    }
+
+    pub fn wine_prefix(&self) -> &str {
+        &self.wine_prefix
+    }
+
+    /// Update mutable fields from UI-provided values while preserving any internal-only fields like `wine_prefix`.
+    pub fn update_from(&mut self, cloud_saves: bool, launch_args: String, exe_override: String) {
+        self.cloud_saves = cloud_saves;
+        self.launch_args = launch_args;
+        self.exe_override = exe_override;
+    }
 }
 
 pub fn get_game_settings(slug: &str) -> GameSettings 
@@ -47,13 +72,30 @@ pub fn get_game_settings(slug: &str) -> GameSettings
 
 pub fn save_game_settings(slug: &str, settings: &GameSettings) 
 {
+    info!("Saving settings for {}...", slug);
     if let Ok(dir) = maxima_dir() 
     {
-        let path = dir.join("settings").join(format!("{}.json", slug));
+        let settings_dir = dir.join("settings");
+        // Ensure the settings directory exists
+        if let Err(err) = std::fs::create_dir_all(&settings_dir) {
+            info!("Failed to create settings dir {:?}: {}", settings_dir, err);
+            return;
+        }
+
+        let path = settings_dir.join(format!("{}.json", slug));
         if let Ok(content) = serde_json::to_string_pretty(settings) 
         {
-            let _ = std::fs::write(path, content);
+            match std::fs::write(&path, content) {
+                Ok(()) => info!("Saved settings to {:?}", path),
+                Err(err) => info!("Failed to write settings for {}: {}", slug, err),
+            }
         }
+        else {
+            info!("Failed to serialize settings for {}", slug);
+        }
+    }
+    else {
+        info!("Failed to get maxima directory, cannot save settings for {}", slug);
     }
 }
 
