@@ -188,6 +188,8 @@ pub async fn start_game(
         }
     }
 
+    let game_settings = maxima.mut_game_settings().clone();
+
     let (content_id, online_offline, offer, access_token) =
         if let LaunchMode::Online(ref offer_id) = mode {
             let access_token = &maxima.access_token().await?;
@@ -196,7 +198,7 @@ pub async fn start_game(
                 None => return Err(LaunchError::NoOfferFound(offer_id.clone())),
             };
 
-            if !offer.is_installed().await {
+            if !offer.is_installed(&game_settings).await {
                 return Err(LaunchError::NotInstalled(offer.offer_id().clone()));
             }
 

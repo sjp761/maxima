@@ -10,6 +10,7 @@ pub mod lsx;
 pub mod ooa;
 pub mod rtm;
 pub mod util;
+pub mod gamesettings;
 
 #[cfg(unix)]
 pub mod unix;

@@ -195,6 +195,7 @@ pub async fn get_games_request(
     let service_layer = maxima.service_layer().clone();
     let locale = maxima.locale().short_str().to_owned();
     let logged_in = maxima.auth_storage().lock().await.current().is_some();
+    let game_settings = maxima.game_settings().clone();
     if !logged_in {
         return Err(BackendError::LoggedOut);
     }
@@ -212,7 +213,7 @@ pub async fn get_games_request(
             downloads.iter().find(|item| item.download_type() == "LIVE").unwrap()
         };
 
-        let version = if let Ok(version) = game.base_offer().installed_version().await {
+        let version = if let Ok(version) = game.base_offer().installed_version(&game_settings).await {
             version
         } else {
             "Unknown".to_owned()
@@ -229,7 +230,7 @@ pub async fn get_games_request(
                 mandatory: opt.treat_updates_as_mandatory().clone(),
             },
             dlc: game.extra_offers().clone(),
-            installed: game.base_offer().is_installed().await,
+            installed: game.base_offer().is_installed(&game_settings).await,
             has_cloud_saves: game.base_offer().offer().has_cloud_save(),
         };
         let slug = game_info.slug.clone();

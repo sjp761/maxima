@@ -46,6 +46,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
+
 use self::{
     auth::storage::{AuthError, AuthStorage, LockedAuthStorage, TokenError},
     cache::DynamicCache,
@@ -67,6 +68,7 @@ use crate::{
     lsx::{self, service::LSXServerError, types::LSXRequestType},
     rtm::client::{BasicPresence, RtmClient},
     util::native::{maxima_dir, NativeError},
+    gamesettings::{GameSettingsManager},
 };
 
 #[derive(Clone, IntoStaticStr)]
@@ -88,7 +90,8 @@ pub struct Maxima {
 
     #[getter(skip)]
     library: GameLibrary,
-
+    #[getter(skip)]
+    game_settings: GameSettingsManager,
     playing: Option<ActiveGameContext>,
 
     lsx_port: u16,
@@ -216,6 +219,7 @@ impl Maxima {
             request_cache,
             dummy_local_user,
             pending_events: Vec::new(),
+            game_settings: GameSettingsManager::new(),
         })))
     }
 
@@ -413,6 +417,14 @@ impl Maxima {
 
     pub fn mut_library(&mut self) -> &mut GameLibrary {
         &mut self.library
+    }
+
+    pub fn game_settings(&self) -> &GameSettingsManager {
+        &self.game_settings
+    }
+
+    pub fn mut_game_settings(&mut self) -> &mut GameSettingsManager {
+        &mut self.game_settings
     }
 
     pub fn content_manager(&mut self) -> &mut ContentManager {

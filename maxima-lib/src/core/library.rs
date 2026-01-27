@@ -13,7 +13,7 @@ use super::{
 };
 #[cfg(unix)]
 use crate::unix::fs::case_insensitive_path;
-use crate::util::native::{NativeError, SafeStr};
+use crate::{core::settings, gamesettings::GameSettingsManager, util::native::{NativeError, SafeStr}};
 use crate::util::registry::{parse_partial_registry_path, parse_registry_path, RegistryError};
 use derive_getters::Getters;
 use std::{collections::HashMap, path::PathBuf, time::SystemTimeError};
@@ -54,7 +54,7 @@ pub struct OwnedOffer {
 }
 
 impl OwnedOffer {
-    pub async fn is_installed(&self) -> bool {
+    pub async fn is_installed(&self, settings: &GameSettingsManager) -> bool {
         // I would love to throw an error here but that's just not feasible.
         // If you can't grab the path it may as well not be installed.
         let Some(path) = &self.offer.install_check_override().as_ref() else {
@@ -105,8 +105,8 @@ impl OwnedOffer {
         }
     }
 
-    pub async fn installed_version(&self) -> Result<String, LibraryError> {
-        if !self.is_installed().await {
+    pub async fn installed_version(&self, settings: &GameSettingsManager) -> Result<String, LibraryError> {
+        if !self.is_installed(settings).await {
             return Err(LibraryError::NotInstalled(self.slug.clone()));
         }
 

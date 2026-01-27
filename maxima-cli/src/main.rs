@@ -359,8 +359,9 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
         let mut maxima = maxima_arc.lock().await;
 
         let mut owned_games = Vec::new();
+        let game_settings = maxima.mut_game_settings().clone();
         for game in maxima.mut_library().games().await? {
-            if !game.base_offer().is_installed().await {
+            if !game.base_offer().is_installed(&game_settings).await {
                 continue;
             }
 
@@ -387,8 +388,9 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
 
     let offer_id = {
         let mut owned_games = Vec::new();
+        let game_settings = maxima.mut_game_settings().clone();
         for game in maxima.mut_library().games().await? {
-            if game.base_offer().is_installed().await {
+            if game.base_offer().is_installed(&game_settings).await {
                 continue;
             }
 
@@ -740,6 +742,7 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
     let mut maxima = maxima_arc.lock().await;
 
     info!("Owned games:");
+    let game_settings = maxima.game_settings().clone();
     let titles = maxima.mut_library().games().await?;
 
     for title in titles {
@@ -748,7 +751,7 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
             title.base_offer().slug(),
             title.name(),
             title.base_offer().offer_id(),
-            title.base_offer().is_installed().await,
+            title.base_offer().is_installed(&game_settings).await,
             width = 35,
             width2 = 35,
             width3 = 25,
