@@ -58,7 +58,23 @@ impl OwnedOffer {
     pub async fn is_installed(&self) -> bool {
         let maxima_dir = maxima_dir().unwrap();
         let manifest_path = maxima_dir.join("settings").join(format!("{}.json", self.slug));
-        manifest_path.exists()
+        if !manifest_path.exists() {
+            return false;
+        }
+
+        let contents = match std::fs::read_to_string(&manifest_path) 
+        {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+
+        match serde_json::from_str::<serde_json::Value>(&contents) {
+            Ok(json) => json
+            .get("installed")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+            Err(_) => false,
+        }
     }
 
     pub async fn install_check_path(&self) -> Result<String, ManifestError> {

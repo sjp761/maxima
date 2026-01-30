@@ -7,14 +7,10 @@ use egui::Context;
 use log::{debug, error, info};
 use maxima::{
     core::{
-        service_layer::{
-            ServiceGame, ServiceGameHub, ServiceGameHubCollection, ServiceGameImagesRequestBuilder,
-            ServiceHeroBackgroundImageRequestBuilder, ServiceLayerClient,
-            SERVICE_REQUEST_GAMEIMAGES, SERVICE_REQUEST_GETHEROBACKGROUNDIMAGE,
-        },
-        LockedMaxima,
-    },
-    util::native::maxima_dir,
+        LockedMaxima, service_layer::{
+            SERVICE_REQUEST_GAMEIMAGES, SERVICE_REQUEST_GETHEROBACKGROUNDIMAGE, ServiceGame, ServiceGameHub, ServiceGameHubCollection, ServiceGameImagesRequestBuilder, ServiceHeroBackgroundImageRequestBuilder, ServiceLayerClient
+        }
+    }, gamesettings::get_game_settings, util::native::maxima_dir
 };
 use std::{fs, sync::mpsc::Sender};
 
@@ -200,7 +196,7 @@ pub async fn get_games_request(
     if !logged_in {
         return Err(BackendError::LoggedOut);
     }
-    let game_settings = maxima.game_settings().clone();
+    let mut game_settings = maxima.mut_game_settings().clone();
 
     let owned_games = maxima.mut_library().games().await?;
 
@@ -208,7 +204,6 @@ pub async fn get_games_request(
     for game in owned_games {
         let slug = game.base_offer().slug().clone();
         info!("processing {}", &slug);
-
         let downloads = game.base_offer().offer().downloads();
         let opt = if downloads.len() == 1 {
             &downloads[0]
@@ -238,7 +233,8 @@ pub async fn get_games_request(
         };
         let slug = game_info.slug.clone();
         // Grab persisted settings from Maxima's GameSettingsManager if available
-        let core_settings = game_settings.get(&slug);
+        let core_settings = get_game_settings(&slug);
+        game_settings.save(&slug, core_settings.clone());
         let settings = core_settings.clone();
         let res = MaximaLibResponse::GameInfoResponse(InteractThreadGameListResponse {
             game: game_info,
