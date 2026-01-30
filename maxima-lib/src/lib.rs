@@ -6,11 +6,11 @@
 
 pub mod content;
 pub mod core;
+pub mod gamesettings;
 pub mod lsx;
 pub mod ooa;
 pub mod rtm;
 pub mod util;
-pub mod gamesettings;
 
 #[cfg(unix)]
 pub mod unix;

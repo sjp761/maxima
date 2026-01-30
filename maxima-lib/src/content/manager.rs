@@ -6,17 +6,17 @@ use std::{
     },
 };
 
+use crate::core::LockedMaxima;
 use derive_builder::Builder;
 use derive_getters::Getters;
 use futures::StreamExt;
+use globset::GlobSet;
 use log::{debug, error, info};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, sync::Notify};
 use tokio_util::sync::CancellationToken;
-use globset::GlobSet;
-use crate::core::LockedMaxima;
 
 use crate::{
     content::{
@@ -155,11 +155,9 @@ impl GameDownloader {
 
         let exclusion_list = get_exclusion_list(game.offer_id.clone());
 
-        for ele in downloader.manifest().entries() 
-        {
+        for ele in downloader.manifest().entries() {
             // TODO: Filtering
-            if exclusion_list.is_match(&ele.name())
-            {
+            if exclusion_list.is_match(&ele.name()) {
                 info!("Excluding file from download: {}", ele.name());
                 continue;
             }

@@ -1,7 +1,7 @@
 use crate::{
-    bridge_thread, translation_manager::TranslationManager,
-    widgets::enum_dropdown::enum_dropdown, GameDetails, GameDetailsWrapper, GameInfo,
-    InstallModalState, MaximaEguiApp, PageType, PopupModal,
+    bridge_thread, translation_manager::TranslationManager, widgets::enum_dropdown::enum_dropdown,
+    GameDetails, GameDetailsWrapper, GameInfo, InstallModalState, MaximaEguiApp, PageType,
+    PopupModal,
 };
 use egui::{
     pos2, vec2, Color32, Margin, Mesh, Pos2, Rect, RichText, Rounding, ScrollArea, Shape, Stroke,
@@ -123,7 +123,9 @@ fn game_view_action_buttons(app: &mut MaximaEguiApp, game: &GameInfo, ui: &mut U
             let settings_str = format!("  {}  ", &localization.settings.to_uppercase());
             if game_view_action_button(settings_str, buttons) {
                 if app.settings.game_settings.get(&game.slug).is_none() {
-                    app.settings.game_settings.insert(game.slug.clone(), crate::GameSettings::new());
+                    app.settings
+                        .game_settings
+                        .insert(game.slug.clone(), crate::GameSettings::new());
                 }
                 app.modal = Some(PopupModal::GameSettings(game.slug.clone()));
             }

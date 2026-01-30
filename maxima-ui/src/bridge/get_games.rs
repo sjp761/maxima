@@ -7,10 +7,15 @@ use egui::Context;
 use log::{debug, error, info};
 use maxima::{
     core::{
-        LockedMaxima, service_layer::{
-            SERVICE_REQUEST_GAMEIMAGES, SERVICE_REQUEST_GETHEROBACKGROUNDIMAGE, ServiceGame, ServiceGameHub, ServiceGameHubCollection, ServiceGameImagesRequestBuilder, ServiceHeroBackgroundImageRequestBuilder, ServiceLayerClient
-        }
-    }, gamesettings::get_game_settings, util::native::maxima_dir
+        service_layer::{
+            ServiceGame, ServiceGameHub, ServiceGameHubCollection, ServiceGameImagesRequestBuilder,
+            ServiceHeroBackgroundImageRequestBuilder, ServiceLayerClient,
+            SERVICE_REQUEST_GAMEIMAGES, SERVICE_REQUEST_GETHEROBACKGROUNDIMAGE,
+        },
+        LockedMaxima,
+    },
+    gamesettings::get_game_settings,
+    util::native::maxima_dir,
 };
 use std::{fs, sync::mpsc::Sender};
 
@@ -199,7 +204,6 @@ pub async fn get_games_request(
     let mut game_settings = maxima.mut_game_settings().clone();
 
     let owned_games = maxima.mut_library().games().await?;
-
 
     for game in owned_games {
         let slug = game.base_offer().slug().clone();

@@ -87,7 +87,7 @@ pub enum MaximaLibRequest {
     /// Persist UI-side game settings into the core GameSettingsManager
     SaveGameSettings(String, GameSettings),
     ShutdownRequest,
-} 
+}
 
 pub enum MaximaLibResponse {
     LoginResponse(Result<InteractThreadLoginResponse, anyhow::Error>),
@@ -403,11 +403,11 @@ impl BridgeThread {
                 for ev in maxima.consume_pending_events() {
                     match ev {
                         maxima::core::MaximaEvent::ReceivedLSXRequest(_, _) => {}
-                        maxima::core::MaximaEvent::InstallFinished(offer_id) => 
-                        {
+                        maxima::core::MaximaEvent::InstallFinished(offer_id) => {
                             // Easy access to mutably update game settings
-                             if let Ok(Some(title)) = maxima.mut_library().title_by_base_offer(&offer_id).await 
-                             {
+                            if let Ok(Some(title)) =
+                                maxima.mut_library().title_by_base_offer(&offer_id).await
+                            {
                                 let slug = title.base_offer().slug().clone();
                                 let manager = maxima.mut_game_settings();
                                 let mut settings = manager.get(&slug);
@@ -524,7 +524,7 @@ impl BridgeThread {
                     // Persist the UI settings into the core GameSettingsManager
                     let mut maxima = maxima_arc.lock().await;
                     let manager = maxima.mut_game_settings();
-                    manager.save(&slug, settings);      
+                    manager.save(&slug, settings);
                     Ok(())
                 }
                 MaximaLibRequest::ShutdownRequest => break 'outer Ok(()), //TODO: kill the bridge thread

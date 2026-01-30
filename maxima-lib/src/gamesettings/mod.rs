@@ -1,9 +1,9 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
+use crate::util::native::maxima_dir;
 use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use crate::util::native::maxima_dir;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameSettings {
@@ -14,8 +14,7 @@ pub struct GameSettings {
     pub wine_prefix: String,
 }
 
-impl GameSettings 
-{
+impl GameSettings {
     pub fn new() -> Self {
         Self {
             cloud_saves: true,
@@ -57,8 +56,7 @@ impl GameSettings
     }
 }
 
-pub fn get_game_settings(slug: &str) -> GameSettings 
-{
+pub fn get_game_settings(slug: &str) -> GameSettings {
     let path = match maxima_dir() {
         Ok(dir) => dir.join("settings").join(format!("{}.json", slug)),
         Err(_) => return GameSettings::new_with_slug(slug),
@@ -72,16 +70,13 @@ pub fn get_game_settings(slug: &str) -> GameSettings
     serde_json::from_str(&content).unwrap_or_else(|_| GameSettings::new_with_slug(slug))
 }
 
-pub fn save_game_settings(slug: &str, settings: &GameSettings) 
-{
-    if settings.installed == false 
-    {
+pub fn save_game_settings(slug: &str, settings: &GameSettings) {
+    if settings.installed == false {
         info!("Skipping save for {} as game is not installed.", slug);
         return;
     }
     info!("Saving settings for {}...", slug);
-    if let Ok(dir) = maxima_dir() 
-    {
+    if let Ok(dir) = maxima_dir() {
         let settings_dir = dir.join("settings");
         // Ensure the settings directory exists
         if let Err(err) = std::fs::create_dir_all(&settings_dir) {
@@ -90,19 +85,19 @@ pub fn save_game_settings(slug: &str, settings: &GameSettings)
         }
 
         let path = settings_dir.join(format!("{}.json", slug));
-        if let Ok(content) = serde_json::to_string_pretty(settings) 
-        {
+        if let Ok(content) = serde_json::to_string_pretty(settings) {
             match std::fs::write(&path, content) {
                 Ok(()) => info!("Saved settings to {:?}", path),
                 Err(err) => info!("Failed to write settings for {}: {}", slug, err),
             }
-        }
-        else {
+        } else {
             info!("Failed to serialize settings for {}", slug);
         }
-    }
-    else {
-        info!("Failed to get maxima directory, cannot save settings for {}", slug);
+    } else {
+        info!(
+            "Failed to get maxima directory, cannot save settings for {}",
+            slug
+        );
     }
 }
 
@@ -119,7 +114,10 @@ impl GameSettingsManager {
     }
 
     pub fn get(&self, slug: &str) -> GameSettings {
-        self.settings.get(slug).cloned().unwrap_or_else(|| GameSettings::new_with_slug(slug))
+        self.settings
+            .get(slug)
+            .cloned()
+            .unwrap_or_else(|| GameSettings::new_with_slug(slug))
     }
 
     pub fn save(&mut self, slug: &str, settings: GameSettings) {

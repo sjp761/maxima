@@ -31,9 +31,9 @@ use egui_glow::glow;
 use app_bg_renderer::AppBgRenderer;
 use bridge_thread::{BackendError, BridgeThread, InteractThreadLocateGameResponse};
 use game_view_bg_renderer::GameViewBgRenderer;
+use maxima::gamesettings::GameSettings;
 use renderers::{app_bg_renderer, game_view_bg_renderer};
 use translation_manager::{positional_replace, TranslationManager};
-use maxima::gamesettings::GameSettings;
 
 pub mod bridge;
 pub mod util;
@@ -584,7 +584,6 @@ fn tab_button(ui: &mut Ui, edit_var: &mut PageType, page: PageType, label: &str)
 // god-awful macro to do something incredibly simple because apparently wrapping it in a function has rustc fucking implode
 // say what you want about C++ footguns but rust is the polar fucking opposite, shooting you in the head for doing literally anything
 
-
 impl MaximaEguiApp {
     fn tab_bar(&mut self, header: &mut Ui) {
         puffin::profile_function!();
@@ -947,10 +946,12 @@ impl MaximaEguiApp {
             if let Some(PopupModal::GameSettings(slug)) = &self.modal {
                 if let Some(settings) = self.settings.game_settings.get(slug) {
                     // Send the updated settings to the backend to persist them
-                    let _ = self
-                        .backend
-                        .backend_commander
-                        .send(bridge_thread::MaximaLibRequest::SaveGameSettings(slug.clone(), settings.clone()));
+                    let _ = self.backend.backend_commander.send(
+                        bridge_thread::MaximaLibRequest::SaveGameSettings(
+                            slug.clone(),
+                            settings.clone(),
+                        ),
+                    );
                 }
             }
             self.modal = None;

@@ -327,8 +327,8 @@ async fn run_wine_command_slr<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     want_output: bool,
     command_type: CommandType,
 ) -> Result<String, NativeError> {
-    let slr_path = env::var("MAXIMA_SLR_PATH")
-        .map_err(|_| NativeError::Wine(WineError::MissingSLRPath))?;
+    let slr_path =
+        env::var("MAXIMA_SLR_PATH").map_err(|_| NativeError::Wine(WineError::MissingSLRPath))?;
     let proton_dir_path = env::var("MAXIMA_PROTON_PATH")
         .map_err(|_| NativeError::Wine(WineError::MissingProtonPath))?;
     let proton_exe = PathBuf::from(&proton_dir_path)
@@ -336,18 +336,17 @@ async fn run_wine_command_slr<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
         .to_string_lossy()
         .to_string();
     let proton_prefix_path = wine_prefix_dir()?;
-    
+
     // Get the Steam client install path, defaulting to common location
-    let steam_client_path = env::var("STEAM_COMPAT_CLIENT_INSTALL_PATH")
-        .unwrap_or_else(|_| {
-            env::var("HOME")
-                .map(|h| format!("{}/.steam/steam", h))
-                .unwrap_or_else(|_| "/home/user/.steam/steam".to_string())
-        });
+    let steam_client_path = env::var("STEAM_COMPAT_CLIENT_INSTALL_PATH").unwrap_or_else(|_| {
+        env::var("HOME")
+            .map(|h| format!("{}/.steam/steam", h))
+            .unwrap_or_else(|_| "/home/user/.steam/steam".to_string())
+    });
 
     // Build the SLR entry point path
     let slr_entry_point = PathBuf::from(&slr_path).join("_v2-entry-point");
-    
+
     if !slr_entry_point.exists() {
         return Err(NativeError::Wine(WineError::SLRNotFound(slr_entry_point)));
     }
@@ -355,7 +354,7 @@ async fn run_wine_command_slr<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     // Build proton command with verb passed to _v2-entry-point
     let mut proton_args = vec![proton_exe.clone(), "run".to_string()];
     proton_args.push(arg.as_ref().to_string_lossy().to_string());
-    
+
     if let Some(arguments) = args {
         for a in arguments {
             proton_args.push(a.as_ref().to_string_lossy().to_string());

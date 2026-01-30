@@ -13,8 +13,12 @@ use super::{
 };
 #[cfg(unix)]
 use crate::unix::fs::case_insensitive_path;
-use crate::{core::settings, gamesettings::GameSettingsManager, util::native::{NativeError, SafeStr, maxima_dir}};
 use crate::util::registry::{parse_partial_registry_path, parse_registry_path, RegistryError};
+use crate::{
+    core::settings,
+    gamesettings::GameSettingsManager,
+    util::native::{maxima_dir, NativeError, SafeStr},
+};
 use derive_getters::Getters;
 use log::info;
 use std::{collections::HashMap, path::PathBuf, time::SystemTimeError};
@@ -57,22 +61,23 @@ pub struct OwnedOffer {
 impl OwnedOffer {
     pub async fn is_installed(&self) -> bool {
         let maxima_dir = maxima_dir().unwrap();
-        let manifest_path = maxima_dir.join("settings").join(format!("{}.json", self.slug));
+        let manifest_path = maxima_dir
+            .join("settings")
+            .join(format!("{}.json", self.slug));
         if !manifest_path.exists() {
             return false;
         }
 
-        let contents = match std::fs::read_to_string(&manifest_path) 
-        {
+        let contents = match std::fs::read_to_string(&manifest_path) {
             Ok(s) => s,
             Err(_) => return false,
         };
 
         match serde_json::from_str::<serde_json::Value>(&contents) {
             Ok(json) => json
-            .get("installed")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
+                .get("installed")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
             Err(_) => false,
         }
     }

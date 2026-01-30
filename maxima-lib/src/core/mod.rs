@@ -46,7 +46,6 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-
 use self::{
     auth::storage::{AuthError, AuthStorage, LockedAuthStorage, TokenError},
     cache::DynamicCache,
@@ -65,10 +64,10 @@ use self::{
 };
 use crate::{
     content::manager::{ContentManager, ContentManagerError},
+    gamesettings::GameSettingsManager,
     lsx::{self, service::LSXServerError, types::LSXRequestType},
     rtm::client::{BasicPresence, RtmClient},
     util::native::{maxima_dir, NativeError},
-    gamesettings::{GameSettingsManager},
 };
 
 #[derive(Clone, IntoStaticStr)]
@@ -458,8 +457,7 @@ impl Maxima {
         match result {
             Err(err) => warn!("Failed to update content manager: {}", err),
             Ok(result) => {
-                if let Some(event) = result 
-                {
+                if let Some(event) = result {
                     self.call_event(event);
                 }
             }
