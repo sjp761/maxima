@@ -18,6 +18,8 @@ use maxima::{
 };
 use std::{fs, sync::mpsc::Sender};
 
+use maxima::gamesettings::{GameSettings, GameSettingsManager};
+
 fn get_preferred_bg_hero(heroes: &Option<ServiceGameHubCollection>) -> Option<String> {
     let heroes = match heroes {
         Some(h) => h.items().get(0),
@@ -195,12 +197,13 @@ pub async fn get_games_request(
     let service_layer = maxima.service_layer().clone();
     let locale = maxima.locale().short_str().to_owned();
     let logged_in = maxima.auth_storage().lock().await.current().is_some();
-    let mut game_settings = maxima.game_settings().clone();
     if !logged_in {
         return Err(BackendError::LoggedOut);
     }
+    let game_settings = maxima.game_settings().clone();
 
     let owned_games = maxima.mut_library().games().await?;
+
 
     for game in owned_games {
         let slug = game.base_offer().slug().clone();
@@ -213,7 +216,7 @@ pub async fn get_games_request(
             downloads.iter().find(|item| item.download_type() == "LIVE").unwrap()
         };
 
-        let version = if let Ok(version) = game.base_offer().installed_version(&mut game_settings).await {
+        let version = if let Ok(version) = game.base_offer().installed_version().await {
             version
         } else {
             "Unknown".to_owned()
@@ -230,17 +233,13 @@ pub async fn get_games_request(
                 mandatory: opt.treat_updates_as_mandatory().clone(),
             },
             dlc: game.extra_offers().clone(),
-            installed: game.base_offer().is_installed(&mut game_settings).await,
+            installed: game.base_offer().is_installed().await,
             has_cloud_saves: game.base_offer().offer().has_cloud_save(),
         };
         let slug = game_info.slug.clone();
         // Grab persisted settings from Maxima's GameSettingsManager if available
         let core_settings = game_settings.get(&slug);
-        let settings = crate::GameSettings {
-            cloud_saves: core_settings.cloud_saves(),
-            launch_args: core_settings.launch_args().to_string(),
-            exe_override: core_settings.exe_override().to_string(),
-        };
+        let settings = core_settings.clone();
         let res = MaximaLibResponse::GameInfoResponse(InteractThreadGameListResponse {
             game: game_info,
             settings,

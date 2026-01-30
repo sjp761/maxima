@@ -33,6 +33,7 @@ use bridge_thread::{BackendError, BridgeThread, InteractThreadLocateGameResponse
 use game_view_bg_renderer::GameViewBgRenderer;
 use renderers::{app_bg_renderer, game_view_bg_renderer};
 use translation_manager::{positional_replace, TranslationManager};
+use maxima::gamesettings::GameSettings;
 
 pub mod bridge;
 pub mod util;
@@ -184,23 +185,6 @@ pub enum GameDetailsWrapper {
     Unloaded,
     Loading,
     Available(GameDetails),
-}
-
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct GameSettings {
-    cloud_saves: bool,
-    launch_args: String,
-    exe_override: String,
-}
-
-impl GameSettings {
-    pub fn new() -> Self {
-        Self {
-            cloud_saves: true,
-            launch_args: String::new(),
-            exe_override: String::new(),
-        }
-    }
 }
 
 #[derive(Clone)]

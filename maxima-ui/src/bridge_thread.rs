@@ -403,9 +403,19 @@ impl BridgeThread {
                 for ev in maxima.consume_pending_events() {
                     match ev {
                         maxima::core::MaximaEvent::ReceivedLSXRequest(_, _) => {}
-                        maxima::core::MaximaEvent::InstallFinished(offer_id) => {
+                        maxima::core::MaximaEvent::InstallFinished(offer_id) => 
+                        {
+                            // Easy access to mutably update game settings
+                             if let Ok(Some(title)) = maxima.mut_library().title_by_base_offer(&offer_id).await 
+                             {
+                                let slug = title.base_offer().slug().clone();
+                                let manager = maxima.mut_game_settings();
+                                let mut settings = manager.get(&slug);
+                                settings.installed = true;
+                                manager.save(&slug, settings);
+                            }
                             backend_responder
-                                .send(MaximaLibResponse::DownloadFinished(offer_id))?;
+                                .send(MaximaLibResponse::DownloadFinished(offer_id))?; // UI can handle updating settings, can easily access UI Frontend structures in DownloadFinished
                             Self::update_queue(maxima.content_manager(), backend_responder.clone());
                         }
                     }
@@ -514,10 +524,7 @@ impl BridgeThread {
                     // Persist the UI settings into the core GameSettingsManager
                     let mut maxima = maxima_arc.lock().await;
                     let manager = maxima.mut_game_settings();
-                    // Clone current core settings, update the mutable fields, then save
-                    let mut core_settings = manager.get(&slug).clone();
-                    core_settings.update_from(settings.cloud_saves, settings.launch_args.clone(), settings.exe_override.clone());
-                    manager.save(&slug, core_settings);
+                    manager.save(&slug, settings);      
                     Ok(())
                 }
                 MaximaLibRequest::ShutdownRequest => break 'outer Ok(()), //TODO: kill the bridge thread

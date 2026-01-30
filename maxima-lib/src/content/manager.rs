@@ -16,6 +16,7 @@ use thiserror::Error;
 use tokio::{fs, sync::Notify};
 use tokio_util::sync::CancellationToken;
 use globset::GlobSet;
+use crate::core::LockedMaxima;
 
 use crate::{
     content::{
@@ -269,7 +270,6 @@ impl GameDownloader {
 
         info!("Files downloaded, running touchup...");
         let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-
         manifest.run_touchup(path).await?;
         info!("Installation finished!");
 

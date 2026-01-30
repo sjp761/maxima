@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -7,10 +7,11 @@ use crate::util::native::maxima_dir;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameSettings {
-    cloud_saves: bool,
-    launch_args: String,
-    exe_override: String,
-    wine_prefix: String,
+    pub cloud_saves: bool,
+    pub installed: bool,
+    pub launch_args: String,
+    pub exe_override: String,
+    pub wine_prefix: String,
 }
 
 impl GameSettings 
@@ -18,6 +19,7 @@ impl GameSettings
     pub fn new() -> Self {
         Self {
             cloud_saves: true,
+            installed: false,
             launch_args: String::new(),
             exe_override: String::new(),
             wine_prefix: String::new(),
@@ -111,9 +113,8 @@ impl GameSettingsManager {
         }
     }
 
-    pub fn get(&mut self, slug: &str) -> &GameSettings {
-        self.settings.entry(slug.to_string())
-            .or_insert_with(|| get_game_settings(slug))
+    pub fn get(&self, slug: &str) -> GameSettings {
+        self.settings.get(slug).cloned().unwrap_or_else(|| GameSettings::new_with_slug(slug))
     }
 
     pub fn save(&mut self, slug: &str, settings: GameSettings) {

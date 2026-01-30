@@ -458,7 +458,8 @@ impl Maxima {
         match result {
             Err(err) => warn!("Failed to update content manager: {}", err),
             Ok(result) => {
-                if let Some(event) = result {
+                if let Some(event) = result 
+                {
                     self.call_event(event);
                 }
             }

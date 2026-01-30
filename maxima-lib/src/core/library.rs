@@ -13,9 +13,10 @@ use super::{
 };
 #[cfg(unix)]
 use crate::unix::fs::case_insensitive_path;
-use crate::{core::settings, gamesettings::GameSettingsManager, util::native::{NativeError, SafeStr}};
+use crate::{core::settings, gamesettings::GameSettingsManager, util::native::{NativeError, SafeStr, maxima_dir}};
 use crate::util::registry::{parse_partial_registry_path, parse_registry_path, RegistryError};
 use derive_getters::Getters;
+use log::info;
 use std::{collections::HashMap, path::PathBuf, time::SystemTimeError};
 use thiserror::Error;
 
@@ -54,23 +55,10 @@ pub struct OwnedOffer {
 }
 
 impl OwnedOffer {
-    pub async fn is_installed(&self, settings: &GameSettingsManager) -> bool {
-        // I would love to throw an error here but that's just not feasible.
-        // If you can't grab the path it may as well not be installed.
-        let Some(path) = &self.offer.install_check_override().as_ref() else {
-            return false;
-        };
-        let path = match parse_registry_path(path).await {
-            Ok(path) => path,
-            Err(_) => return false,
-        };
-        // If it wasn't replaced...
-        if path.starts_with("[") {
-            return false;
-        }
-        #[cfg(unix)]
-        let path = case_insensitive_path(path);
-        path.exists()
+    pub async fn is_installed(&self) -> bool {
+        let maxima_dir = maxima_dir().unwrap();
+        let manifest_path = maxima_dir.join("settings").join(format!("{}.json", self.slug));
+        manifest_path.exists()
     }
 
     pub async fn install_check_path(&self) -> Result<String, ManifestError> {
@@ -105,8 +93,8 @@ impl OwnedOffer {
         }
     }
 
-    pub async fn installed_version(&self, settings: &GameSettingsManager) -> Result<String, LibraryError> {
-        if !self.is_installed(settings).await {
+    pub async fn installed_version(&self) -> Result<String, LibraryError> {
+        if !self.is_installed().await {
             return Err(LibraryError::NotInstalled(self.slug.clone()));
         }
 
