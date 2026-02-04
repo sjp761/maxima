@@ -438,27 +438,14 @@ pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
             install_wine().await?;
         }
         let runtimes = get_lutris_runtimes().await?;
-        if !check_runtime_validity("eac_runtime", &runtimes).await?
-            && !std::env::var("MAXIMA_DISABLE_EAC").is_ok()
-        {
+        if !check_runtime_validity("eac_runtime", &runtimes).await? {
             install_runtime("eac_runtime", &runtimes).await?;
         }
-        let use_slr = std::env::var("MAXIMA_USE_SLR").is_ok();
-        if !check_runtime_validity("umu", &runtimes).await? && !use_slr {
+        if !check_runtime_validity("umu", &runtimes).await? {
             install_runtime("umu", &runtimes).await?;
         }
     }
 
-    let _ = run_wine_command(
-        "wineboot",
-        Some(vec!["--init"]),
-        None,
-        false,
-        CommandType::Run,
-        slug,
-    )
-    .await;
-    info!("Setting up wine registry...");
     setup_wine_registry(slug).await?;
 
     Ok(())
