@@ -105,20 +105,20 @@ fn home_dir() -> Result<PathBuf, NativeError> {
 }
 
 #[cfg(unix)]
-fn home_dir() -> Result<PathBuf, NativeError> {
+fn home_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
     use crate::unix::wine::wine_prefix_dir;
-    Ok(wine_prefix_dir()?.join("drive_c/users/steamuser"))
+    Ok(wine_prefix_dir(slug)?.join("drive_c/users/steamuser"))
 }
 
-fn substitute_paths<P: AsRef<str>>(path: P) -> Result<PathBuf, NativeError> {
+fn substitute_paths<P: AsRef<str>>(path: P, slug: Option<&str>) -> Result<PathBuf, NativeError> {
     let mut result = PathBuf::new();
     let path_str = path.as_ref();
 
     if path_str.contains("%Documents%") {
-        let path = home_dir()?.join("Documents");
+        let path = home_dir(slug)?.join("Documents");
         result.push(path_str.replace("%Documents%", path.to_str().unwrap_or_default()));
     } else if path_str.contains("%SavedGames%") {
-        let path = home_dir()?.join("Saved Games");
+        let path = home_dir(slug)?.join("Saved Games");
         result.push(path_str.replace("%SavedGames%", path.to_str().unwrap_or_default()));
     } else {
         result.push(path_str);
@@ -127,9 +127,9 @@ fn substitute_paths<P: AsRef<str>>(path: P) -> Result<PathBuf, NativeError> {
     Ok(result)
 }
 
-fn unsubstitute_paths<P: AsRef<Path>>(path: P) -> Result<String, NativeError> {
+fn unsubstitute_paths<P: AsRef<Path>>(path: P, slug: Option<&str>) -> Result<String, NativeError> {
     let path = path.as_ref();
-    let home = home_dir()?;
+    let home = home_dir(slug)?;
 
     let documents_path = home.join("Documents");
     let saved_games_path = home.join("Saved Games");
@@ -196,6 +196,7 @@ pub struct CloudSyncLock<'a> {
     manifest: CloudSyncManifest,
     mode: CloudSyncLockMode,
     allowed_files: Vec<PathBuf>,
+    slug: String,
 }
 
 impl<'a> CloudSyncLock<'a> {
@@ -206,6 +207,7 @@ impl<'a> CloudSyncLock<'a> {
         lock: String,
         mode: CloudSyncLockMode,
         allowed_files: Vec<PathBuf>,
+        slug: String,
     ) -> Result<Self, CloudSyncError> {
         let res = client.get(manifest_url).send().await?;
 
@@ -237,6 +239,7 @@ impl<'a> CloudSyncLock<'a> {
             manifest,
             mode,
             allowed_files,
+            slug,
         })
     }
 
@@ -273,7 +276,7 @@ impl<'a> CloudSyncLock<'a> {
         let mut paths = HashMap::new();
         for i in 0..self.manifest.file.len() {
             let local_path = &self.manifest.file[i].local_name;
-            let path = substitute_paths(local_path)?;
+            let path = substitute_paths(local_path, Some(&self.slug))?;
 
             let file = OpenOptions::new().read(true).open(path.clone()).await;
 
@@ -409,7 +412,7 @@ impl<'a> CloudSyncLock<'a> {
                 continue;
             }
 
-            let name = unsubstitute_paths(&path)?;
+            let name = unsubstitute_paths(&path, Some(&self.slug))?;
             let write_data = WriteData::File {
                 name,
                 file,
@@ -558,11 +561,12 @@ impl CloudSyncClient {
             offer.offer().multiplayer_id().as_ref().unwrap()
         );
 
+        let slug = offer.slug().to_string();
         let mut allowed_files = Vec::new();
         if let Some(config) = offer.offer().cloud_save_configuration_override() {
             let criteria: CloudSyncSaveFileCriteria = quick_xml::de::from_str(config)?;
             for include in criteria.include {
-                let path = substitute_paths(include.value)?;
+                let path = substitute_paths(include.value, Some(&slug))?;
                 let paths = glob::glob(path.safe_str()?)?;
                 for path in paths {
                     let path = path?;
@@ -577,7 +581,7 @@ impl CloudSyncClient {
             return Err(CloudSyncError::NoConfig(offer.offer_id().clone()));
         }
 
-        Ok(self.obtain_lock_raw(&id, mode, allowed_files).await?)
+        Ok(self.obtain_lock_raw(&id, mode, allowed_files, slug).await?)
     }
 
     pub async fn obtain_lock_raw<'a>(
@@ -585,6 +589,7 @@ impl CloudSyncClient {
         id: &str,
         mode: CloudSyncLockMode,
         allowed_files: Vec<PathBuf>,
+        slug: String,
     ) -> Result<CloudSyncLock, CloudSyncError> {
         let (token, user_id) = acquire_auth(&self.auth).await?;
 
@@ -612,6 +617,7 @@ impl CloudSyncClient {
             lock,
             mode,
             allowed_files,
+            slug,
         )
         .await?)
     }

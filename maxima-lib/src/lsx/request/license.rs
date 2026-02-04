@@ -28,6 +28,7 @@ pub async fn handle_license_request(
     let playing = maxima.playing().as_ref().unwrap();
     let content_id = playing.content_id().to_owned();
     let mode = playing.mode();
+    let slug = playing.slug().clone();
 
     let auth = match mode {
         LaunchMode::Offline(_) => {
@@ -40,7 +41,7 @@ pub async fn handle_license_request(
     };
 
     // TODO: how to get version
-    let hw_info = HardwareInfo::new(2);
+    let hw_info = HardwareInfo::new(2, slug.as_deref());
     let license = request_license(
         &content_id,
         &hw_info.generate_hardware_hash(),

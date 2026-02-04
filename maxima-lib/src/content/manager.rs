@@ -41,6 +41,7 @@ pub struct QueuedGame {
     offer_id: String,
     build_id: String,
     path: PathBuf,
+    slug: String,
 }
 
 #[derive(Default, Getters, Serialize, Deserialize)]
@@ -127,6 +128,7 @@ impl DownloadQueue {
 
 pub struct GameDownloader {
     offer_id: String,
+    slug: String,
 
     downloader: Arc<ZipDownloader>,
     entries: Vec<ZipFileEntry>,
@@ -173,6 +175,7 @@ impl GameDownloader {
 
         Ok(GameDownloader {
             offer_id: game.offer_id.to_owned(),
+            slug: game.slug.to_owned(),
 
             downloader: Arc::new(downloader),
             entries,
@@ -188,6 +191,7 @@ impl GameDownloader {
         let (downloader_arc, entries, cancel_token, completed_bytes, notify) =
             self.prepare_download_vars();
         let total_count = self.total_count;
+        let slug = self.slug.clone();
         tokio::spawn(async move {
             let dl = GameDownloader::start_downloads(
                 total_count,
@@ -196,6 +200,7 @@ impl GameDownloader {
                 cancel_token,
                 completed_bytes,
                 notify,
+                slug,
             )
             .await;
             if let Err(err) = dl {
@@ -229,6 +234,7 @@ impl GameDownloader {
         cancel_token: CancellationToken,
         completed_bytes: Arc<AtomicUsize>,
         notify: Arc<Notify>,
+        slug: String,
     ) -> Result<(), DownloaderError> {
         let mut handles = Vec::with_capacity(total_count);
 
@@ -268,7 +274,7 @@ impl GameDownloader {
 
         info!("Files downloaded, running touchup...");
         let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-        manifest.run_touchup(path).await?;
+        manifest.run_touchup(path, &slug).await?;
         info!("Installation finished!");
 
         completed_bytes.fetch_add(1, Ordering::SeqCst);

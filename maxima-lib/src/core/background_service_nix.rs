@@ -25,7 +25,11 @@ pub struct WineInjectArgs {
     pub path: String,
 }
 
-pub async fn wine_get_pid(launch_id: &str, name: &str) -> Result<u32, NativeError> {
+pub async fn wine_get_pid(
+    launch_id: &str,
+    name: &str,
+    slug: Option<&str>,
+) -> Result<u32, NativeError> {
     debug!("Searching for wine PID for {}", name);
 
     let launch_args = WineGetPidArgs {
@@ -43,6 +47,7 @@ pub async fn wine_get_pid(launch_id: &str, name: &str) -> Result<u32, NativeErro
         None,
         true,
         CommandType::RunInPrefix,
+        slug,
     )
     .await?;
 
@@ -63,7 +68,11 @@ pub async fn wine_get_pid(launch_id: &str, name: &str) -> Result<u32, NativeErro
     Ok(pid.as_str().parse()?)
 }
 
-pub async fn request_library_injection(pid: u32, path: &str) -> Result<(), NativeError> {
+pub async fn request_library_injection(
+    pid: u32,
+    path: &str,
+    slug: Option<&str>,
+) -> Result<(), NativeError> {
     debug!("Injecting {}", path);
 
     let launch_args = WineInjectArgs {
@@ -81,6 +90,7 @@ pub async fn request_library_injection(pid: u32, path: &str) -> Result<(), Nativ
         None,
         false,
         CommandType::RunInPrefix,
+        slug,
     )
     .await?;
 

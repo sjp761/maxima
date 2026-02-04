@@ -183,15 +183,23 @@ pub fn get_os_pid(context: &ActiveGameContext) -> Result<u32, NativeError> {
 }
 
 #[cfg(target_os = "windows")]
-pub async fn get_wine_pid(_launch_id: &str, _name: &str) -> Result<u32, NativeError> {
+pub async fn get_wine_pid(
+    _launch_id: &str,
+    _name: &str,
+    _slug: Option<&str>,
+) -> Result<u32, NativeError> {
     Ok(0)
 }
 
 #[cfg(target_os = "linux")]
-pub async fn get_wine_pid(launch_id: &str, name: &str) -> Result<u32, NativeError> {
+pub async fn get_wine_pid(
+    launch_id: &str,
+    name: &str,
+    slug: Option<&str>,
+) -> Result<u32, NativeError> {
     use crate::core::background_service::wine_get_pid;
 
-    wine_get_pid(launch_id, name).await
+    wine_get_pid(launch_id, name, slug).await
 }
 
 pub struct Connection {
@@ -236,7 +244,8 @@ impl Connection {
                     .ok_or(NativeError::Stringify)?
                     .to_owned();
 
-                    pid = get_wine_pid(&context.launch_id(), &filename).await;
+                    pid = get_wine_pid(&context.launch_id(), &filename, context.slug().as_deref())
+                        .await;
                 } else {
                     warn!(
                         "Failed to find game process while looking for PID {}",

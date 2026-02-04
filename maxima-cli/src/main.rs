@@ -70,6 +70,7 @@ enum Mode {
     ListGames,
     LocateGame {
         path: String,
+        slug: String,
     },
     CloudSync {
         game_slug: String,
@@ -301,7 +302,7 @@ async fn startup() -> Result<()> {
             start_game(&offer_id, game_path, game_args, login, maxima_arc.clone()).await
         }
         Mode::ListGames => list_games(maxima_arc.clone()).await,
-        Mode::LocateGame { path } => locate_game(maxima_arc.clone(), &path).await,
+        Mode::LocateGame { path, slug } => locate_game(maxima_arc.clone(), &path, &slug).await,
         Mode::CloudSync { game_slug, write } => {
             do_cloud_sync(maxima_arc.clone(), &game_slug, write).await
         }
@@ -622,7 +623,7 @@ async fn juno_token_refresh(maxima_arc: LockedMaxima) -> Result<()> {
 }
 
 async fn read_license_file(content_id: &str) -> Result<()> {
-    let path = ooa::get_license_dir()?.join(format!("{}.dlf", content_id));
+    let path = ooa::get_license_dir(None)?.join(format!("{}.dlf", content_id));
     let mut data = tokio::fs::read(path).await?;
     data.drain(0..65); // Signature
 
@@ -768,10 +769,10 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
     Ok(())
 }
 
-async fn locate_game(maxima_arc: LockedMaxima, path: &str) -> Result<()> {
+async fn locate_game(maxima_arc: LockedMaxima, path: &str, slug: &str) -> Result<()> {
     let path = PathBuf::from(path);
     let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-    manifest.run_touchup(&path).await?;
+    manifest.run_touchup(&path, slug).await?;
     info!("Installed!");
     Ok(())
 }

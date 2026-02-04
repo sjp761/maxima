@@ -71,12 +71,14 @@ struct Versions {
 }
 
 /// Returns internal prtoton pfx path
-pub fn wine_prefix_dir() -> Result<PathBuf, NativeError> {
-    if let Ok(path) = env::var("MAXIMA_WINE_PREFIX") {
-        return Ok(PathBuf::from(path));
-    }
+pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
+    let base = maxima_dir()?.join("wine/prefix");
 
-    Ok(maxima_dir()?.join("wine/prefix"))
+    if let Some(slug) = slug {
+        Ok(base.join(slug))
+    } else {
+        Ok(base)
+    }
 }
 
 pub fn proton_dir() -> Result<PathBuf, NativeError> {
@@ -255,9 +257,10 @@ async fn run_wine_command_umu<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     cwd: Option<PathBuf>,
     want_output: bool,
     command_type: CommandType,
+    slug: Option<&str>,
 ) -> Result<String, NativeError> {
     let proton_path = proton_dir()?;
-    let proton_prefix_path = wine_prefix_dir()?;
+    let proton_prefix_path = wine_prefix_dir(slug)?;
     let eac_path = eac_dir()?;
     let umu_bin = umu_bin()?;
 
@@ -326,6 +329,7 @@ async fn run_wine_command_slr<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     cwd: Option<PathBuf>,
     want_output: bool,
     command_type: CommandType,
+    slug: Option<&str>,
 ) -> Result<String, NativeError> {
     let slr_path =
         env::var("MAXIMA_SLR_PATH").map_err(|_| NativeError::Wine(WineError::MissingSLRPath))?;
@@ -335,7 +339,7 @@ async fn run_wine_command_slr<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
         .join("proton")
         .to_string_lossy()
         .to_string();
-    let proton_prefix_path = wine_prefix_dir()?;
+    let proton_prefix_path = wine_prefix_dir(slug)?;
 
     // Get the Steam client install path, defaulting to common location
     let steam_client_path = env::var("STEAM_COMPAT_CLIENT_INSTALL_PATH").unwrap_or_else(|_| {
@@ -418,22 +422,20 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     cwd: Option<PathBuf>,
     want_output: bool,
     command_type: CommandType,
+    slug: Option<&str>,
 ) -> Result<String, NativeError> {
-    // Check if using Steam Linux Runtime
     let use_slr = env::var("MAXIMA_USE_SLR").is_ok();
 
     if use_slr {
-        run_wine_command_slr(arg, args, cwd, want_output, command_type).await
+        run_wine_command_slr(arg, args, cwd, want_output, command_type, slug).await
     } else {
-        run_wine_command_umu(arg, args, cwd, want_output, command_type).await
+        run_wine_command_umu(arg, args, cwd, want_output, command_type, slug).await
     }
 }
 
 pub(crate) async fn install_wine() -> Result<(), NativeError> {
-    // Skip installation if using custom Proton path
     if env::var("MAXIMA_PROTON_PATH").is_ok() {
         info!("Using custom Proton path, skipping Proton-GE installation");
-        let _ = run_wine_command("", None::<[&str; 0]>, None, false, CommandType::Run).await;
         return Ok(());
     }
 
@@ -461,8 +463,6 @@ pub(crate) async fn install_wine() -> Result<(), NativeError> {
     if let Err(err) = remove_file(&path) {
         warn!("Failed to delete {:?} - {:?}", path, err);
     }
-
-    let _ = run_wine_command("", None::<[&str; 0]>, None, false, CommandType::Run).await;
 
     Ok(())
 }
@@ -508,7 +508,7 @@ fn extract_archive<R: Read + Sized>(
     Ok(())
 }
 
-pub async fn setup_wine_registry() -> Result<(), NativeError> {
+pub async fn setup_wine_registry(slug: Option<&str>) -> Result<(), NativeError> {
     let mut reg_content = "Windows Registry Editor Version 5.00\n\n".to_string();
     // This supports text values only at the moment
     // if you need a dword - implement it
@@ -559,6 +559,7 @@ pub async fn setup_wine_registry() -> Result<(), NativeError> {
         None,
         false,
         CommandType::Run,
+        slug,
     )
     .await?;
 
@@ -607,8 +608,8 @@ async fn parse_wine_registry(file_path: &str) -> WineRegistry {
     registry_map.clone()
 }
 
-pub async fn parse_mx_wine_registry() -> Result<WineRegistry, NativeError> {
-    let path = wine_prefix_dir()?.join("pfx").join("system.reg");
+pub async fn parse_mx_wine_registry(slug: Option<&str>) -> Result<WineRegistry, NativeError> {
+    let path = wine_prefix_dir(slug)?.join("pfx").join("system.reg");
     if !path.exists() {
         return Ok(HashMap::new());
     }
@@ -631,8 +632,11 @@ fn normalize_key(key: &str) -> String {
     }
 }
 
-pub async fn get_mx_wine_registry_value(query_key: &str) -> Result<Option<String>, RegistryError> {
-    let registry_map = parse_mx_wine_registry().await?;
+pub async fn get_mx_wine_registry_value(
+    query_key: &str,
+    slug: Option<&str>,
+) -> Result<Option<String>, RegistryError> {
+    let registry_map = parse_mx_wine_registry(slug).await?;
     let normalized_query_key = normalize_key(query_key);
 
     let value = if let Some(value) = registry_map.get(&normalized_query_key) {

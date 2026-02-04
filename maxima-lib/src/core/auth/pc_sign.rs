@@ -34,7 +34,7 @@ pub struct PCSign<'a> {
 
 impl PCSign<'_> {
     pub fn new() -> Result<Self, HardwareHashError> {
-        let hw_info = HardwareInfo::new(1);
+        let hw_info = HardwareInfo::new(1, None);
 
         let timestamp = Utc::now();
         let formatted_timestamp = timestamp.format("%Y-%m-%d %H:%M:%S:%3f");

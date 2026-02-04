@@ -850,7 +850,7 @@ impl MaximaEguiApp {
                                         ui.add_enabled_ui(PathBuf::from(&self.installer_state.locate_path).exists(), |ui| {
 
                                             if ui.add_sized(button_size, egui::Button::new(&self.locale.localization.modals.game_install.locate_action.to_ascii_uppercase())).clicked() {
-                                                self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::LocateGameRequest(self.installer_state.locate_path.clone())).unwrap();
+                                                self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::LocateGameRequest(slug.clone(), self.installer_state.locate_path.clone())).unwrap();
                                                 self.installer_state.locating = true;
                                             }
                                         });
@@ -875,7 +875,7 @@ impl MaximaEguiApp {
                                             } else {
                                                 self.install_queue.insert(game.offer.clone(),QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
                                             }
-                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), path.join(slug))).unwrap();
+                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), slug.clone(), path.join(slug))).unwrap();
 
                                             clear = true;
                                         }

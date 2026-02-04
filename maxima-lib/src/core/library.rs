@@ -89,6 +89,7 @@ impl OwnedOffer {
                 .install_check_override()
                 .as_ref()
                 .ok_or(ManifestError::NoInstallPath(self.slug.clone()))?,
+            Some(&self.slug),
         )
         .await?
         .safe_str()?
@@ -108,7 +109,7 @@ impl OwnedOffer {
         };
 
         if let Some(path) = path {
-            Ok(parse_registry_path(path).await?)
+            Ok(parse_registry_path(path, Some(&self.slug)).await?)
         } else {
             Err(LibraryError::NoPath(self.slug.clone()))
         }
@@ -151,6 +152,7 @@ impl OwnedOffer {
                         .install_check_override()
                         .as_ref()
                         .ok_or(ManifestError::NoInstallPath(self.slug.clone()))?,
+                    Some(&self.slug),
                 )
                 .await?
                 .safe_str()?

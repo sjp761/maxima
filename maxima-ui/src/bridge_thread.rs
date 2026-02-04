@@ -82,8 +82,8 @@ pub enum MaximaLibRequest {
     GetFriendsRequest,
     GetGameDetailsRequest(String),
     StartGameRequest(GameInfo, Option<GameSettings>),
-    InstallGameRequest(String, PathBuf),
-    LocateGameRequest(String),
+    InstallGameRequest(String, String, PathBuf),
+    LocateGameRequest(String, String),
     /// Persist UI-side game settings into the core GameSettingsManager
     SaveGameSettings(String, GameSettings),
     ShutdownRequest,
@@ -453,9 +453,9 @@ impl BridgeThread {
                     let context = ctx.clone();
                     async move { game_details_request(maxima, slug.clone(), channel, &context).await }.await
                 }
-                MaximaLibRequest::LocateGameRequest(path) => {
+                MaximaLibRequest::LocateGameRequest(slug, path) => {
                     #[cfg(unix)]
-                    maxima::core::launch::mx_linux_setup().await?;
+                    maxima::core::launch::mx_linux_setup(Some(&slug)).await?;
                     let mut path = path;
                     if path.ends_with("/") || path.ends_with("\\") {
                         path.remove(path.len() - 1);
@@ -463,7 +463,7 @@ impl BridgeThread {
                     let path = PathBuf::from(path);
                     let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await;
                     if let Ok(manifest) = manifest {
-                        let guh = manifest.run_touchup(&path).await;
+                        let guh = manifest.run_touchup(&path, &slug).await;
                         if let Err(err) = guh {
                             let _ = backend_responder.send(MaximaLibResponse::LocateGameResponse(
                                 InteractThreadLocateGameResponse::Error(
@@ -500,7 +500,7 @@ impl BridgeThread {
                     ctx.request_repaint();
                     Ok(())
                 }
-                MaximaLibRequest::InstallGameRequest(offer, path) => {
+                MaximaLibRequest::InstallGameRequest(offer, slug, path) => {
                     let mut maxima = maxima_arc.lock().await;
                     let builds =
                         maxima.content_manager().service().available_builds(&offer).await?;
@@ -511,9 +511,10 @@ impl BridgeThread {
                     };
 
                     let game = QueuedGameBuilder::default()
-                        .offer_id(offer)
+                        .offer_id(offer.clone())
                         .build_id(build.build_id().to_owned())
                         .path(path.to_owned())
+                        .slug(slug.to_owned())
                         .build()?;
                     Ok(maxima.content_manager().add_install(game).await?)
                 }
