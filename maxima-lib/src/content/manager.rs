@@ -155,7 +155,7 @@ impl GameDownloader {
 
         let mut entries = Vec::new();
 
-        let exclusion_list = get_exclusion_list(game.offer_id.clone());
+        let exclusion_list = get_exclusion_list(game.slug.clone());
 
         for ele in downloader.manifest().entries() {
             // TODO: Filtering

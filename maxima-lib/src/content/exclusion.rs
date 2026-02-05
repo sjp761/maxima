@@ -4,18 +4,16 @@ use log::{error, info, warn};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-pub fn get_exclusion_list(offer_id: String) -> GlobSet {
+pub fn get_exclusion_list(slug: String) -> GlobSet {
     let mut builder = GlobSetBuilder::new();
 
     if let Ok(dir) = maxima_dir()
     // Checks to make sure maxima directory exists
     {
-        let filepath = dir.join("exclude").join(&offer_id); // Path to exclusion file
+        let filepath = dir.join("exclude").join(&slug); // Path to exclusion file
         info!("Loading exclusion file from {}", filepath.display());
 
-        if let Ok(file) = File::open(&filepath)
-        // Opens the exclusion file, fails if not found
-        {
+        if let Ok(file) = File::open(&filepath) {
             let reader = BufReader::new(file);
             for line in reader.lines().flatten() {
                 let entry = line.trim();
