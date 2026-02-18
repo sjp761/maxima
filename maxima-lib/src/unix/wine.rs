@@ -94,8 +94,18 @@ pub fn wine_prefix_dir(slug: Option<&str>) -> Option<PathBuf> {
         game_install_info.save_to_json(slug.unwrap_or("default"));
     }
 
+    if !prefix_path.exists() {
+    }     if let Err(err) = create_dir_all(&prefix_path) {
+            warn!(
+                "Failed to create wine prefix directory at {:?}: {}",
+                prefix_path, err
+            );
+            return None;
+        }
     Some(prefix_path)
-}
+
+    }
+
 
 pub fn proton_dir() -> Result<PathBuf, NativeError> {
     Ok(maxima_dir()?.join("wine/proton"))
