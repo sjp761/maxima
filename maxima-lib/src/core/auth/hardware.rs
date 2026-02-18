@@ -483,8 +483,9 @@ fn get_root_creation_str(slug: Option<&str>) -> String {
 
     let date_str = String::from("1970010100:00:00.000000000+0000");
     let wine_prefix = match wine_prefix_dir(slug) {
-        Ok(prefix) => prefix,
-        Err(_) => return date_str,
+        // This gets used in several places, default date should only be used with PCSign
+        Some(prefix) => prefix,
+        None => return date_str,
     };
     let date_str = match fs::metadata(wine_prefix.join("drive_c")) {
         Ok(metadata) => {

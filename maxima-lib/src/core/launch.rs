@@ -429,7 +429,7 @@ pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
         install_wine, setup_wine_registry, wine_prefix_dir,
     };
 
-    std::fs::create_dir_all(wine_prefix_dir(slug)?)?;
+    std::fs::create_dir_all(wine_prefix_dir(slug).unwrap())?;
     info!("Verifying wine dependencies...");
 
     let skip = std::env::var("MAXIMA_DISABLE_WINE_VERIFICATION").is_ok();

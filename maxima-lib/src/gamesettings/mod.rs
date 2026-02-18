@@ -5,7 +5,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct GameSettings {
     pub cloud_saves: bool,
     pub installed: bool,
@@ -34,13 +34,6 @@ impl GameSettings {
 
     pub fn exe_override(&self) -> &str {
         &self.exe_override
-    }
-
-    /// Update mutable fields from UI-provided values while preserving any internal-only fields like `wine_prefix`.
-    pub fn update_from(&mut self, cloud_saves: bool, launch_args: String, exe_override: String) {
-        self.cloud_saves = cloud_saves;
-        self.launch_args = launch_args;
-        self.exe_override = exe_override;
     }
 }
 
@@ -102,15 +95,42 @@ impl GameSettingsManager {
         }
     }
 
-    pub fn get(&self, slug: &str) -> GameSettings {
+    pub fn get_or_load(&mut self, slug: &str) -> GameSettings {
         self.settings
-            .get(slug)
-            .cloned()
-            .unwrap_or_else(|| GameSettings::new())
+            .entry(slug.to_string())
+            .or_insert_with(|| get_game_settings(slug))
+            .clone()
+    }
+
+    pub fn update_with<F>(&mut self, slug: &str, mutator: F) -> GameSettings
+    where
+        F: FnOnce(&mut GameSettings),
+    {
+        let settings = self
+            .settings
+            .entry(slug.to_string())
+            .or_insert_with(|| get_game_settings(slug));
+
+        let previous = settings.clone();
+        mutator(settings);
+
+        if *settings != previous {
+            save_game_settings(slug, settings);
+        }
+
+        settings.clone()
     }
 
     pub fn save(&mut self, slug: &str, settings: GameSettings) {
-        save_game_settings(slug, &settings);
+        let should_save = self
+            .settings
+            .get(slug)
+            .map_or(true, |existing| existing != &settings);
+
         self.settings.insert(slug.to_string(), settings.clone());
+
+        if should_save {
+            save_game_settings(slug, &settings);
+        }
     }
 }

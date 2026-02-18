@@ -4,7 +4,7 @@ use crate::{
     GameDetailsWrapper, GameInfo, GameVersionInfo,
 };
 use egui::Context;
-use log::{debug, error, info};
+use log::{debug, info};
 use maxima::{
     core::{
         service_layer::{
@@ -14,7 +14,6 @@ use maxima::{
         },
         LockedMaxima,
     },
-    gamesettings::get_game_settings,
     util::native::maxima_dir,
 };
 use std::{fs, sync::mpsc::Sender};
@@ -199,9 +198,9 @@ pub async fn get_games_request(
     if !logged_in {
         return Err(BackendError::LoggedOut);
     }
-    let mut game_settings = maxima.mut_game_settings().clone();
 
-    let owned_games = maxima.mut_library().games().await?;
+    let owned_games = maxima.mut_library().games().await?.clone();
+    let settings_manager = maxima.mut_game_settings();
 
     for game in owned_games {
         let slug = game.base_offer().slug().clone();
@@ -234,10 +233,7 @@ pub async fn get_games_request(
             has_cloud_saves: game.base_offer().offer().has_cloud_save(),
         };
         let slug = game_info.slug.clone();
-        // Grab persisted settings from Maxima's GameSettingsManager if available
-        let core_settings = get_game_settings(&slug);
-        game_settings.save(&slug, core_settings.clone());
-        let settings = core_settings.clone();
+        let settings = settings_manager.get_or_load(&slug);
         let res = MaximaLibResponse::GameInfoResponse(InteractThreadGameListResponse {
             game: game_info,
             settings,

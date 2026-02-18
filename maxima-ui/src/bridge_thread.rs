@@ -36,7 +36,6 @@ use maxima::{
 };
 use std::sync::mpsc::{SendError, TryRecvError};
 use std::{
-    panic,
     path::PathBuf,
     sync::mpsc::{Receiver, Sender},
     time::{Duration, SystemTime},
@@ -411,9 +410,9 @@ impl BridgeThread {
                             {
                                 let slug = title.base_offer().slug().clone();
                                 let manager = maxima.mut_game_settings();
-                                let mut settings = manager.get(&slug);
-                                settings.installed = true;
-                                manager.save(&slug, settings);
+                                manager.update_with(&slug, |settings| {
+                                    settings.installed = true;
+                                });
                             }
                             backend_responder
                                 .send(MaximaLibResponse::DownloadFinished(offer_id))?; // UI can handle updating settings, can easily access UI Frontend structures in DownloadFinished
@@ -529,7 +528,9 @@ impl BridgeThread {
                     // Persist the UI settings into the core GameSettingsManager
                     let mut maxima = maxima_arc.lock().await;
                     let manager = maxima.mut_game_settings();
-                    manager.save(&slug, settings);
+                    manager.update_with(&slug, |stored| {
+                        *stored = settings;
+                    });
                     Ok(())
                 }
                 MaximaLibRequest::ShutdownRequest => break 'outer Ok(()), //TODO: kill the bridge thread

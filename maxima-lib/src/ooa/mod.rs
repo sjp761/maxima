@@ -379,7 +379,7 @@ pub fn get_license_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
 
     let path = format!(
         "{}/drive_c/{}",
-        wine_prefix_dir(slug)?.safe_str()?,
+        wine_prefix_dir(slug).unwrap().safe_str()?,
         LICENSE_PATH.to_string()
     );
     create_dir_all(&path)?;

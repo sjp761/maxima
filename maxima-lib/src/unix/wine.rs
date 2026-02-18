@@ -4,7 +4,7 @@ use std::{
     ffi::OsStr,
     fs::{create_dir_all, remove_dir_all, remove_file, File},
     io::Read,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{ExitStatus, Stdio},
 };
 
@@ -76,19 +76,25 @@ struct Versions {
 }
 
 /// Returns internal proton pfx path
-pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
+pub fn wine_prefix_dir(slug: Option<&str>) -> Option<PathBuf> {
+    if slug.is_none() {
+        // This is used for PCSign, probably should make this more explicit later
+        return None;
+    }
+
     let mut game_install_info = load_game_version_from_json(slug.unwrap()).unwrap();
     let mut prefix_path = game_install_info.wine_prefix_pathbuf();
 
     if prefix_path.to_str().unwrap().is_empty() {
-        prefix_path = maxima_dir()?
+        prefix_path = maxima_dir()
+            .unwrap()
             .join("wine/prefixes/")
             .join(slug.unwrap_or("default"));
         game_install_info.wine_prefix = prefix_path.to_string_lossy().to_string();
         game_install_info.save_to_json(slug.unwrap_or("default"));
     }
 
-    Ok(prefix_path)
+    Some(prefix_path)
 }
 
 pub fn proton_dir() -> Result<PathBuf, NativeError> {
@@ -259,7 +265,7 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     slug: Option<&str>,
 ) -> Result<String, NativeError> {
     let proton_path = proton_dir()?;
-    let proton_prefix_path = wine_prefix_dir(slug)?;
+    let proton_prefix_path = wine_prefix_dir(slug).unwrap();
     let eac_path = eac_dir()?;
     let umu_bin = umu_bin()?;
 
@@ -493,7 +499,10 @@ async fn parse_wine_registry(file_path: &str) -> WineRegistry {
 }
 
 pub async fn parse_mx_wine_registry(slug: Option<&str>) -> Result<WineRegistry, NativeError> {
-    let path = wine_prefix_dir(slug)?.join("pfx").join("system.reg");
+    let path = wine_prefix_dir(slug)
+        .unwrap()
+        .join("pfx")
+        .join("system.reg");
     if !path.exists() {
         return Ok(HashMap::new());
     }

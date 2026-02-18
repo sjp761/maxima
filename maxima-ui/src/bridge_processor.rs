@@ -4,7 +4,6 @@ use crate::{
     BackendStallState, GameDetails, GameDetailsWrapper, MaximaEguiApp,
 };
 use log::{error, info, warn};
-use maxima::gamesettings::GameSettings;
 use std::sync::mpsc::TryRecvError;
 
 pub fn frontend_processor(app: &mut MaximaEguiApp, ctx: &egui::Context) {
