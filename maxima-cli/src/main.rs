@@ -41,9 +41,14 @@ use maxima::{
         },
         LockedMaxima, Maxima, MaximaEvent, MaximaOptionsBuilder,
     },
+    gameversion::GameInstallInfo,
     ooa,
     rtm::client::BasicPresence,
-    util::{log::init_logger, native::take_foreground_focus, registry::check_registry_validity},
+    util::{
+        log::init_logger,
+        native::{maxima_dir, take_foreground_focus},
+        registry::check_registry_validity,
+    },
 };
 
 lazy_static! {
@@ -299,7 +304,15 @@ async fn startup() -> Result<()> {
                 slug.clone()
             };
 
-            start_game(&offer_id, &slug, game_path, game_args, login, maxima_arc.clone()).await
+            start_game(
+                &offer_id,
+                &slug,
+                game_path,
+                game_args,
+                login,
+                maxima_arc.clone(),
+            )
+            .await
         }
         Mode::ListGames => list_games(maxima_arc.clone()).await,
         Mode::LocateGame { path, slug } => locate_game(maxima_arc.clone(), &path, &slug).await,
@@ -359,7 +372,6 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
     let mut maxima = maxima_arc.lock().await;
     let mut owned_games = Vec::new();
     let owned_games_strs = {
-
         for game in maxima.mut_library().games().await? {
             if !game.base_offer().is_installed().await {
                 continue;
@@ -376,9 +388,10 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
 
     let name = Select::new("What game would you like to play?", owned_games_strs).prompt()?;
     let game = owned_games.iter().find(|g| g.name() == name).unwrap();
-    
+
     let offer_id = game.base_offer().offer_id().to_owned().clone();
     let slug = game.base_offer().slug().to_owned().clone();
+    drop(maxima); // To unlock before starting the game, since start_game will also need to lock
     start_game(&offer_id, &slug, None, Vec::new(), None, maxima_arc.clone()).await?;
 
     Ok(())
@@ -387,7 +400,7 @@ async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
 async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
     let mut maxima = maxima_arc.lock().await;
 
-    let offer_id = {
+    let game = {
         let mut owned_games = Vec::new();
         for game in maxima.mut_library().games().await? {
             if game.base_offer().is_installed().await {
@@ -404,9 +417,15 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
 
         let name =
             Select::new("What game would you like to install?", owned_games_strs).prompt()?;
-        let game = owned_games.iter().find(|g| g.name() == name).unwrap();
-        game.base_offer().offer_id().to_owned()
+        owned_games
+            .iter()
+            .find(|g| g.name() == name)
+            .unwrap()
+            .clone()
     };
+
+    let offer_id = game.base_offer().offer_id().to_owned();
+    let slug = game.base_offer().slug().to_owned();
 
     let builds = maxima
         .content_manager()
@@ -425,6 +444,15 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
         Text::new("Where would you like to install the game? (must be an absolute path)")
             .prompt()?,
     );
+    let mut game_install_info = GameInstallInfo::new(path.to_str().unwrap().to_string());
+    game_install_info.wine_prefix = maxima_dir()
+        .unwrap()
+        .join("wine/prefixes")
+        .join(&slug)
+        .to_str()
+        .unwrap()
+        .to_string();
+    game_install_info.save_to_json(&slug);
     if !path.is_absolute() {
         error!("Path {:?} is not absolute.", path);
         return Ok(());
@@ -434,6 +462,7 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
         .offer_id(offer_id)
         .build_id(build.build_id().to_owned())
         .path(path.clone())
+        .slug(slug) // Needs the slug here for the manifest touchup after installation, which needs to know the wine prefix path
         .build()?;
 
     let start_time = Instant::now();
