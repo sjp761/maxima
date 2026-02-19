@@ -1,7 +1,7 @@
 #[cfg(windows)]
 extern crate winapi;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 use thiserror::Error;
 
 #[cfg(windows)]
@@ -32,6 +32,7 @@ use winreg::{
 #[cfg(unix)]
 use std::{collections::HashMap, env, fs};
 
+use crate::gameversion::load_game_version_from_json;
 #[cfg(unix)]
 use crate::unix::fs::case_insensitive_path;
 
@@ -182,24 +183,13 @@ async fn read_reg_key(path: &str, slug: Option<&str>) -> Result<Option<String>, 
 }
 
 pub async fn parse_registry_path(key: &str, slug: Option<&str>) -> Result<PathBuf, RegistryError> {
-    let mut parts = key
-        .split(|c| c == '[' || c == ']')
-        .filter(|s| !s.is_empty());
-
-    let path = if let (Some(first), Some(second)) = (parts.next(), parts.next()) {
-        let path = match read_reg_key(first, slug).await? {
-            Some(path) => path.replace("\\", "/").replace("//", "/"),
-            None => return Ok(PathBuf::from(key.to_owned())),
-        };
-
-        let second = second.replace("\\", "/");
-        let second = second.strip_prefix("/").unwrap_or(&second);
-
-        return Ok([path, second.to_owned()].iter().collect());
-    } else {
-        PathBuf::from(key.to_owned())
-    };
-
+    let game_install_info = load_game_version_from_json(slug.unwrap()).unwrap();
+    let idx = key.rfind(']');
+    // Path looks like [HKEY_LOCAL_MACHINE\SOFTWARE\BioWare\Mass Effect Legendary Edition\Install Dir]Game\Launcher\MassEffectLauncher.exe
+    // Extract everything after the last ] and append it to the install path
+    // TODO: Maybe normalize path to OS?
+    let after_bracket = &key[(idx.unwrap() + 1)..];
+    let path = game_install_info.install_path_pathbuf().join(after_bracket);
     #[cfg(unix)]
     let path = case_insensitive_path(path);
     Ok(path)

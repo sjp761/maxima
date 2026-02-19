@@ -76,12 +76,7 @@ struct Versions {
 }
 
 /// Returns internal proton pfx path
-pub fn wine_prefix_dir(slug: Option<&str>) -> Option<PathBuf> {
-    if slug.is_none() {
-        // This is used for PCSign, probably should make this more explicit later
-        return None;
-    }
-
+pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
     let mut game_install_info = load_game_version_from_json(slug.unwrap()).unwrap();
     let mut prefix_path = game_install_info.wine_prefix_pathbuf();
 
@@ -94,18 +89,16 @@ pub fn wine_prefix_dir(slug: Option<&str>) -> Option<PathBuf> {
         game_install_info.save_to_json(slug.unwrap_or("default"));
     }
 
-    if !prefix_path.exists() {
-    }     if let Err(err) = create_dir_all(&prefix_path) {
-            warn!(
-                "Failed to create wine prefix directory at {:?}: {}",
-                prefix_path, err
-            );
-            return None;
-        }
-    Some(prefix_path)
-
+    if !prefix_path.exists() {}
+    if let Err(err) = create_dir_all(&prefix_path) {
+        warn!(
+            "Failed to create wine prefix directory at {:?}: {}",
+            prefix_path, err
+        );
+        return Err(NativeError::Io(err));
     }
-
+    Ok(prefix_path)
+}
 
 pub fn proton_dir() -> Result<PathBuf, NativeError> {
     Ok(maxima_dir()?.join("wine/proton"))

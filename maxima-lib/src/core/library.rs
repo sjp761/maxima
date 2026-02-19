@@ -60,8 +60,10 @@ impl OwnedOffer {
             Ok(dir) => dir,
             Err(_) => return false,
         };
-        
-        let game_info_path = maxima_dir.join("gameinfo").join(format!("{}.json", &self.slug));
+
+        let game_info_path = maxima_dir
+            .join("gameinfo")
+            .join(format!("{}.json", &self.slug));
         game_info_path.exists()
     }
 
