@@ -195,8 +195,7 @@ impl GameDownloader {
             self.prepare_download_vars();
         let total_count = self.total_count;
         let slug = self.slug.clone();
-        let game_install_info =
-                    GameInstallInfo::new(self.path.clone(), self.wine_prefix.clone());
+        let game_install_info = GameInstallInfo::new(self.path.clone(), self.wine_prefix.clone());
         tokio::spawn(async move {
             let dl = GameDownloader::start_downloads(
                 total_count,
@@ -234,7 +233,6 @@ impl GameDownloader {
     }
 
     async fn start_downloads(
-
         total_count: usize,
         downloader_arc: Arc<ZipDownloader>,
         entries: Vec<ZipFileEntry>,

@@ -447,7 +447,9 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
 
     #[cfg(unix)]
     let wine_prefix = {
-        let input = Text::new("Where do you want to store the Wine prefix? (must be an absolute path)").prompt()?;
+        let input =
+            Text::new("Where do you want to store the Wine prefix? (must be an absolute path)")
+                .prompt()?;
         PathBuf::from(input)
     };
 
