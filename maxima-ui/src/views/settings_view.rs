@@ -34,6 +34,23 @@ pub fn settings_view(app: &mut MaximaEguiApp, ui: &mut Ui) {
         );
         if ui.add_sized(vec2(100.0, 30.0), egui::Button::new("BROWSE")).clicked() {}
     });
+
+    #[cfg(unix)]
+    {
+        ui.label(&localization.game_installation.default_wine_prefix);
+        ui.horizontal(|ui| {
+            ui.add_sized(
+                vec2(
+                    ui.available_width() - (100.0 + ui.spacing().item_spacing.x),
+                    30.0,
+                ),
+                egui::TextEdit::singleline(&mut app.settings.default_wine_prefix_path)
+                    .vertical_align(egui::Align::Center),
+            );
+            if ui.add_sized(vec2(100.0, 30.0), egui::Button::new("BROWSE")).clicked() {}
+        });
+    }
+
     ui.checkbox(
         &mut app.settings.ignore_ood_games,
         &app.locale.localization.settings_view.game_installation.ignore_ood_warning,

@@ -185,7 +185,6 @@ impl GameDownloader {
         let (downloader_arc, entries, cancel_token, completed_bytes, notify) =
             self.prepare_download_vars();
         let total_count = self.total_count;
-        let slug = self.slug.clone();
         tokio::spawn(async move {
             let dl = GameDownloader::start_downloads(
                 total_count,
@@ -376,7 +375,7 @@ impl ContentManager {
                 event = Some(MaximaEvent::InstallFinished(current.offer_id.to_owned()));
                 let mut game_install_info =
                         GameInstallInfo::new(current.path.to_str().unwrap().to_string());
-                game_install_info.wine_prefix = maxima_dir().unwrap().join("wine/prefixes").join(&current.slug).to_str().unwrap().to_string();
+                game_install_info.wine_prefix = current.wine_prefix.clone().unwrap().to_str().unwrap().to_string();
                 game_install_info.save_to_json(&current.slug);
                 self.current = None;
                 self.queue.current = None;

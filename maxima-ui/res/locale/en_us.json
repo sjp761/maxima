@@ -94,8 +94,7 @@
         },
         "game_installation" : {
             "header": "Game Installation",
-            "default_folder": "Default installation folder",
-            "ignore_ood_warning": "Ignore out-of-date game launch warning"
+            "default_folder": "Default installation folder",            "default_wine_prefix": "Default Wine prefix folder",            "ignore_ood_warning": "Ignore out-of-date game launch warning"
         },
         "performance" : {
             "header": "Performance",

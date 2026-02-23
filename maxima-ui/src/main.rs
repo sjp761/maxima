@@ -238,6 +238,7 @@ pub enum BackendStallState {
 pub struct InstallModalState {
     locate_path: String,
     install_folder: String,
+    wine_prefix: String,
     locating: bool,
     locate_response: Option<InteractThreadLocateGameResponse>,
     should_close: bool,
@@ -248,6 +249,7 @@ impl InstallModalState {
         Self {
             locate_path: String::new(),
             install_folder: settings.default_install_folder.clone(),
+            wine_prefix: settings.default_wine_prefix_path.clone(),
             locating: false,
             locate_response: None,
             should_close: false,
@@ -333,6 +335,7 @@ impl FrontendPerformanceSettings {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct FrontendSettings {
     default_install_folder: String,
+    default_wine_prefix_path: String,
     language: FrontendLanguage,
     ignore_ood_games: bool,
     game_settings: HashMap<String, GameSettings>,
@@ -343,6 +346,7 @@ impl FrontendSettings {
     pub fn new() -> Self {
         Self {
             default_install_folder: String::new(),
+            default_wine_prefix_path: String::new(),
             language: FrontendLanguage::SystemDefault,
             ignore_ood_games: false,
             game_settings: HashMap::new(),
@@ -909,14 +913,33 @@ impl MaximaEguiApp {
                                     });
                                     let path = PathBuf::from(self.installer_state.install_folder.clone());
                                     let valid = path.exists();
+
+                                    #[cfg(unix)]
+                                    {
+                                        ui.label("Wine prefix folder");
+                                        ui.horizontal(|ui| {
+                                            let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x), 30.0);
+                                            ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.wine_prefix).vertical_align(egui::Align::Center));
+                                        });
+                                    }
+
                                     ui.add_enabled_ui(valid, |ui| {
                                         if ui.add_sized(button_size, egui::Button::new(&self.locale.localization.modals.game_install.fresh_action)).clicked() {
+                                            #[cfg(unix)]
+                                            let wine_prefix = if self.installer_state.wine_prefix.is_empty() {
+                                                None
+                                            } else {
+                                                Some(PathBuf::from(&self.installer_state.wine_prefix))
+                                            };
+                                            #[cfg(not(unix))]
+                                            let wine_prefix: Option<PathBuf> = None;
+
                                             if self.installing_now.is_none() {
                                                 self.installing_now = Some(QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
                                             } else {
                                                 self.install_queue.insert(game.offer.clone(),QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
                                             }
-                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), slug.clone(), path.join(slug), None)).unwrap();
+                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), slug.clone(), path.join(slug), wine_prefix)).unwrap();
 
                                             clear = true;
                                         }
@@ -927,6 +950,22 @@ impl MaximaEguiApp {
                                             egui::Label::new(egui::RichText::new(format!("{}",
                                                 path.join(slug).display())).color(Color32::WHITE)).selectable(false).ui(folder_hint);
                                         });
+                                        #[cfg(unix)]
+                                        {
+                                            let effective_prefix = if self.installer_state.wine_prefix.is_empty() {
+                                                maxima::util::native::maxima_dir()
+                                                    .ok()
+                                                    .map(|d| d.join("wine/prefixes").join(slug))
+                                                    .map(|p| p.display().to_string())
+                                                    .unwrap_or_default()
+                                            } else {
+                                                self.installer_state.wine_prefix.clone()
+                                            };
+                                            ui.horizontal_wrapped(|prefix_hint| {
+                                                egui::Label::new("Wine prefix:").selectable(false).ui(prefix_hint);
+                                                egui::Label::new(egui::RichText::new(&effective_prefix).color(Color32::WHITE)).selectable(false).ui(prefix_hint);
+                                            });
+                                        }
                                         if !valid {
                                             egui::Label::new(egui::RichText::new(&self.locale.localization.modals.game_install.fresh_path_invalid).color(Color32::RED)).ui(ui);
                                         }

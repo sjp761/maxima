@@ -21,7 +21,6 @@ use maxima::{
             ServiceLayerError, ServicePlayer,
         }
     },
-    gameinfo::GameInstallInfo,
     lsx::service::LSXServerError,
     rtm::RtmError,
     util::{
@@ -494,7 +493,8 @@ impl BridgeThread {
                     };
                     
                     #[cfg(unix)]
-                    let wine_prefix = Some(maxima_dir().unwrap().join("wine/prefixes").join(&slug));
+                    let wine_prefix = wine_prefix
+                        .or_else(|| Some(maxima_dir().unwrap().join("wine/prefixes").join(&slug)));
 
                     #[cfg(windows)]
                     let wine_prefix = None;
