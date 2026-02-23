@@ -16,22 +16,17 @@ use maxima::{
         ContentManager, ContentManagerError, QueuedGameBuilder, QueuedGameBuilderError,
     },
     core::{
-        auth::storage::{AuthError, TokenError},
-        launch::LaunchError,
-        library::LibraryError,
-        manifest::{self, ManifestError, MANIFEST_RELATIVE_PATH},
-        service_layer::{
+        LockedMaxima, Maxima, MaximaCreationError, MaximaOptionsBuilder, MaximaOptionsBuilderError, auth::storage::{AuthError, TokenError}, launch::LaunchError, library::LibraryError, manifest::{self, MANIFEST_RELATIVE_PATH, ManifestError}, service_layer::{
             ServiceGameImagesRequestBuilderError, ServiceHeroBackgroundImageRequestBuilderError,
             ServiceLayerError, ServicePlayer,
-        },
-        LockedMaxima, Maxima, MaximaCreationError, MaximaOptionsBuilder, MaximaOptionsBuilderError,
+        }
     },
-    gameversion::GameInstallInfo,
+    gameinfo::GameInstallInfo,
     lsx::service::LSXServerError,
     rtm::RtmError,
     util::{
-        native::NativeError,
-        registry::{check_registry_validity, set_up_registry, RegistryError},
+        native::{NativeError, maxima_dir},
+        registry::{RegistryError, check_registry_validity, set_up_registry},
     },
 };
 use std::sync::mpsc::{SendError, TryRecvError};
@@ -82,7 +77,7 @@ pub enum MaximaLibRequest {
     GetFriendsRequest,
     GetGameDetailsRequest(String),
     StartGameRequest(GameInfo, Option<GameSettings>),
-    InstallGameRequest(String, String, PathBuf),
+    InstallGameRequest(String, String, PathBuf, Option<PathBuf>), // offer, slug, path, wine prefix (unix only)
     LocateGameRequest(String, String),
     ShutdownRequest,
 }
@@ -488,7 +483,7 @@ impl BridgeThread {
                     ctx.request_repaint();
                     Ok(())
                 }
-                MaximaLibRequest::InstallGameRequest(offer, slug, path) => {
+                MaximaLibRequest::InstallGameRequest(offer, slug, path, wine_prefix) => {
                     let mut maxima = maxima_arc.lock().await;
                     let builds =
                         maxima.content_manager().service().available_builds(&offer).await?;
@@ -497,16 +492,20 @@ impl BridgeThread {
                     } else {
                         continue;
                     };
+                    
+                    #[cfg(unix)]
+                    let wine_prefix = Some(maxima_dir().unwrap().join("wine/prefixes").join(&slug));
+
+                    #[cfg(windows)]
+                    let wine_prefix = None;
 
                     let game = QueuedGameBuilder::default()
                         .offer_id(offer.clone())
                         .build_id(build.build_id().to_owned())
                         .path(path.to_owned())
                         .slug(slug.to_owned())
+                        .wine_prefix(wine_prefix)
                         .build()?;
-                    let game_install_info =
-                        GameInstallInfo::new(path.to_owned().to_string_lossy().to_string());
-                    game_install_info.save_to_json(&slug);
                     Ok(maxima.content_manager().add_install(game).await?)
                 }
                 MaximaLibRequest::StartGameRequest(info, settings) => {

@@ -18,18 +18,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     content::{
-        downloader::{DownloadError, ZipDownloader},
-        exclusion::get_exclusion_list,
-        zip::{self, CompressionType, ZipError, ZipFileEntry},
-        ContentService,
-    },
-    core::{
-        auth::storage::LockedAuthStorage,
-        manifest::{self, ManifestError, MANIFEST_RELATIVE_PATH},
-        service_layer::ServiceLayerError,
-        MaximaEvent,
-    },
-    util::native::{maxima_dir, NativeError},
+        ContentService, downloader::{DownloadError, ZipDownloader}, exclusion::get_exclusion_list, zip::{self, CompressionType, ZipError, ZipFileEntry}
+    }, core::{
+        MaximaEvent, auth::storage::LockedAuthStorage, manifest::{self, MANIFEST_RELATIVE_PATH, ManifestError}, service_layer::ServiceLayerError
+    }, gameinfo::GameInstallInfo, util::native::{NativeError, maxima_dir}
 };
 
 const QUEUE_FILE: &str = "download_queue.json";
@@ -40,6 +32,7 @@ pub struct QueuedGame {
     build_id: String,
     path: PathBuf,
     slug: String,
+    wine_prefix: Option<PathBuf>,
 }
 
 #[derive(Default, Getters, Serialize, Deserialize)]
@@ -127,6 +120,8 @@ impl DownloadQueue {
 pub struct GameDownloader {
     offer_id: String,
     slug: String,
+    path: PathBuf,
+    wine_prefix: Option<PathBuf>,
 
     downloader: Arc<ZipDownloader>,
     entries: Vec<ZipFileEntry>,
@@ -174,7 +169,8 @@ impl GameDownloader {
         Ok(GameDownloader {
             offer_id: game.offer_id.to_owned(),
             slug: game.slug.to_owned(),
-
+            path: game.path.to_owned(),
+            wine_prefix: game.wine_prefix.clone(),
             downloader: Arc::new(downloader),
             entries,
             cancel_token: CancellationToken::new(),
@@ -198,7 +194,6 @@ impl GameDownloader {
                 cancel_token,
                 completed_bytes,
                 notify,
-                &slug,
             )
             .await;
             if let Err(err) = dl {
@@ -232,7 +227,6 @@ impl GameDownloader {
         cancel_token: CancellationToken,
         completed_bytes: Arc<AtomicUsize>,
         notify: Arc<Notify>,
-        slug: &str,
     ) -> Result<(), DownloaderError> {
         let mut handles = Vec::with_capacity(total_count);
 
@@ -271,8 +265,10 @@ impl GameDownloader {
         let path = downloader_arc.path();
 
         info!("Files downloaded, running touchup...");
-        let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-        manifest.run_touchup(path, &slug).await?;
+
+        // let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
+        // manifest.run_touchup(path, &slug).await?;
+
         info!("Installation finished!");
 
         completed_bytes.fetch_add(1, Ordering::SeqCst);
@@ -378,6 +374,10 @@ impl ContentManager {
         if let Some(current) = &self.current {
             if current.is_done() {
                 event = Some(MaximaEvent::InstallFinished(current.offer_id.to_owned()));
+                let mut game_install_info =
+                        GameInstallInfo::new(current.path.to_str().unwrap().to_string());
+                game_install_info.wine_prefix = maxima_dir().unwrap().join("wine/prefixes").join(&current.slug).to_str().unwrap().to_string();
+                game_install_info.save_to_json(&current.slug);
                 self.current = None;
                 self.queue.current = None;
 

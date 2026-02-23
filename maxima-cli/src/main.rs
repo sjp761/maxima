@@ -41,7 +41,7 @@ use maxima::{
         },
         LockedMaxima, Maxima, MaximaEvent, MaximaOptionsBuilder,
     },
-    gameversion::GameInstallInfo,
+    gameinfo::GameInstallInfo,
     ooa,
     rtm::client::BasicPresence,
     util::{

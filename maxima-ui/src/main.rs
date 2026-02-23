@@ -916,7 +916,7 @@ impl MaximaEguiApp {
                                             } else {
                                                 self.install_queue.insert(game.offer.clone(),QueuedDownload { slug: game.slug.clone(), offer: game.offer.clone(), downloaded_bytes: 0, total_bytes: 0 });
                                             }
-                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), slug.clone(), path.join(slug))).unwrap();
+                                            self.backend.backend_commander.send(bridge_thread::MaximaLibRequest::InstallGameRequest(game.offer.clone(), slug.clone(), path.join(slug), None)).unwrap();
 
                                             clear = true;
                                         }

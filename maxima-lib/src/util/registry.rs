@@ -32,7 +32,7 @@ use winreg::{
 #[cfg(unix)]
 use std::{collections::HashMap, env, fs};
 
-use crate::gameversion::load_game_version_from_json;
+use crate::gameinfo::load_game_version_from_json;
 #[cfg(unix)]
 use crate::unix::fs::case_insensitive_path;
 

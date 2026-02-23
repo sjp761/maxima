@@ -13,7 +13,7 @@ use super::{
 };
 use crate::util::registry::{parse_registry_path, RegistryError};
 use crate::{
-    gameversion::load_game_version_from_json,
+    gameinfo::load_game_version_from_json,
     util::native::{maxima_dir, NativeError, SafeStr},
 };
 use derive_getters::Getters;
