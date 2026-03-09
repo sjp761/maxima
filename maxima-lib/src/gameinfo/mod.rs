@@ -77,7 +77,8 @@ impl GameInstallInfo {
         }
     }
 }
-pub fn load_game_version_from_json(slug: &str) -> Result<GameInstallInfo, GameVersionError> {
+
+pub fn load_game_info_from_json(slug: &str) -> Result<GameInstallInfo, GameVersionError> {
     let mut path = maxima_dir();
     path.as_mut().unwrap().push("gameinfo");
     path.as_mut().unwrap().push(format!("{}.json", slug));
