@@ -68,6 +68,8 @@ impl OwnedOffer {
             None => return false,
         };
         if let Ok(manifest_path) = parse_registry_path_regkey(path).await {
+            use crate::gameinfo::GameInstallInfo;
+
             let gamedir = manifest_path.ancestors().nth(2).unwrap().to_path_buf(); // Strip off the manifest and just leave the game directory
             let game_install_info: GameInstallInfo = GameInstallInfo::new(gamedir, None);
             game_install_info.save_to_json(&self.slug);
