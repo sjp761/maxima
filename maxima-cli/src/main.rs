@@ -805,8 +805,6 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
 
 async fn locate_game(maxima_arc: LockedMaxima, path: &str, slug: &str) -> Result<()> {
     let path = PathBuf::from(path);
-    let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-    manifest.run_touchup(&path, slug).await?;
     info!("Installed!");
     Ok(())
 }

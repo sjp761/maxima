@@ -443,10 +443,8 @@ impl BridgeThread {
                 }
                 MaximaLibRequest::LocateGameRequest(slug, path, wine_prefix) => {
                     let game_install_info =
-                        GameInstallInfo::new(PathBuf::from(path.clone()), wine_prefix); // Bit of a hack here, the wine_prefix path is pulled from a json so we create it here
+                        GameInstallInfo::new(PathBuf::from(path.clone()), wine_prefix);
                     game_install_info.save_to_json(&slug);
-                    #[cfg(unix)]
-                    maxima::core::launch::mx_linux_setup(Some(&slug)).await?;
                     let mut path = path;
                     if path.ends_with("/") || path.ends_with("\\") {
                         path.remove(path.len() - 1);

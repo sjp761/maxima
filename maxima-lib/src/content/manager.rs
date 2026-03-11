@@ -279,10 +279,15 @@ impl GameDownloader {
         let path = downloader_arc.path();
 
         game_install_info.save_to_json(&slug);
-        info!("Files downloaded, running touchup...");
+        info!("Files downloaded");
 
-        let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
-        manifest.run_touchup(path, &slug).await?;
+        #[cfg(windows)]
+        // Touchup will be run on linux/mac when first running the game, so we don't need to run it here
+        {
+            info!("Running touchup...");
+            let manifest = manifest::read(path.join(MANIFEST_RELATIVE_PATH)).await?;
+            manifest.run_touchup(path, &slug).await?;
+        }
 
         info!("Installation finished!");
 

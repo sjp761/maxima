@@ -31,7 +31,11 @@ use crate::{
 use thiserror::Error;
 
 #[cfg(unix)]
-use crate::unix::fs::case_insensitive_path;
+use crate::{
+    core::manifest::{self, MANIFEST_RELATIVE_PATH},
+    gameinfo::load_game_info_from_json,
+    unix::fs::case_insensitive_path,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -447,6 +451,12 @@ pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
     }
 
     setup_wine_registry(slug).await?;
+    let install_path = load_game_info_from_json(slug.unwrap()).unwrap().path;
+    let manifest = manifest::read(install_path.join(MANIFEST_RELATIVE_PATH))
+        .await
+        .unwrap();
+
+    let _result = manifest.run_touchup(&install_path, slug.unwrap()).await;
 
     Ok(())
 }
