@@ -177,6 +177,7 @@ async fn read_reg_key(path: &str, _slug: Option<&str>) -> Result<Option<String>,
     Ok(None)
 }
 
+#[cfg(windows)]
 pub async fn parse_registry_path_regkey(key: &str) -> Result<PathBuf, RegistryError> {
     let mut parts = key
         .split(|c| c == '[' || c == ']')

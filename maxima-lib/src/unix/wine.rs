@@ -23,7 +23,7 @@ use tokio::{
 use xz2::read::XzDecoder;
 
 use crate::{
-    gameinfo::load_game_version_from_json,
+    gameinfo::load_game_info_from_json,
     util::{
         github::{
             fetch_github_release, fetch_github_releases, github_download_asset, GithubRelease,
@@ -77,7 +77,7 @@ struct Versions {
 
 /// Returns internal proton pfx path
 pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
-    let game_install_info = load_game_version_from_json(slug.unwrap()).unwrap();
+    let game_install_info = load_game_info_from_json(slug.unwrap()).unwrap();
     let prefix_path = game_install_info.wine_prefix().unwrap();
 
     if !prefix_path.exists() {}
