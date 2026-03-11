@@ -11,7 +11,6 @@ use super::{
         SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES,
     },
 };
-use crate::gameinfo::GameInstallInfo;
 use crate::util::registry::{parse_registry_path_json, RegistryError};
 use crate::{
     gameinfo::load_game_info_from_json,
@@ -20,6 +19,7 @@ use crate::{
 use derive_getters::Getters;
 use log::info;
 use std::{collections::HashMap, path::PathBuf, time::SystemTimeError};
+use thiserror::Error;
 
 #[cfg(windows)]
 use winapi::shared::cfg;

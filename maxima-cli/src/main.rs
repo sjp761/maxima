@@ -32,8 +32,6 @@ use maxima::{
         clients::JUNO_PC_CLIENT_ID,
         cloudsync::CloudSyncLockMode,
         launch::{self, LaunchMode, LaunchOptions},
-        library::OwnedTitle,
-        manifest::{self, MANIFEST_RELATIVE_PATH},
         service_layer::{
             ServiceGetBasicPlayerRequestBuilder, ServiceGetLegacyCatalogDefsRequestBuilder,
             ServiceLegacyOffer, ServicePlayer, SERVICE_REQUEST_GETBASICPLAYER,
@@ -41,7 +39,6 @@ use maxima::{
         },
         LockedMaxima, Maxima, MaximaEvent, MaximaOptionsBuilder,
     },
-    gameinfo::GameInstallInfo,
     ooa,
     rtm::client::BasicPresence,
     util::{
