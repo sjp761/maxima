@@ -261,6 +261,8 @@ impl HardwareInfo {
         let os_sn =
             iokit_get_platform_string("IOPlatformUUID").unwrap_or_else(|| String::from("None"));
 
+        // TODO: Need to see if system_profiler displays the IDs on x86 mac, on arm macs it does not.
+        // Rosetta check below prevents system_profiler on arm macs
         let mut gpu_pnp_id: Option<String> = None;
         if let Some((vendor_id, device_id, revision_id)) = iokit_get_gpu_pci_ids() {
             gpu_pnp_id = Some(generate_pci_pnp_id(
@@ -268,8 +270,8 @@ impl HardwareInfo {
                 Some(vendor_id),
                 Some(device_id),
                 Some(revision_id),
-            ));
-        } else {
+            )); 
+        } else if !is_running_rosetta() {
             let output = Command::new("system_profiler")
                 .args(["SPDisplaysDataType", "-json"])
                 .output()
@@ -666,6 +668,28 @@ fn read_u16_prop(service: u32, key: &str) -> Option<u16> {
         };
         CFRelease(property);
         result
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn is_running_rosetta() -> bool {
+    use std::process::Command;
+
+    let output = Command::new("sysctl")
+        .arg("-n")
+        .arg("sysctl.proc_translated")
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                value == "1"
+            } else {
+                false
+            }
+        }
+        Err(_) => false,
     }
 }
 
