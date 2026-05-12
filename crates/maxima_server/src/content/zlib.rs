@@ -90,7 +90,7 @@ macro_rules! if_win {
 type ZSize = if_win!(u32, c_ulong);
 type ZChecksum = if_win!(u32, c_ulong);
 
-pub(crate) fn _write_zlib_state(buf: &mut BytesMut, stream: &mut mz_stream) {
+pub(crate) fn write_zlib_state(buf: &mut BytesMut, stream: &mut mz_stream) {
     buf.put_u32(Z_MAGIC);
 
     buf.put_u64(stream.total_in as u64);

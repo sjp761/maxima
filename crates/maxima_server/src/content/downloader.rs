@@ -153,7 +153,12 @@ impl DownloadDecoder for NoopDecoder {
 trait AsyncWriteWrapper: AsyncWrite + Unpin + Send {}
 impl<T: AsyncWrite + Unpin + Send> AsyncWriteWrapper for T {}
 
-struct AsyncWriterWrapper {
+
+struct AsyncWriterWrapper<'a> {
+    id: String,
+    path: String,
+    zlib_state_file: std::fs::File,
+    decoder: &'a mut Box<dyn DownloadDecoder>,
     inner: Arc<Mutex<dyn AsyncWriteWrapper>>,
 }
 
@@ -177,7 +182,7 @@ impl<'a> AsyncWriterWrapper<'a> {
     }
 }
 
-impl AsyncWrite for AsyncWriterWrapper {
+impl<'a> AsyncWrite for AsyncWriterWrapper<'a> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
@@ -239,12 +244,14 @@ enum EntryDownloadState {
 }
 
 struct DownloadContext {
+    id: String,
     path: PathBuf,
 }
 
 type BytesDownloadedCallback = Box<dyn Fn(usize) + Send + Sync>;
 
 struct EntryDownloadRequest<'a> {
+    context: &'a DownloadContext,
     url: &'a str,
     entry: &'a ZipFileEntry,
     client: Client,
@@ -254,6 +261,7 @@ struct EntryDownloadRequest<'a> {
 
 impl<'a> EntryDownloadRequest<'a> {
     pub fn new(
+        context: &'a DownloadContext,
         url: &'a str,
         entry: &'a ZipFileEntry,
         client: Client,
@@ -261,6 +269,7 @@ impl<'a> EntryDownloadRequest<'a> {
         callback: Option<BytesDownloadedCallback>,
     ) -> Self {
         Self {
+            context,
             url,
             entry,
             client,
@@ -514,6 +523,7 @@ impl ZipDownloader {
             .await?;
 
         let context = DownloadContext {
+            id: self.id.to_owned(),
             path: self.path.clone(),
         };
 
@@ -547,7 +557,8 @@ impl ZipDownloader {
             }
         }
 
-        let mut request = EntryDownloadRequest::new(
+       let mut request = EntryDownloadRequest::new(
+            &context,
             &self.url,
             entry,
             self.client.clone(),

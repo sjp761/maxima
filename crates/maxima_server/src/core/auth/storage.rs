@@ -4,8 +4,8 @@ use super::{
 use crate::core::auth::hardware::HardwareHashError;
 use crate::ooa::LicenseError;
 use crate::util::native::{maxima_dir, NativeError};
-use log::info;
-use reqwest::header::ToStrError;
+use tracing::{info, error};
+use reqwest::header;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -59,7 +59,7 @@ pub enum AuthError {
     #[error(transparent)]
     PCSign(#[from] HardwareHashError),
     #[error(transparent)]
-    HeaderStr(#[from] http::header::ToStrError),
+    HeaderStr(#[from] reqwest::header::ToStrError),
 
     #[error("no token was provided")]
     NoToken,
@@ -141,21 +141,20 @@ impl AuthAccount {
     async fn validate(&mut self) -> Result<bool, TokenError> {
         let access_token = self.access_token().await;
         if let Err(err) = access_token {
-            warn!("Failed to retrieve access token: {err}");
-            return false;
+            return Ok(false);
         }
 
         let access_token = access_token?.to_owned();
         let token_info = NucleusTokenInfo::fetch(&self.client, &access_token).await;
         if token_info.is_err() {
-            return false;
+            return Ok(false);
         }
 
         if self.user_id != *token_info?.user_id() {
             return Ok(false);
         }
 
-        true
+        Ok(true)
     }
 
     async fn refresh(&mut self) -> Result<(), TokenError> {
@@ -240,7 +239,7 @@ impl AuthStorage {
 
         let data = fs::read_to_string(file)?;
         let mut storage: AuthStorage = toml::from_str::<AuthStorage>(&data).unwrap_or_else(|err| {
-            log::error!("Failed to parse auth storage file: `{:?}`", err);
+            error!("Failed to parse auth storage file: `{:?}`", err);
             Self::default()
         });
 
@@ -258,10 +257,7 @@ impl AuthStorage {
         Ok(match self.current() {
             Some(account) => account.validate().await?,
             None => false,
-        };
-
-        self.save_if_dirty().ok();
-        result
+        })
     }
 
     pub fn current(&mut self) -> Option<&mut AuthAccount> {
@@ -295,8 +291,8 @@ impl AuthStorage {
         Ok(Some(access_token))
     }
 
-    pub async fn access_token_or_err(&mut self) -> Result<String, CoreError> {
-        self.access_token().await?.ok_or(CoreError::Unauthenticated)
+    pub async fn access_token_or_err(&mut self) -> Result<String, AuthError> {
+        self.access_token().await?.ok_or(AuthError::NoToken)
     }
 
     /// Add an account from a token response and set it as the currently selected one

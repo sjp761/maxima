@@ -34,6 +34,7 @@ base64 = "0.21.2"
 enable-ansi-support = "0.2.1"
 chrono = "0.4.26"
 regex = "1.8.4"
+rand = "0.9.0"
 directories = "5.0.1"
 open = "5.0.0"
 querystring = "1.1.0"
@@ -51,7 +52,6 @@ derive-getters = "0.3.0"
 derive_builder = "0.12.0"
 mac_address = "1.1.5"
 filetime = "0.2.23"
-rand = "0.8.5"
 ring = "0.17.7"
 futures = "0.3.30"
 prost = "0.12.3"
@@ -78,6 +78,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 thiserror = "2.0.3"
 const-fnv1a-hash = "1.1.0"
 tracing-appender = "0.2.3"
+url = "2.5.2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = [

@@ -19,7 +19,7 @@ impl ServerAuthenticationComponent for AuthComponent {
         let mut auth_storage = self.auth_storage.lock().await;
         let logged_in = auth_storage.logged_in().await;
 
-        Ok(logged_in)
+        Ok(logged_in.unwrap()) // Placeholder for now
     }
 
     async fn login(&self, _request: ProtoRequest<LoginRequest>) -> Result<(), AuthenticationError> {

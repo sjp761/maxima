@@ -10,18 +10,13 @@ use uuid::Uuid;
 
 use crate::{
     core::{
-        auth::{
+        Maxima, auth::{
             context::AuthContext,
             nucleus_auth_exchange,
-            storage::{AuthError, TokenError},
-        },
-        clients::JUNO_PC_CLIENT_ID,
-        cloudsync::{CloudSyncError, CloudSyncLockMode},
-        library::{LibraryError, OwnedOffer},
-        service_layer::ServiceLayerError,
-        Maxima,
+            storage::{AuthError, AuthStorage, TokenError},
+        }, clients::JUNO_PC_CLIENT_ID, cloudsync::{CloudSyncClient, CloudSyncError, CloudSyncLockMode}, library::{GameLibrary, LibraryError, OwnedOffer}, service_layer::ServiceLayerError, user_man::UserManager
     },
-    ooa::{needs_license_update, request_and_save_license, LicenseAuth, LicenseError},
+    ooa::{LicenseAuth, LicenseError, needs_license_update, request_and_save_license},
     util::{
         native::{NativeError, SafeParent, SafeStr},
         registry::bootstrap_path,
@@ -171,14 +166,10 @@ impl Display for LaunchMode {
 }
 
 pub async fn start_game(
-    auth_storage: &AuthStorage,
-    library: &mut GameLibrary,
-    cloud_sync: &CloudSyncClient,
-    user_man: &UserManager,
+    mut maxima: Maxima,
     mode: LaunchMode,
     options: LaunchOptions,
 ) -> Result<(), LaunchError> {
-    let mut maxima = maxima_arc.lock().await;
     info!("Initiating game launch with {}...", mode);
 
     if let LaunchMode::OnlineOffline(ref content_id, _, _) = mode {
@@ -193,9 +184,9 @@ pub async fn start_game(
 
     let (content_id, online_offline, offer, access_token) =
         if let LaunchMode::Online(ref offer_id) = mode {
-            let access_token = &maxima.access_token().await?;
+            let access_token = maxima.access_token().await?;
             let offer = match maxima.mut_library().game_by_base_offer(offer_id).await? {
-                Some(offer) => offer,
+                Some(offer) => offer.clone(),
                 None => return Err(LaunchError::NoOfferFound(offer_id.clone())),
             };
 
@@ -241,7 +232,7 @@ pub async fn start_game(
     match mode {
         LaunchMode::Offline(_) => {}
         LaunchMode::Online(_) => {
-            let auth = LicenseAuth::AccessToken(auth_storage.access_token_or_err().await?);
+            let auth = LicenseAuth::AccessToken(maxima.access_token().await?);
 
             let offer = offer.as_ref().unwrap();
             if needs_license_update(&content_id).await? {
@@ -258,7 +249,7 @@ pub async fn start_game(
             if options.cloud_saves && offer.offer().has_cloud_save() {
                 info!("Syncing with cloud save...");
 
-                let result = cloud_sync.obtain_lock(offer, CloudSyncLockMode::Read).await;
+                let result = maxima.cloud_sync().obtain_lock(offer, CloudSyncLockMode::Read).await;
                 if let Err(err) = result {
                     error!("Failed to obtain CloudSync read lock: {}", err);
                 } else {
@@ -308,7 +299,7 @@ pub async fn start_game(
     let b64 = general_purpose::STANDARD.encode(serde_json::to_string(&bootstrap_args)?);
     child.arg(b64);
 
-    let user = user_man.local_user().await?;
+    let user = maxima.local_user().await?;
     let launch_id = Uuid::new_v4().to_string();
 
     child
@@ -365,7 +356,7 @@ pub async fn start_game(
 
     let child = child.spawn().expect("Failed to start child");
 
-    library.add_context(ActiveGameContext::new(
+   maxima.playing = Some(ActiveGameContext::new(
         &launch_id,
         dir,
         options.cloud_saves,

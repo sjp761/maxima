@@ -34,7 +34,6 @@ use tokio::{
     fs::{File, OpenOptions},
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
 };
-use tracing::debug;
 
 const AUTH_HEADER: &str = "X-Origin-AuthToken";
 const LOCK_HEADER: &str = "X-Origin-Sync-Lock";
@@ -633,8 +632,7 @@ mod tests {
             return Err(CloudSyncError::NotSignedIn);
         }
 
-        let library = GameLibrary::new(auth.clone()).await;
-        let mut library = library.lock().await;
+        let mut library = GameLibrary::new(auth.clone()).await;
 
         let offer = library
             .game_by_base_slug("star-wars-battlefront-2")
@@ -658,8 +656,7 @@ mod tests {
             return Err(CloudSyncError::NotSignedIn);
         }
 
-        let library = GameLibrary::new(auth.clone()).await;
-        let mut library = library.lock().await;
+        let mut library = GameLibrary::new(auth.clone()).await;
 
         let offer = library
             .game_by_base_slug("star-wars-battlefront-2")

@@ -294,20 +294,17 @@ pub struct GameLibrary {
     service_layer: ServiceLayerClient,
     library: Vec<OwnedTitle>,
     last_request: u64,
-
-    contexts: Vec<ActiveGameContext>,
 }
 
-pub type LockedGameLibrary = Arc<Mutex<GameLibrary>>;
+pub type LockedGameLibrary = GameLibrary;
 
 impl GameLibrary {
     pub async fn new(auth: LockedAuthStorage) -> LockedGameLibrary {
-        Arc::new(Mutex::new(Self {
+        Self {
             service_layer: ServiceLayerClient::new(auth),
             library: Vec::new(),
             last_request: 0,
-            contexts: Vec::new(),
-        }))
+        }
     }
 
     pub async fn games(&mut self) -> Result<&Vec<OwnedTitle>, LibraryError> {
@@ -457,9 +454,5 @@ impl GameLibrary {
             ])
             .platforms(vec![ServicePlatform::Pc])
             .build()?)
-    }
-
-    pub fn add_context(&mut self, context: ActiveGameContext) {
-        self.contexts.push(context);
     }
 }

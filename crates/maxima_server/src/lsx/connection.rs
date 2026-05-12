@@ -1,6 +1,6 @@
 use derive_getters::Getters;
 use lazy_static::lazy_static;
-use log::{debug, error, warn};
+use tracing::{debug, error, warn};
 use quick_xml::DeError;
 use regex::Regex;
 use std::{

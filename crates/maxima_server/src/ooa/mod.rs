@@ -3,7 +3,7 @@ use aes::cipher::{
     block_padding::Pkcs7, generic_array::GenericArray, BlockDecryptMut, BlockEncryptMut, KeyIvInit,
 };
 use chrono::{DateTime, Duration, Utc};
-use log::{debug, warn};
+use tracing::{debug, warn};
 use std::string::FromUtf8Error;
 use std::{
     fs::create_dir_all,
