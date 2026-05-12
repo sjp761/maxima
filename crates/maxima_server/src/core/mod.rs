@@ -29,8 +29,8 @@ use cloudsync::{CloudSyncClient, CloudSyncLockMode};
 use derive_builder::Builder;
 use derive_getters::Getters;
 use library::LockedGameLibrary;
-use tracing::{error, info, warn};
 use strum_macros::IntoStaticStr;
+use tracing::{error, info, warn};
 
 use std::sync::Arc;
 use thiserror::Error;

@@ -2,6 +2,7 @@
 
 //extern crate windows_service;
 
+use serde::{Deserialize, Serialize};
 use std::env::current_exe;
 use std::error::Error;
 use std::string::FromUtf8Error;
@@ -9,7 +10,6 @@ use thiserror::Error;
 use tokio::process::Command;
 
 use base64::{engine::general_purpose, Engine};
-use maxima::core::launch::BootstrapLaunchArgs;
 use maxima::util::native::NativeError;
 #[cfg(windows)]
 use maxima::util::service::{is_service_valid, register_service};
@@ -18,6 +18,13 @@ use url::Url;
 
 #[cfg(target_os = "macos")]
 mod macos;
+
+// Duplicate definition of BootStrapLaunchArgs to avoid importing from maxima server
+#[derive(Default, Serialize, Deserialize)]
+pub struct BootstrapLaunchArgs {
+    pub path: String,
+    pub args: Vec<String>,
+}
 
 #[derive(Error, Debug)]
 pub(crate) enum RunError {

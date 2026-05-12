@@ -6,21 +6,21 @@
 
 use core::{auth::storage::AuthStorage, user_man::UserManager};
 
+use comp::{auth::AuthComponent, users::UsersComponent, util::UtilComponent};
 use maxima_proto::{
     comm::{router::ProtoRouter, server::ProtoServer},
     comp::{auth::AuthenticationServer, users::UsersServer, util::UtilitiesServer},
 };
-use comp::{auth::AuthComponent, users::UsersComponent, util::UtilComponent};
 use tracing::{error, info, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use util::native::maxima_dir;
 
+pub mod comp;
 pub mod content;
 pub mod core;
 pub mod lsx;
 pub mod ooa;
 pub mod rtm;
-pub mod comp;
 pub mod util;
 
 #[cfg(unix)]

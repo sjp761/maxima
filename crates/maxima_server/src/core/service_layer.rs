@@ -1,11 +1,11 @@
 #![allow(non_snake_case)]
 
-use tracing::debug;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2_const::Sha256;
 use thiserror::Error;
+use tracing::debug;
 
 use derive_builder::Builder;
 use derive_getters::Getters;

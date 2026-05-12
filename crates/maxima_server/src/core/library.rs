@@ -9,7 +9,7 @@ use super::{
         ServiceLegacyOffer, ServicePlatform, ServiceStorefront, ServiceUser,
         ServiceUserGameProduct, SERVICE_REQUEST_GETLEGACYCATALOGDEFS,
         SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES,
-    }
+    },
 };
 #[cfg(unix)]
 use crate::unix::fs::case_insensitive_path;

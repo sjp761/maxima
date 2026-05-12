@@ -294,7 +294,9 @@ impl ProtoConnectionManager {
             .map_err(|x| ProtoError::SendError(x))?;
 
         match response_rx.await {
-            Ok(response) => response.map_err(|x| serde_json::from_str(&x).expect("Failed to deserialize error")),
+            Ok(response) => {
+                response.map_err(|x| serde_json::from_str(&x).expect("Failed to deserialize error"))
+            }
             Err(err) => Err(ProtoError::IoError(io::Error::new(
                 ErrorKind::Other,
                 format!("Failed to receive response: {:?}", err),

@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use std::io::Read;
 
 use crate::util::native::DownloadError;
-use tracing::info;
 use reqwest::StatusCode;
 use serde::Deserialize;
+use tracing::info;
 
 #[derive(Deserialize)]
 pub struct GithubAsset {

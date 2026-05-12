@@ -2,7 +2,9 @@ use tracing::info;
 
 use maxima_proto::{
     comm::proto::ProtoRequest,
-    comp::util::{IdentificationRequest, IdentificationResponse, ServerUtilitiesComponent, UtilitiesError},
+    comp::util::{
+        IdentificationRequest, IdentificationResponse, ServerUtilitiesComponent, UtilitiesError,
+    },
 };
 
 use crate::core::auth::storage::LockedAuthStorage;

@@ -1,12 +1,12 @@
 use bytebuffer::{ByteBuffer, Endian};
 use derive_getters::Getters;
 use encoding::{all::WINDOWS_1252, DecoderTrap, Encoding};
-use tracing::{debug, warn};
 use reqwest::header::ToStrError;
 use reqwest::Client;
 use std::cmp;
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use tracing::{debug, warn};
 
 /// This module is based on https://users.cs.jmu.edu/buchhofp/forensics/formats/pkzip.html
 

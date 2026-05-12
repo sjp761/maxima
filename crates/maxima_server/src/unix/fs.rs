@@ -4,7 +4,7 @@ pub fn case_insensitive_path(path: PathBuf) -> PathBuf {
     if path.exists() {
         return path;
     }
-    
+
     let mut missing_parts: Vec<String> = Vec::new();
 
     let original_path = path.clone();

@@ -9,12 +9,12 @@ use std::{
 use derive_builder::Builder;
 use derive_getters::Getters;
 use futures::StreamExt;
-use tracing::{debug, error, info};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, sync::Notify};
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info};
 
 use crate::{
     content::{

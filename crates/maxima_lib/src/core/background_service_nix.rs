@@ -1,8 +1,8 @@
 use base64::{engine::general_purpose, Engine};
 use lazy_static::lazy_static;
-use tracing::debug;
 use regex::Regex;
 use serde::Serialize;
+use tracing::debug;
 
 use crate::{
     unix::wine::{run_wine_command, CommandType},

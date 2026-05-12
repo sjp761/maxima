@@ -1,7 +1,7 @@
 use std::{io::ErrorKind, net::TcpListener, time::Duration};
 
-use tracing::{info, warn};
 use tokio::time::sleep;
+use tracing::{info, warn};
 
 use crate::lsx::connection::LSXConnectionError;
 use crate::{core::LockedMaxima, lsx::connection::Connection};

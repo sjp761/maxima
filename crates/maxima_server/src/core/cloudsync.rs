@@ -13,7 +13,6 @@
 ///   - Call `/lock/authorize` with a `Vec<CloudSyncRequest>`, creating details that match the file and keeping track of them for later
 ///   - Push the files to the endpoints, along with a manifest outlining the files you uploaded and/or that are already there.
 /// - Call `/lock/delete`
-
 use super::{
     auth::storage::LockedAuthStorage, endpoints::API_CLOUDSYNC, launch::LaunchMode,
     library::OwnedOffer,
@@ -21,7 +20,6 @@ use super::{
 use crate::util::native::{NativeError, SafeParent, SafeStr};
 use derive_getters::Getters;
 use futures::StreamExt;
-use tracing::{debug, error};
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -34,6 +32,7 @@ use tokio::{
     fs::{File, OpenOptions},
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
 };
+use tracing::{debug, error};
 
 const AUTH_HEADER: &str = "X-Origin-AuthToken";
 const LOCK_HEADER: &str = "X-Origin-Sync-Lock";
@@ -506,7 +505,7 @@ impl<'a> CloudSyncLock<'a> {
 
                     len as u64
                 }
-                WriteData::Text {text, .. } => {
+                WriteData::Text { text, .. } => {
                     req = req.body(text.to_owned());
                     text.len() as u64
                 }

@@ -10,13 +10,19 @@ use uuid::Uuid;
 
 use crate::{
     core::{
-        Maxima, auth::{
+        auth::{
             context::AuthContext,
             nucleus_auth_exchange,
             storage::{AuthError, AuthStorage, TokenError},
-        }, clients::JUNO_PC_CLIENT_ID, cloudsync::{CloudSyncClient, CloudSyncError, CloudSyncLockMode}, library::{GameLibrary, LibraryError, OwnedOffer}, service_layer::ServiceLayerError, user_man::UserManager
+        },
+        clients::JUNO_PC_CLIENT_ID,
+        cloudsync::{CloudSyncClient, CloudSyncError, CloudSyncLockMode},
+        library::{GameLibrary, LibraryError, OwnedOffer},
+        service_layer::ServiceLayerError,
+        user_man::UserManager,
+        Maxima,
     },
-    ooa::{LicenseAuth, LicenseError, needs_license_update, request_and_save_license},
+    ooa::{needs_license_update, request_and_save_license, LicenseAuth, LicenseError},
     util::{
         native::{NativeError, SafeParent, SafeStr},
         registry::bootstrap_path,
@@ -165,13 +171,14 @@ impl Display for LaunchMode {
     }
 }
 
+#[cfg(false)]
 pub async fn start_game(
     auth_storage: &AuthStorage,
     library: &mut GameLibrary,
     cloud_sync: &CloudSyncClient,
     user_man: &UserManager,
     mode: LaunchMode,
-     options: LaunchOptions,
+    options: LaunchOptions,
 ) -> Result<(), LaunchError> {
     info!("Initiating game launch with {}...", mode);
 
@@ -340,13 +347,13 @@ pub async fn start_game(
     match mode {
         LaunchMode::Offline(_) => todo!(),
         LaunchMode::Online(ref offer_id) => {
-            let short_token = request_opaque_ooa_token(&access_token).await?;
+            let short_token = request_opaque_ooa_token(&access_token.unwrap()).await?;
 
             child
                 .env("EAConnectionId", offer_id.clone())
                 .env("EALicenseToken", offer_id.clone())
                 .env("EALaunchUserAuthToken", short_token)
-                .env("EAAccessTokenJWS", access_token);
+                .env("EAAccessTokenJWS", access_token.unwrap());
         }
         LaunchMode::OnlineOffline(_, ref persona, ref password) => {
             child
@@ -359,7 +366,7 @@ pub async fn start_game(
 
     let child = child.spawn().expect("Failed to start child");
 
-   maxima.playing = Some(ActiveGameContext::new(
+    maxima.playing = Some(ActiveGameContext::new(
         &launch_id,
         dir,
         options.cloud_saves,

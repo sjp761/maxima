@@ -1,7 +1,6 @@
 use crate::{proto_component, proto_struct};
 
-proto_struct!(LoginRequest, {
-});
+proto_struct!(LoginRequest, {});
 
 proto_struct!(CheckAuthRequest, {
     /// If false, the current login will be checked

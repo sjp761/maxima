@@ -12,7 +12,11 @@ async fn main() {
         .version("Test".to_owned())
         .build();
 
-    let _ = component_man.util().identify(req).await.expect("Failed to identify");
+    let _ = component_man
+        .util()
+        .identify(req)
+        .await
+        .expect("Failed to identify");
 
     let req = CheckAuthRequest::builder().allow_cached(false).build();
     let res = component_man.auth().check(req).await;

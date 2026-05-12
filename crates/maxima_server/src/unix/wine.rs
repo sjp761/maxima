@@ -10,7 +10,6 @@ use std::{
 
 use flate2::read::GzDecoder;
 use lazy_static::lazy_static;
-use tracing::{info, warn};
 use regex::Regex;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -20,6 +19,7 @@ use tokio::{
     process::Command,
     sync::Mutex,
 };
+use tracing::{info, warn};
 use xz2::read::XzDecoder;
 
 use crate::util::{

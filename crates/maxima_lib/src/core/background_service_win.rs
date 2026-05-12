@@ -1,6 +1,6 @@
-use tracing::debug;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use crate::core::error::BackgroundServiceClientError;
 use crate::util::dll_injector::DllInjector;

@@ -3,10 +3,10 @@ use std::{io, sync::Arc, time::Duration};
 use core::future::Future;
 use derive_builder::Builder;
 use derive_getters::Getters;
-use tracing::{debug, error, info, warn};
 use moka::sync::Cache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, Mutex};
+use tracing::{debug, error, info, warn};
 
 use super::{
     connection::RtmConnectionManager,

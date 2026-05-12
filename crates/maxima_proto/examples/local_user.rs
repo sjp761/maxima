@@ -12,7 +12,11 @@ async fn main() {
         .version("Test".to_owned())
         .build();
 
-    let _ = comp_man.util().identify(req).await.expect("Failed to identify");
+    let _ = comp_man
+        .util()
+        .identify(req)
+        .await
+        .expect("Failed to identify");
 
     let req = ();
     let res = comp_man.users().local_user(req).await;

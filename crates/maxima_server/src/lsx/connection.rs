@@ -1,6 +1,5 @@
 use derive_getters::Getters;
 use lazy_static::lazy_static;
-use tracing::{debug, error, warn};
 use quick_xml::DeError;
 use regex::Regex;
 use std::{
@@ -13,6 +12,7 @@ use std::{
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
 use thiserror::Error;
 use tokio::sync::{MutexGuard, RwLock};
+use tracing::{debug, error, warn};
 
 use super::{
     request::{

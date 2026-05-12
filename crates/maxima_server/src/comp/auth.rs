@@ -1,6 +1,8 @@
 use maxima_proto::{
     comm::proto::ProtoRequest,
-    comp::auth::{ServerAuthenticationComponent, AuthenticationError, CheckAuthRequest, LoginRequest},
+    comp::auth::{
+        AuthenticationError, CheckAuthRequest, LoginRequest, ServerAuthenticationComponent,
+    },
 };
 
 use crate::core::auth::storage::LockedAuthStorage;
@@ -12,7 +14,10 @@ pub struct AuthComponent {
 
 #[maxima_proto::async_trait]
 impl ServerAuthenticationComponent for AuthComponent {
-    async fn check(&self, request: ProtoRequest<CheckAuthRequest>) -> Result<bool, AuthenticationError> {
+    async fn check(
+        &self,
+        request: ProtoRequest<CheckAuthRequest>,
+    ) -> Result<bool, AuthenticationError> {
         let req = request.into_inner();
         let _allow_cached = req.allow_cached();
 

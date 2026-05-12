@@ -4,7 +4,6 @@ use super::{
 use crate::core::auth::hardware::HardwareHashError;
 use crate::ooa::LicenseError;
 use crate::util::native::{maxima_dir, NativeError};
-use tracing::{info, error};
 use reqwest::header;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -16,6 +15,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
+use tracing::{error, info};
 
 const FILE: &str = "auth.toml";
 

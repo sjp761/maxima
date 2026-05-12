@@ -8,7 +8,6 @@ use std::{
 
 use super::proto::{communication_v1, Communication, CommunicationV1};
 use super::RtmError;
-use tracing::{error, warn};
 use prost::{
     bytes::{Buf, BufMut, BytesMut},
     Message,
@@ -21,6 +20,7 @@ use tokio::{
     time,
 };
 use tokio_rustls::TlsConnector;
+use tracing::{error, warn};
 use webpki_roots::TLS_SERVER_ROOTS;
 
 // TnT as far as I've heard means "Tools and Technology"

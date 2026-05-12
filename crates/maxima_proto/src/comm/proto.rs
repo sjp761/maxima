@@ -179,7 +179,7 @@ macro_rules! proto_component {
 
                     $(
                         const [<ID_ $command_name:upper>]: u32 = [<PROTO_COMPONENT_ $component_name:upper _COMMAND_ $command_name:upper _ID>];
-                        
+
                         $(#[$command_field_attr])*
                         async fn $command_name(&self, request: crate::comm::proto::ProtoRequest<$command_var>) -> Result<$command_return_type, [<$component_name Error>]>;
                     )*
@@ -315,4 +315,3 @@ macro_rules! proto_struct {
         }
     };
 }
-

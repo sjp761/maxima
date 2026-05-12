@@ -25,7 +25,6 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use derive_getters::Getters;
 use flate2::bufread::DeflateDecoder as BufreadDeflateDecoder;
 use futures::{Stream, StreamExt, TryStreamExt};
-use tracing::{debug, error, info, warn};
 use reqwest::Client;
 use strum_macros::Display;
 use thiserror::Error;
@@ -35,6 +34,7 @@ use tokio::{
     runtime::Handle,
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tracing::{debug, error, info, warn};
 
 fn zstate_path(id: &str, path: &str) -> Result<PathBuf, DownloaderError> {
     let mut path = maxima_dir()?.join("temp/downloader").join(id).join(path);
@@ -152,7 +152,6 @@ impl DownloadDecoder for NoopDecoder {
 
 trait AsyncWriteWrapper: AsyncWrite + Unpin + Send {}
 impl<T: AsyncWrite + Unpin + Send> AsyncWriteWrapper for T {}
-
 
 struct AsyncWriterWrapper<'a> {
     id: String,
@@ -557,7 +556,7 @@ impl ZipDownloader {
             }
         }
 
-       let mut request = EntryDownloadRequest::new(
+        let mut request = EntryDownloadRequest::new(
             &context,
             &self.url,
             entry,

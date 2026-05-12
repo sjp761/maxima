@@ -10,5 +10,5 @@ pub use maxima::util::dll_injector;
 pub use maxima::util::native;
 pub use maxima::util::registry;
 
-pub use maxima::util::BackgroundServiceControlError;
 pub use maxima::util::service;
+pub use maxima::util::BackgroundServiceControlError;
