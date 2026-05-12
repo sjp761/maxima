@@ -1,10 +1,12 @@
 use std::{
-    env,
     fs::create_dir_all,
     num::ParseIntError,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+
+#[cfg(unix)]
+use std::env;
 
 #[cfg(windows)]
 use std::{
