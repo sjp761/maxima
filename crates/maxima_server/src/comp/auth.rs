@@ -5,7 +5,7 @@ use maxima_proto::{
     },
 };
 
-use crate::core::auth::storage::LockedAuthStorage;
+use crate::core::auth::{context::AuthContext, login::begin_oauth_login_flow, nucleus_token_exchange, storage::LockedAuthStorage};
 
 #[derive(Clone)]
 pub struct AuthComponent {
@@ -28,6 +28,11 @@ impl ServerAuthenticationComponent for AuthComponent {
     }
 
     async fn login(&self, _request: ProtoRequest<LoginRequest>) -> Result<(), AuthenticationError> {
+        let mut auth_context = AuthContext::new().unwrap();
+        begin_oauth_login_flow(&mut auth_context).await.unwrap();
+        let token_res = nucleus_token_exchange(&auth_context).await.unwrap();
+        let mut storage = self.auth_storage.lock().await;
+        let _ = storage.add_account(&token_res).await;
         Ok(())
     }
 }
