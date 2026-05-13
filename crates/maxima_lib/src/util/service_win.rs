@@ -1,4 +1,4 @@
-use crate::core::error::BackgroundServiceClientError;
+use crate::core::error::BackgroundServiceControlError;
 use crate::core::background_service::request_registry_setup;
 use tracing::{debug, info};
 use std::ffi::{CString, OsStr, OsString};
@@ -20,7 +20,6 @@ use windows_service::service::{
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 use tracing::warn;
 use crate::util::registry::check_registry_validity;
-use super::BackgroundServiceControlError;
 use super::native::{module_path, NativeError, SafeStr};
 use super::registry::launch_bootstrap;
 use is_elevated::is_elevated;

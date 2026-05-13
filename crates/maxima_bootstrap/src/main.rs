@@ -10,10 +10,10 @@ use thiserror::Error;
 use tokio::process::Command;
 
 use base64::{engine::general_purpose, Engine};
+use maxima::core::error::BackgroundServiceControlError;
 use maxima::util::native::NativeError;
 #[cfg(windows)]
 use maxima::util::service::{is_service_valid, register_service};
-use maxima::util::BackgroundServiceControlError;
 use url::Url;
 
 #[cfg(target_os = "macos")]

@@ -17,9 +17,9 @@ use super::{
     auth::storage::LockedAuthStorage, endpoints::API_CLOUDSYNC, launch::LaunchMode,
     library::OwnedOffer,
 };
-use crate::util::native::{NativeError, SafeParent, SafeStr};
 use derive_getters::Getters;
 use futures::StreamExt;
+use maxima::util::native::{NativeError, SafeParent, SafeStr};
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -106,7 +106,7 @@ fn home_dir() -> Result<PathBuf, NativeError> {
 
 #[cfg(unix)]
 fn home_dir() -> Result<PathBuf, NativeError> {
-    use crate::unix::wine::wine_prefix_dir;
+    use maxima::unix::wine::wine_prefix_dir;
     Ok(wine_prefix_dir()?.join("drive_c/users/steamuser"))
 }
 

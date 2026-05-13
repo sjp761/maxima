@@ -8,16 +8,12 @@ use std::{
     task,
 };
 
-use crate::{
-    content::{
-        manager::DownloaderError,
-        zip::{CompressionType, ZipFile, ZipFileEntry},
-        zlib::{restore_zlib_state, write_zlib_state},
-    },
-    util::{
-        hash::hash_file_crc32,
-        native::{maxima_dir, NativeError, SafeParent, SafeStr},
-    },
+use maxima::util::native::{maxima_dir, NativeError, SafeParent, SafeStr};
+
+use crate::content::{
+    manager::DownloaderError,
+    zip::{CompressionType, ZipFile, ZipFileEntry},
+    zlib::{restore_zlib_state, write_zlib_state},
 };
 use async_compression::tokio::write::DeflateDecoder;
 use async_trait::async_trait;

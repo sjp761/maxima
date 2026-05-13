@@ -1,4 +1,7 @@
-pub use super::BackgroundServiceControlError;
+use crate::util::registry::check_registry_validity;
+use tracing::warn;
+use crate::core::error::BackgroundServiceControlError;
+use crate::util::registry::set_up_registry;
 
 pub fn register_service() -> Result<(), BackgroundServiceControlError> {
     Ok(())
@@ -29,12 +32,11 @@ pub fn register_service_user() -> Result<(), BackgroundServiceControlError> {
 }
 
 #[cfg(not(windows))]
-async fn service_setup() -> Result<()> {
-    use maxima::util::registry::set_up_registry;
-
+pub async fn service_setup() -> Result<(), BackgroundServiceControlError> {
+   
     if let Err(err) = check_registry_validity() {
         warn!("{}, fixing...", err);
-        set_up_registry()?;
+        set_up_registry().unwrap();
     }
 
     Ok(())

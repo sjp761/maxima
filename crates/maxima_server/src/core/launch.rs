@@ -1,13 +1,3 @@
-use base64::{engine::general_purpose, Engine};
-use derive_getters::Getters;
-use std::{env, fmt::Display, path::PathBuf, sync::Arc};
-use tokio::{
-    process::{Child, Command},
-    sync::Mutex,
-};
-use tracing::{error, info};
-use uuid::Uuid;
-
 use crate::{
     core::{
         auth::{
@@ -23,16 +13,24 @@ use crate::{
         Maxima,
     },
     ooa::{needs_license_update, request_and_save_license, LicenseAuth, LicenseError},
-    util::{
-        native::{NativeError, SafeParent, SafeStr},
-        registry::bootstrap_path,
-        simple_crypto,
-    },
 };
+use base64::{engine::general_purpose, Engine};
+use derive_getters::Getters;
+use maxima::util::{
+    native::{NativeError, SafeParent, SafeStr},
+    registry::bootstrap_path,
+};
+use std::{env, fmt::Display, path::PathBuf, sync::Arc};
 use thiserror::Error;
+use tokio::{
+    process::{Child, Command},
+    sync::Mutex,
+};
+use tracing::{error, info};
+use uuid::Uuid;
 
 #[cfg(unix)]
-use crate::unix::fs::case_insensitive_path;
+use maxima::unix::fs::case_insensitive_path;
 
 use serde::{Deserialize, Serialize};
 
@@ -401,7 +399,7 @@ async fn request_opaque_ooa_token(access_token: &str) -> Result<String, AuthErro
 
 #[cfg(unix)]
 pub async fn mx_linux_setup() -> Result<(), NativeError> {
-    use crate::unix::wine::{
+    use maxima::unix::wine::{
         check_runtime_validity, check_wine_validity, get_lutris_runtimes, install_runtime,
         install_wine, setup_wine_registry,
     };

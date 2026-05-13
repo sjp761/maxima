@@ -41,16 +41,15 @@ use super::{
         LSXResponse, LSX,
     },
 };
+
 use crate::{
     core::{
         auth::storage::TokenError, launch::ActiveGameContext, LockedMaxima, Maxima, MaximaEvent,
     },
     lsx::{request::LSXRequestError, types::LSXRequestType},
-    util::{
-        native::NativeError,
-        simple_crypto::{simple_decrypt, simple_encrypt},
-    },
+    util::simple_crypto::{simple_decrypt, simple_encrypt},
 };
+use maxima::util::native::NativeError;
 
 #[derive(Error, Debug)]
 pub enum LSXConnectionError {

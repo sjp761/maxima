@@ -56,7 +56,7 @@ impl std::fmt::Display for CommandType {
 const VERSION_FILE: &str = "dependency-versions.toml";
 
 #[derive(Deserialize, Default)]
-pub(crate) struct LutrisRuntime {
+pub struct LutrisRuntime {
     name: String,
     created_at: String,
     url: String,
@@ -107,7 +107,7 @@ fn set_versions(versions: Versions) -> Result<(), NativeError> {
     Ok(())
 }
 
-pub(crate) async fn check_wine_validity() -> Result<bool, NativeError> {
+pub async fn check_wine_validity() -> Result<bool, NativeError> {
     if !proton_dir()?.exists() {
         return Ok(false);
     }
@@ -127,7 +127,7 @@ pub(crate) async fn check_wine_validity() -> Result<bool, NativeError> {
     Ok(version == release?.tag_name)
 }
 
-pub(crate) async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>, WineError> {
+pub async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>, WineError> {
     let client = reqwest::Client::builder()
         .user_agent("ArmchairDevelopers/Maxima")
         .build()?;
@@ -137,7 +137,7 @@ pub(crate) async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>, WineErro
     Ok(data)
 }
 
-pub(crate) async fn check_runtime_validity(
+pub async fn check_runtime_validity(
     key: &str,
     runtimes: &[LutrisRuntime],
 ) -> Result<bool, NativeError> {
@@ -160,10 +160,7 @@ pub(crate) async fn check_runtime_validity(
     Ok(runtime_version.is_some_and(|r| &r.created_at == version))
 }
 
-pub(crate) async fn install_runtime(
-    key: &str,
-    runtimes: &[LutrisRuntime],
-) -> Result<(), NativeError> {
+pub async fn install_runtime(key: &str, runtimes: &[LutrisRuntime]) -> Result<(), NativeError> {
     info!("Downloading {key}");
     let runtime = runtimes
         .iter()
@@ -304,7 +301,7 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     Ok(output_str.to_string())
 }
 
-pub(crate) async fn install_wine() -> Result<(), NativeError> {
+pub async fn install_wine() -> Result<(), NativeError> {
     let release = get_wine_release()?;
     let asset = match release
         .assets
@@ -335,7 +332,7 @@ pub(crate) async fn install_wine() -> Result<(), NativeError> {
     Ok(())
 }
 
-fn extract_wine(archive_path: &PathBuf) -> Result<(), NativeError> {
+pub fn extract_wine(archive_path: &PathBuf) -> Result<(), NativeError> {
     info!("Extracting proton...");
 
     let dir = proton_dir()?;
@@ -351,7 +348,7 @@ fn extract_wine(archive_path: &PathBuf) -> Result<(), NativeError> {
     extract_archive(dir, archive)
 }
 
-fn extract_archive<R: Read + Sized>(
+pub fn extract_archive<R: Read + Sized>(
     dir: PathBuf,
     mut archive: Archive<R>,
 ) -> Result<(), NativeError> {

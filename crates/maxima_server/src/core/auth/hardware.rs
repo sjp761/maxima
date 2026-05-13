@@ -481,8 +481,8 @@ impl HardwareInfo {
 
 #[cfg(unix)]
 fn get_root_creation_str() -> String {
-    use crate::unix::wine::wine_prefix_dir;
     use chrono::{TimeZone, Utc};
+    use maxima::unix::wine::wine_prefix_dir;
     use std::{fs, os::unix::fs::MetadataExt};
 
     let date_str = String::from("1970010100:00:00.000000000+0000");

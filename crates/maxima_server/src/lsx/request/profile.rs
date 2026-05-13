@@ -18,8 +18,9 @@ use crate::{
     },
     make_lsx_handler_response,
     rtm::client::{BasicPresence, RichPresenceBuilder},
-    util::native::{platform_path, NativeError, SafeStr},
 };
+
+use maxima::util::native::{platform_path, NativeError, SafeStr};
 
 pub async fn handle_profile_request(
     state: LockedConnectionState,

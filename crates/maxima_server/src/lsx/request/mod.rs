@@ -20,7 +20,7 @@ pub enum LSXRequestError {
     #[error(transparent)]
     ServiceLayer(#[from] crate::core::service_layer::ServiceLayerError),
     #[error(transparent)]
-    Native(#[from] crate::util::native::NativeError),
+    Native(#[from] maxima::util::native::NativeError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]

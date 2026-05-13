@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
 
-use crate::{core::manifest::ManifestError, util::native::platform_path};
+use crate::core::manifest::ManifestError;
 use derive_getters::Getters;
+use maxima::util::native::platform_path;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -107,14 +108,11 @@ impl PreDiPManifest {
 
     #[cfg(unix)]
     pub async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError> {
-        use crate::{
-            core::launch::mx_linux_setup,
-            unix::{
-                fs::case_insensitive_path,
-                wine::{invalidate_mx_wine_registry, run_wine_command, CommandType},
-            },
+        use crate::core::launch::mx_linux_setup;
+        use maxima::unix::{
+            fs::case_insensitive_path,
+            wine::{invalidate_mx_wine_registry, run_wine_command, CommandType},
         };
-
         mx_linux_setup().await?;
 
         let install_path = PathBuf::from(remove_trailing_slash(
@@ -132,7 +130,7 @@ impl PreDiPManifest {
 
     #[cfg(windows)]
     pub async fn run_touchup(&self, install_path: &PathBuf) -> Result<(), ManifestError> {
-        use crate::util::native::NativeError;
+        use maxima::util::native::NativeError;
         use tokio::process::Command;
 
         let args = self.collect_touchup_args(install_path)?;

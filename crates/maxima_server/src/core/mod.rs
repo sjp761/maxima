@@ -56,8 +56,8 @@ use crate::{
     content::manager::{ContentManager, ContentManagerError},
     lsx::{self, service::LSXServerError, types::LSXRequestType},
     rtm::client::{BasicPresence, RtmClient},
-    util::native::{maxima_dir, NativeError},
 };
+use maxima::util::native::{maxima_dir, NativeError};
 
 #[derive(Clone, IntoStaticStr)]
 pub enum MaximaEvent {

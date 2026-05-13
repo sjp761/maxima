@@ -11,11 +11,11 @@ use super::{
         SERVICE_REQUEST_GETPRELOADEDOWNEDGAMES,
     },
 };
-#[cfg(unix)]
-use crate::unix::fs::case_insensitive_path;
-use crate::util::native::{NativeError, SafeStr};
-use crate::util::registry::{parse_partial_registry_path, parse_registry_path, RegistryError};
 use derive_getters::Getters;
+#[cfg(unix)]
+use maxima::unix::fs::case_insensitive_path;
+use maxima::util::native::{NativeError, SafeStr};
+use maxima::util::registry::{parse_partial_registry_path, parse_registry_path, RegistryError};
 use std::{collections::HashMap, path::PathBuf, time::SystemTimeError};
 use thiserror::Error;
 

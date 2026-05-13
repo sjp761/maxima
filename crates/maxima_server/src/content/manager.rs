@@ -1,3 +1,4 @@
+use maxima::util::native::{maxima_dir, NativeError};
 use std::{
     path::PathBuf,
     sync::{
@@ -28,7 +29,6 @@ use crate::{
         service_layer::ServiceLayerError,
         MaximaEvent,
     },
-    util::native::{maxima_dir, NativeError},
 };
 
 const QUEUE_FILE: &str = "download_queue.json";

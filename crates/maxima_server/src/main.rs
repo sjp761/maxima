@@ -7,14 +7,13 @@
 use core::{auth::storage::AuthStorage, user_man::UserManager};
 
 use comp::{auth::AuthComponent, users::UsersComponent, util::UtilComponent};
-use maxima::util::service::service_setup;
+use maxima::util::{native::maxima_dir, service::service_setup};
 use maxima_proto::{
     comm::{router::ProtoRouter, server::ProtoServer},
     comp::{auth::AuthenticationServer, users::UsersServer, util::UtilitiesServer},
 };
 use tracing::{error, info, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-use util::native::maxima_dir;
 
 pub mod comp;
 pub mod content;
@@ -23,9 +22,6 @@ pub mod lsx;
 pub mod ooa;
 pub mod rtm;
 pub mod util;
-
-#[cfg(unix)]
-pub mod unix;
 
 #[cfg(not(target_arch = "x86_64"))]
 compile_error!("Maxima only supports the x86_64 architecture due to the use of __cpuid");

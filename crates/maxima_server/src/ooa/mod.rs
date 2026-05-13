@@ -11,10 +11,10 @@ use tracing::{debug, warn};
 use base64::{engine::general_purpose, DecodeError, Engine};
 
 use crate::core::{auth::hardware::HardwareInfo, endpoints::API_PROXY_NOVAFUSION_LICENSES};
-#[cfg(unix)]
-use crate::unix::fs::case_insensitive_path;
-use crate::util::native::{NativeError, SafeParent, SafeStr};
 use lazy_static::lazy_static;
+#[cfg(unix)]
+use maxima::unix::fs::case_insensitive_path;
+use maxima::util::native::{NativeError, SafeParent, SafeStr};
 use quick_xml::DeError;
 use regex::Regex;
 use reqwest::header::ToStrError;
@@ -112,7 +112,7 @@ pub fn detect_ooa_state(game_path: PathBuf) -> OOAState {
 
 pub async fn detect_ooa_version(game_path: PathBuf) -> Result<u32, LicenseError> {
     #[cfg(unix)]
-    use crate::unix::fs::case_insensitive_path;
+    use maxima::unix::fs::case_insensitive_path;
     let activation_dll = game_path.join("Core/activation.dll");
     let awc = game_path.join("Core/awc.dll");
 
@@ -363,7 +363,7 @@ pub fn get_license_dir() -> Result<PathBuf, NativeError> {
 
 #[cfg(unix)]
 pub fn get_license_dir() -> Result<PathBuf, NativeError> {
-    use crate::unix::wine::wine_prefix_dir;
+    use maxima::unix::wine::wine_prefix_dir;
 
     let path = format!(
         "{}/drive_c/{}",

@@ -14,9 +14,9 @@ pub enum ManifestError {
     #[error(transparent)]
     Xml(#[from] DeError),
     #[error(transparent)]
-    Native(#[from] crate::util::native::NativeError),
+    Native(#[from] maxima::util::native::NativeError),
     #[error(transparent)]
-    Registry(#[from] crate::util::registry::RegistryError),
+    Registry(#[from] maxima::util::registry::RegistryError),
 
     #[error("failed to decode DiPManifest. Weird encoding?")]
     Decode,

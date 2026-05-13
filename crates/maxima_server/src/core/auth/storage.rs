@@ -3,7 +3,7 @@ use super::{
 };
 use crate::core::auth::hardware::HardwareHashError;
 use crate::ooa::LicenseError;
-use crate::util::native::{maxima_dir, NativeError};
+use maxima::util::native::{maxima_dir, NativeError};
 use reqwest::header;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
