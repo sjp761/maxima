@@ -5,7 +5,10 @@ use maxima_proto::{
     },
 };
 
-use crate::core::auth::{context::AuthContext, login::begin_oauth_login_flow, nucleus_token_exchange, storage::LockedAuthStorage};
+use crate::core::auth::{
+    context::AuthContext, login::begin_oauth_login_flow, nucleus_token_exchange,
+    storage::LockedAuthStorage,
+};
 
 #[derive(Clone)]
 pub struct AuthComponent {

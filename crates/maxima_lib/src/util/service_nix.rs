@@ -27,3 +27,15 @@ pub async fn stop_service() -> Result<(), BackgroundServiceControlError> {
 pub fn register_service_user() -> Result<(), BackgroundServiceControlError> {
     Ok(())
 }
+
+#[cfg(not(windows))]
+async fn service_setup() -> Result<()> {
+    use maxima::util::registry::set_up_registry;
+
+    if let Err(err) = check_registry_validity() {
+        warn!("{}, fixing...", err);
+        set_up_registry()?;
+    }
+
+    Ok(())
+}

@@ -1,3 +1,5 @@
+use crate::core::error::BackgroundServiceClientError;
+use crate::core::background_service::request_registry_setup;
 use tracing::{debug, info};
 use std::ffi::{CString, OsStr, OsString};
 use std::path::PathBuf;
@@ -16,12 +18,12 @@ use windows_service::service::{
     ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceState, ServiceType,
 };
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
-
+use tracing::warn;
+use crate::util::registry::check_registry_validity;
 use super::BackgroundServiceControlError;
 use super::native::{module_path, NativeError, SafeStr};
 use super::registry::launch_bootstrap;
 use is_elevated::is_elevated;
-
 pub const SERVICE_NAME: &str = "MaximaBackgroundService";
 pub const SERVICE_DISPLAY_NAME: &str = "Maxima Background Service";
 
@@ -287,4 +289,27 @@ fn service_manager(create: bool) -> Result<ServiceManager, BackgroundServiceCont
 
 fn service_path() -> Result<PathBuf, NativeError> {
     Ok(module_path()?.with_file_name("maxima-service.exe"))
+}
+
+#[cfg(windows)]
+pub async fn service_setup() -> Result<(), BackgroundServiceControlError> {
+    if !is_elevated() {
+        if !is_service_valid()? {
+            info!("Installing service...");
+            register_service_user()?;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+
+        if !is_service_running()? {
+            info!("Starting service...");
+            start_service().await?;
+        }
+    }
+
+    if let Err(err) = check_registry_validity() {
+        warn!("{}, fixing...", err);
+        request_registry_setup().await.unwrap();
+    }
+
+    Ok(())
 }

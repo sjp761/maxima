@@ -7,6 +7,7 @@
 use core::{auth::storage::AuthStorage, user_man::UserManager};
 
 use comp::{auth::AuthComponent, users::UsersComponent, util::UtilComponent};
+use maxima::util::service::service_setup;
 use maxima_proto::{
     comm::{router::ProtoRouter, server::ProtoServer},
     comp::{auth::AuthenticationServer, users::UsersServer, util::UtilitiesServer},
@@ -65,6 +66,7 @@ async fn main() {
         env!("GIT_HASH")
     );
 
+    let _ = service_setup().await;
     let auth_storage = match AuthStorage::load() {
         Ok(storage) => storage,
         Err(err) => {
