@@ -74,15 +74,6 @@ impl ProtoRouter {
         (component.call_fn)(data).await
     }
 
-    pub fn _command_name(&self, component_id: u32, id: u32) -> Result<&'static str, ProtoError> {
-        let component = match self.components.get(&component_id) {
-            Some(component) => component,
-            None => return Err(ProtoError::UnknownComponent(component_id)),
-        };
-
-        (component.command_name_fn)(id).ok_or(ProtoError::UnknownCommand(component_id, id))
-    }
-
     pub fn rpc_name(&self, component_id: u32, id: u32) -> String {
         let component = match self.components.get(&component_id) {
             Some(component) => component,

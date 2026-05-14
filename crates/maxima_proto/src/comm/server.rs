@@ -9,7 +9,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use crate::comm::{
-    proto::{ProtoError, ProtoHeader, ProtoPacketType},
+    proto::{ProtoError, ProtoHeader, ProtoPacketType, get_proto_header},
     router::{ProtoRouter, RoutingData},
 };
 
@@ -74,45 +74,12 @@ impl ProtoServer {
                         },
                         Ok(_) => {
                             loop {
-                                debug!("Reading message {} bytes", bytes.len());
-
-                                if bytes.len() < ProtoHeader::SIZE {
-                                    break;
-                                }
-
-                                if expected_size == -1 {
-                                    let mut cloned = bytes.clone().freeze();
-                                    let header = ProtoHeader::from(&mut cloned);
-
-                                    expected_size = header.data_size as i32;
-                                }
-
-                                let full_expected_size = (expected_size + ProtoHeader::SIZE as i32) as usize;
-                                if bytes.len() < full_expected_size {
-                                    break;
-                                }
-
-                                debug!("Got full message, {} bytes", full_expected_size);
-
-                                // We have the full message now, processing time
-                                let mut buf = bytes.clone().freeze().slice(0usize..full_expected_size);
-
-                                bytes.advance(full_expected_size);
-                                expected_size = -1;
-
-                                let header = ProtoHeader::from(&mut buf);
-                                if header.packet_type == ProtoPacketType::Ping {
-                                    request_tx.send(ProtoServerPacket {
-                                        packet_id: header.packet_id,
-                                        packet_type: ProtoPacketType::PingReply,
-                                        component: header.component,
-                                        command: header.command,
-                                        data: vec![],
-                                    }).await.unwrap();
-                                    continue;
-                                }
-
-                                assert!(buf.remaining() == header.data_size as usize, "Payload size mismatch: {} != {} / {}", buf.remaining(), header.data_size as usize, full_expected_size);
+                                let (header, buf) = match get_proto_header(&mut bytes, &mut expected_size) {
+                                    Some((header, buf)) => {
+                                        (header, buf)
+                                    },
+                                    None => break,
+                                };
 
                                 debug!("Message: {:?}", header);
 

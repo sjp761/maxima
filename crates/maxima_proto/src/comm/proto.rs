@@ -2,7 +2,10 @@ use std::io;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::{io::AsyncWriteExt, sync::mpsc};
+use tracing::debug;
+
+use crate::comm::server::ProtoServerPacket;
 
 use super::{client::ClientProtoRequest, router::ProtoResult};
 
@@ -314,4 +317,35 @@ macro_rules! proto_struct {
             )*
         }
     };
+}
+
+pub fn get_proto_header(bytes: &mut BytesMut, expected_size: &mut i32) -> Option<(ProtoHeader, Bytes)> {
+     debug!("Reading message {} bytes", bytes.len());
+
+    if bytes.len() < ProtoHeader::SIZE {
+        return None;
+    }
+
+    if *expected_size == -1 {
+        let mut cloned = bytes.clone().freeze();
+        let header = ProtoHeader::from(&mut cloned);
+
+        *expected_size = header.data_size as i32;
+    }
+
+    let full_expected_size = (*expected_size + ProtoHeader::SIZE as i32) as usize;
+    if bytes.len() < full_expected_size {
+        return None;
+    }
+
+    debug!("Got full message, {} bytes", full_expected_size);
+
+    // We have the full message now, processing time
+    let mut buf = bytes.clone().freeze().slice(0usize..full_expected_size);
+
+    bytes.advance(full_expected_size);
+    *expected_size = -1;
+    let header = ProtoHeader::from(&mut buf);
+    assert!(buf.remaining() == header.data_size as usize, "Payload size mismatch: {} != {} / {}", buf.remaining(), header.data_size as usize, full_expected_size);
+    Some((header, buf))
 }
