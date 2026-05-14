@@ -1,11 +1,11 @@
 use maxima_proto::comp::util::IdentificationRequest;
 use tracing::info;
 
-mod entry;
+use maxima_proto::entry::client_setup;
 
 #[tokio::main]
 async fn main() {
-    let (_, component_man) = entry::client_setup::create_conn_man();
+    let (_, component_man) = client_setup::setup_client().await;
 
     let req = IdentificationRequest::builder()
         .client_id("Test".to_owned())
