@@ -9,7 +9,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use crate::comm::{
-    proto::{ProtoError, ProtoHeader, ProtoPacketType, get_proto_header},
+    proto::{get_proto_header, ProtoError, ProtoHeader, ProtoPacketType},
     router::{ProtoRouter, RoutingData},
 };
 

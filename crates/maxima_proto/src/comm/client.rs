@@ -20,7 +20,7 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use crate::comm::proto::{ProtoHeader, ProtoPacketType, get_proto_header};
+use crate::comm::proto::{get_proto_header, ProtoHeader, ProtoPacketType};
 
 use super::proto::ProtoError;
 

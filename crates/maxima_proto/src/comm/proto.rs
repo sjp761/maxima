@@ -93,9 +93,8 @@ impl ProtoHeader {
 }
 
 pub trait ProtoComponent: Send + Sync {
-    const ID: u32;
-    const NAME: &'static str;
-
+    fn id(&self) -> u32;
+    fn name(&self) -> &'static str;
     fn command_name(&self, id: u32) -> Option<&'static str>;
     fn call(&self, id: u32, client_id: u32, data: &[u8]) -> ProtoResult;
 }
@@ -200,8 +199,13 @@ macro_rules! proto_component {
                 }
 
                 impl<T: [<Server $component_name Component>]> crate::comm::proto::ProtoComponent for [<$component_name Server>]<T> {
-                    const ID: u32 = T::ID;
-                    const NAME: &'static str = T::NAME;
+                    fn id(&self) -> u32 {
+                        T::ID
+                    }
+
+                    fn name(&self) -> &'static str {
+                        T::NAME
+                    }
 
                     fn command_name(&self, id: u32) -> Option<&'static str> {
                         // We unfortunately can't use a match here because of weird pattern requirements for const variables.
@@ -233,8 +237,9 @@ macro_rules! proto_component {
                             }
                         )*
 
+                        let component_id = self.id();
                         Box::pin(async move {
-                            Err(crate::comm::proto::ProtoError::UnknownCommand(Self::ID, id))
+                            Err(crate::comm::proto::ProtoError::UnknownCommand(component_id, id))
                         })
                     }
                 }
@@ -319,8 +324,11 @@ macro_rules! proto_struct {
     };
 }
 
-pub fn get_proto_header(bytes: &mut BytesMut, expected_size: &mut i32) -> Option<(ProtoHeader, Bytes)> {
-     debug!("Reading message {} bytes", bytes.len());
+pub fn get_proto_header(
+    bytes: &mut BytesMut,
+    expected_size: &mut i32,
+) -> Option<(ProtoHeader, Bytes)> {
+    debug!("Reading message {} bytes", bytes.len());
 
     if bytes.len() < ProtoHeader::SIZE {
         return None;
@@ -346,6 +354,12 @@ pub fn get_proto_header(bytes: &mut BytesMut, expected_size: &mut i32) -> Option
     bytes.advance(full_expected_size);
     *expected_size = -1;
     let header = ProtoHeader::from(&mut buf);
-    assert!(buf.remaining() == header.data_size as usize, "Payload size mismatch: {} != {} / {}", buf.remaining(), header.data_size as usize, full_expected_size);
+    assert!(
+        buf.remaining() == header.data_size as usize,
+        "Payload size mismatch: {} != {} / {}",
+        buf.remaining(),
+        header.data_size as usize,
+        full_expected_size
+    );
     Some((header, buf))
 }

@@ -2,7 +2,6 @@ use tracing::info;
 
 use maxima_proto::entry::client_setup;
 
-
 #[tokio::main]
 async fn main() {
     let (_, comp_man) = client_setup::setup_client().await;
