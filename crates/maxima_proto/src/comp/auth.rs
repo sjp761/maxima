@@ -16,5 +16,6 @@ proto_component!(
     rpc {
         check(CheckAuthRequest): bool,
         login(LoginRequest): (),
+        access_token(()): String,
     }
 );

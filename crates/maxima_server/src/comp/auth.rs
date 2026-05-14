@@ -38,4 +38,10 @@ impl ServerAuthenticationComponent for AuthComponent {
         let _ = storage.add_account(&token_res).await;
         Ok(())
     }
+
+    async fn access_token(&self, _request: ProtoRequest<()>) -> Result<String, AuthenticationError> {
+        let mut storage = self.auth_storage.lock().await;
+        let token = storage.access_token_or_err().await.unwrap();
+        Ok(token)
+    }
 }

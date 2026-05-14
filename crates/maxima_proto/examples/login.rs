@@ -9,5 +9,4 @@ async fn main() {
 
     let req = LoginRequest::builder().build();
     let res = component_man.auth().login(req).await;
-    info!("Login result: {:#?}", res);
 }
