@@ -433,6 +433,16 @@ impl Maxima {
         self.lsx_connections = connections;
     }
 
+    pub fn inc_connected_lsx(&mut self) {
+        self.lsx_connections += 1;
+    }
+
+    pub fn dec_connected_lsx(&mut self) {
+        if self.lsx_connections > 0 {
+            self.lsx_connections -= 1;
+        }
+    }
+
     pub fn set_player_started(&mut self) {
         match &mut self.playing {
             Some(ref mut playing) => playing.set_started(),

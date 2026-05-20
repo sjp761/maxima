@@ -1,11 +1,12 @@
-use std::{io::ErrorKind, net::TcpListener, time::Duration};
+use tokio::net::TcpListener;
 
 use log::{info, warn};
-use tokio::time::sleep;
 
 use crate::lsx::connection::LSXConnectionError;
 use crate::{core::LockedMaxima, lsx::connection::Connection};
 use thiserror::Error;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
 
 #[derive(Error, Debug)]
 pub enum LSXServerError {
@@ -16,62 +17,63 @@ pub enum LSXServerError {
 }
 
 pub async fn start_server(port: u16, maxima: LockedMaxima) -> Result<(), LSXServerError> {
-    let addr = "127.0.0.1:".to_string() + port.to_string().as_str();
+    let addr = format!("127.0.0.1:{}", port);
 
-    let listener = TcpListener::bind(&addr)?;
-    listener.set_nonblocking(true)?;
+    let listener = TcpListener::bind(&addr).await?;
     info!("Listening on: {}", addr);
 
-    let mut connections: Vec<Connection> = Vec::new();
-
     loop {
-        let mut idx = 0 as usize;
-        while idx < connections.len() {
-            let connection = &mut connections[idx];
-
-            if let Err(_) = connection.process_queue().await {
-                warn!("Failed to process LSX message queue");
-            }
-
-            if let Err(_) = connection.listen().await {
-                warn!("LSX connection closed");
-                connections.remove(idx);
-                maxima
-                    .lock()
-                    .await
-                    .set_lsx_connections(connections.len() as u16);
-                continue;
-            }
-
-            idx = idx + 1;
-        }
-
-        let (socket, addr) = match listener.accept() {
+        let (socket, addr) = match listener.accept().await {
             Ok(s) => s,
-            Err(err) => {
-                let kind = err.kind();
-                if kind == ErrorKind::WouldBlock {
-                    sleep(Duration::from_millis(20)).await;
-                    continue;
-                }
-                return Err(LSXServerError::Io(err));
-            }
+            Err(err) => return Err(LSXServerError::Io(err)),
         };
 
         info!("New LSX connection: {:?}", addr);
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        let mut conn = match Connection::new(maxima.clone(), socket, tx).await {
+            Ok(c) => c,
+            Err(err) => {
+                warn!("Failed to establish LSX connection: {}", err);
+                continue;
+            }
+        };
 
-        let conn = Connection::new(maxima.clone(), socket).await;
-        if let Err(err) = conn {
-            warn!("Failed to establish LSX connection: {}", err);
-            continue;
-        }
-
-        let mut conn = conn?;
-        conn.send_challenge().await?;
-        connections.push(conn);
+        conn.queue_challenge().await?;
 
         let mut maxima = maxima.lock().await;
-        maxima.set_lsx_connections(connections.len() as u16);
+        maxima.inc_connected_lsx();
         maxima.set_player_started();
+        drop(maxima);
+
+        tokio::spawn(async move {
+            if let Err(err) = handle_client(conn, rx).await {
+                warn!("LSX connection error: {}", err);
+            }
+        });
+    }
+}
+
+pub async fn handle_client(
+    mut conn: Connection,
+    mut rx: Receiver<String>,
+) -> Result<(), LSXServerError> {
+    loop {
+        tokio::select! {
+            res = conn.listen() => {
+                match res {
+                    Ok(_) => continue,
+                    Err(err) => {
+                        warn!("LSX connection error: {}", err);
+                        return Err(LSXServerError::Conn(err));
+                    }
+                }
+            },
+            Some(msg) = rx.recv() => {
+                if let Err(err) = conn.write_message(msg).await {
+                    warn!("LSX connection error: {}", err);
+                    return Err(LSXServerError::Conn(err));
+                }
+            },
+        }
     }
 }
