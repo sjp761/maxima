@@ -1,17 +1,18 @@
+use lazy_static::lazy_static;
+use regex::Regex;
+use std::ffi::OsString;
+use std::fs::create_dir_all;
+use std::path::PathBuf;
 use std::{
     collections::HashMap,
     env,
     ffi::OsStr,
-    fs::{create_dir_all, remove_dir_all, remove_file, File},
+    fs::remove_dir_all,
     io::Read,
-    path::{Path, PathBuf},
     process::{ExitStatus, Stdio},
 };
 
-use flate2::read::GzDecoder;
-use lazy_static::lazy_static;
 use log::{info, warn};
-use regex::Regex;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tar::Archive;
@@ -24,13 +25,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     gameinfo::load_game_info_from_json,
-    util::{
-        github::{
-            fetch_github_release, fetch_github_releases, github_download_asset, GithubRelease,
-        },
-        native::{maxima_dir, DownloadError, NativeError, SafeParent, SafeStr, WineError},
-        registry::RegistryError,
-    },
+    util::native::{maxima_dir, DownloadError, NativeError, SafeParent, SafeStr, WineError},
 };
 
 lazy_static! {
@@ -70,7 +65,6 @@ pub(crate) struct LutrisRuntime {
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 struct Versions {
-    proton: String,
     eac_runtime: String,
     umu: String,
 }
@@ -91,8 +85,19 @@ pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
     Ok(prefix_path)
 }
 
-pub fn proton_dir() -> Result<PathBuf, NativeError> {
-    Ok(maxima_dir()?.join("wine/proton"))
+pub fn proton_dir() -> Result<OsString, NativeError> {
+    if let Ok(path) = env::var("MAXIMA_PROTON_PATH") {
+        let path = PathBuf::from(path);
+        if path.exists() {
+            return Ok(path.into());
+        } else {
+            warn!(
+                "MAXIMA_PROTON_PATH is set to {} but it doesn't exist",
+                path.display()
+            );
+        }
+    }
+    Ok("GE-Proton".into())
 }
 
 pub fn wine_dir() -> Result<PathBuf, NativeError> {
@@ -103,8 +108,11 @@ pub fn eac_dir() -> Result<PathBuf, NativeError> {
     Ok(maxima_dir()?.join("wine/eac_runtime"))
 }
 
-pub fn umu_bin() -> Result<PathBuf, NativeError> {
-    Ok(maxima_dir()?.join("wine/umu/umu-run"))
+pub fn script_path() -> Result<PathBuf, NativeError> {
+    match env::var("MAXIMA_WINE_SCRIPT") {
+        Ok(path) => Ok(PathBuf::from(path)),
+        Err(_) => Ok(maxima_dir()?.join("wine/umu/umu-run")),
+    }
 }
 
 fn versions() -> Result<Versions, NativeError> {
@@ -123,26 +131,7 @@ fn set_versions(versions: Versions) -> Result<(), NativeError> {
     Ok(())
 }
 
-pub(crate) async fn check_wine_validity() -> Result<bool, NativeError> {
-    if !proton_dir()?.exists() {
-        return Ok(false);
-    }
-
-    let version = versions()?.proton;
-
-    let release = get_wine_release();
-    if let Err(err) = release {
-        if !version.is_empty() {
-            warn!("Failed to check wine release, rate limited?");
-            return Ok(true);
-        }
-
-        return Err(NativeError::Wine(err));
-    }
-
-    Ok(version == release?.tag_name)
-}
-
+#[cfg(target_os = "linux")]
 pub(crate) async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>, WineError> {
     let client = reqwest::Client::builder()
         .user_agent("ArmchairDevelopers/Maxima")
@@ -234,22 +223,7 @@ pub(crate) async fn install_runtime(
     set_versions(versions)
 }
 
-fn get_wine_release() -> Result<GithubRelease, WineError> {
-    let releases = fetch_github_releases("GloriousEggroll", "proton-ge-custom")?;
-
-    let mut release = None;
-    for r in releases {
-        if r.tag_name.ends_with("LoL") {
-            continue;
-        }
-
-        release = Some(r);
-        break;
-    }
-
-    release.ok_or(WineError::Fetch)
-}
-
+#[cfg(target_os = "linux")]
 pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     arg: T,
     args: Option<I>,
@@ -261,14 +235,12 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     let proton_path = proton_dir()?;
     let proton_prefix_path = wine_prefix_dir(slug).unwrap();
     let eac_path = eac_dir()?;
-    let umu_bin = umu_bin()?;
+    let script_path = script_path()?;
 
     info!("Wine Prefix: {:?}", proton_prefix_path);
-    let wine_path =
-        env::var("MAXIMA_WINE_COMMAND").unwrap_or_else(|_| umu_bin.to_string_lossy().to_string());
 
     // Create command with all necessary wine env variables
-    let mut binding = Command::new(wine_path.clone());
+    let mut binding = Command::new(script_path.clone());
     let mut child = binding
         .env("WINEPREFIX", proton_prefix_path)
         .env("GAMEID", "umu-0")
@@ -281,7 +253,7 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
         .env("LD_PRELOAD", "") // Fixes some log errors for some games
         .arg(arg);
 
-    if !wine_path.ends_with("umu-run") {
+    if env::var("MAXIMA_NORTHSTAR").is_ok() {
         // wsock32 is used as a proxy for Northstar (Titanfall 2). TODO: provide user-facing option for this!
         child = child.env(
             "WINEDLLOVERRIDES",
@@ -300,6 +272,7 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     let status: ExitStatus;
     let mut output_str = String::new();
 
+    info!("Running command: {:?}", child);
     if want_output {
         let output = child
             .stdout(Stdio::piped())
@@ -322,51 +295,7 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     Ok(output_str.to_string())
 }
 
-pub(crate) async fn install_wine() -> Result<(), NativeError> {
-    let release = get_wine_release()?;
-    let asset = match release
-        .assets
-        .iter()
-        .find(|x| PROTON_PATTERN.captures(&x.name).is_some())
-    {
-        Some(asset) => asset,
-        None => return Err(NativeError::Wine(WineError::Fetch)),
-    };
-
-    let dir = maxima_dir()?.join("downloads");
-    create_dir_all(&dir)?;
-
-    let path = dir.join(&asset.name);
-    github_download_asset(asset, &path)?;
-    extract_wine(&path)?;
-
-    let mut versions = versions()?;
-    versions.proton = release.tag_name;
-    set_versions(versions)?;
-
-    if let Err(err) = remove_file(&path) {
-        warn!("Failed to delete {:?} - {:?}", path, err);
-    }
-
-    Ok(())
-}
-
-fn extract_wine(archive_path: &PathBuf) -> Result<(), NativeError> {
-    info!("Extracting proton...");
-
-    let dir = proton_dir()?;
-    if dir.exists() {
-        remove_dir_all(&dir)?;
-    }
-
-    create_dir_all(&dir)?;
-
-    let archive_file = File::open(archive_path)?;
-    let archive_decoder = GzDecoder::new(archive_file);
-    let archive = Archive::new(archive_decoder);
-    extract_archive(dir, archive)
-}
-
+#[cfg(target_os = "linux")]
 fn extract_archive<R: Read + Sized>(
     dir: PathBuf,
     mut archive: Archive<R>,

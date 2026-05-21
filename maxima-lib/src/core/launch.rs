@@ -235,9 +235,15 @@ pub async fn start_game(
     };
 
     let dir = path.safe_parent()?.safe_str()?;
+
     #[cfg(unix)]
     let path = case_insensitive_path(path.clone());
+
     let path = path.safe_str()?;
+
+    #[cfg(unix)]
+    let path = path.replace("\\", "/");
+
     info!("Game path: {}", path);
 
     let slug = if let LaunchMode::Online(ref _offer_id) = mode {
@@ -429,8 +435,8 @@ async fn request_opaque_ooa_token(access_token: &str) -> Result<String, AuthErro
 #[cfg(unix)]
 pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
     use crate::unix::wine::{
-        check_runtime_validity, check_wine_validity, get_lutris_runtimes, install_runtime,
-        install_wine, setup_wine_registry, wine_prefix_dir,
+        check_runtime_validity, get_lutris_runtimes, install_runtime, setup_wine_registry,
+        wine_prefix_dir,
     };
 
     std::fs::create_dir_all(wine_prefix_dir(slug).unwrap())?;
@@ -438,9 +444,6 @@ pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
 
     let skip = std::env::var("MAXIMA_DISABLE_WINE_VERIFICATION").is_ok();
     if !skip {
-        if !check_wine_validity().await? {
-            install_wine().await?;
-        }
         let runtimes = get_lutris_runtimes().await?;
         if !check_runtime_validity("eac_runtime", &runtimes).await? {
             install_runtime("eac_runtime", &runtimes).await?;
