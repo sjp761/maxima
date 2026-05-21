@@ -479,7 +479,7 @@ fn get_root_creation_str(slug: Option<&str>) -> String {
         Some(slug) => wine_prefix_dir(Some(slug)).unwrap(),
         None => return date_str,
     };
-    let date_str = match fs::metadata(wine_prefix.join("drive_c")) {
+    let date_str = match fs::metadata(wine_prefix.join("pfx").join("drive_c")) {
         Ok(metadata) => {
             let nsec = (metadata.mtime_nsec() / 1_000_000) * 1_000_000;
             let datetime = Utc.timestamp_nanos((metadata.mtime() * 1_000_000_000) + nsec);
