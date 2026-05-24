@@ -19,7 +19,7 @@ use crate::core::{auth::hardware::HardwareInfo, endpoints::API_PROXY_NOVAFUSION_
 use crate::unix::fs::case_insensitive_path;
 use crate::util::native::{NativeError, SafeParent, SafeStr};
 use lazy_static::lazy_static;
-use quick_xml::DeError;
+use quick_xml::{DeError, SeError};
 use regex::Regex;
 use reqwest::header::ToStrError;
 use reqwest::{Client, StatusCode};
@@ -83,6 +83,8 @@ pub enum LicenseError {
     Utf8(#[from] FromUtf8Error),
     #[error(transparent)]
     DeError(#[from] DeError),
+    #[error(transparent)]
+    SeError(#[from] SeError),
     #[error(transparent)]
     Decode(#[from] DecodeError),
     #[error(transparent)]

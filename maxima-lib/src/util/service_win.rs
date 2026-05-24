@@ -233,12 +233,14 @@ pub fn is_service_running() -> Result<bool, BackgroundServiceControlError> {
 }
 
 pub async fn start_service() -> Result<(), BackgroundServiceControlError> {
-    let service_manager = service_manager(false)?;
+    {
+        let service_manager = service_manager(false)?;
 
-    let service_result =
-        service_manager.open_service(OsString::from(SERVICE_NAME), ServiceAccess::START)?;
+        let service_result =
+            service_manager.open_service(OsString::from(SERVICE_NAME), ServiceAccess::START)?;
 
-    service_result.start(&[OsStr::new("")])?;
+        service_result.start(&[OsStr::new("")])?;
+    }
 
     while !is_service_running()? {
         tokio::time::sleep(Duration::from_millis(100)).await;

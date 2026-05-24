@@ -46,7 +46,9 @@ pub enum CloudSyncError {
     #[error(transparent)]
     Token(#[from] crate::core::auth::storage::TokenError),
     #[error(transparent)]
-    Xml(#[from] quick_xml::de::DeError),
+    XmlDe(#[from] quick_xml::de::DeError),
+    #[error(transparent)]
+    XmlSe(#[from] quick_xml::se::SeError),
     #[error(transparent)]
     Glob(#[from] glob::GlobError),
     #[error(transparent)]

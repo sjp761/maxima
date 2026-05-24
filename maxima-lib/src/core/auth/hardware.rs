@@ -57,13 +57,12 @@ impl HardwareInfo {
         use std::collections::HashMap;
 
         use log::warn;
-        use wmi::{COMLibrary, FilterValue, WMIConnection};
+        use wmi::{FilterValue, WMIConnection};
 
         use crate::util::wmi_utils;
 
         let wmi_thread = std::thread::spawn(move || {
-            let com_con = COMLibrary::new().unwrap();
-            let wmi_con = WMIConnection::new(com_con).unwrap();
+            let wmi_con = WMIConnection::new().unwrap();
 
             let os_data: Vec<wmi_utils::Win32OperatingSystem> = wmi_con.query().unwrap();
             let bios_data: Vec<wmi_utils::Win32BIOS> = wmi_con.query().unwrap();

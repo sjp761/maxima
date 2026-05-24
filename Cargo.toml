@@ -14,5 +14,5 @@ members = [
 strip = true
 
 [patch.crates-io]
-flate2 = { git = 'https://github.com/ArmchairDevelopers/flate2-rs.git' }
-async-compression = { git = 'https://github.com/ArmchairDevelopers/async-compression.git' }
+flate2 = { git = 'https://github.com/sjp761/flate2-rs.git' }
+async-compression = { git = 'https://github.com/sjp761/async-compression.git' }
