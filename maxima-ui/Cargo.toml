@@ -9,16 +9,16 @@ maxima-lib = { path = "../maxima-lib" }
 winapi = { version = "0.3.9", features = [ "memoryapi", "handleapi", "synchapi", "wincon", "consoleapi", "psapi", "wininet", "winerror", "iphlpapi", "tcpmib" ] }
 anyhow = "1.0.102"
 clap = { version = "4.6.1", features = ["derive"] }
-eframe = { version = "0.28.1", features = [ "persistence" ] }
-egui = "0.28.1"
-egui_extras = {version = "0.28.1", features = [ "svg", "all_loaders" ] }
-egui_demo_lib = "0.28.1"
+eframe = { version = "0.33.0", features = [ "persistence", "glow" ] }
+egui = "0.33.0"
+egui_extras = {version = "0.33.0", features = [ "svg", "all_loaders" ] }
+egui_demo_lib = "0.33.0"
 image = { version = "0.25.10", features = [ "png", "jpeg" ] }
-reqwest = { version = "0.13.3", features = ["stream", "rustls"], default-features = false }
+reqwest = { version = "0.13.4", features = ["stream", "rustls"], default-features = false }
 serde = "1.0.228"
 serde_json = "1.0.150"
 tokio = { version = "1.52.3", features = ["full"] }
-log = "0.4.29"
+log = "0.4.30"
 puffin_http = "0.17.0"
 puffin = "0.20.0"
 strum = "0.28.0"

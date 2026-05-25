@@ -30,7 +30,7 @@ lazy_static = "1.5.0"
 reqwest = { version = "0.13.3", features = ["stream", "rustls", "gzip", "json", "form", "query"], default-features = false }
 base64 = "0.22.1"
 base62 = "2.2.4"
-log = "0.4.29"
+log = "0.4.30"
 enable-ansi-support = "0.3.1"
 chrono = "0.4.44"
 regex = "1.12.3"

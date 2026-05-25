@@ -1,4 +1,6 @@
-use egui::{pos2, vec2, Align2, Color32, FontId, Id, Rect, Rounding, Stroke, Ui, Vec2};
+use egui::{
+    pos2, vec2, Align2, Color32, CornerRadius, FontId, Id, Rect, Stroke, StrokeKind, Ui, Vec2,
+};
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use maxima::rtm::client::BasicPresence;
 
@@ -50,11 +52,11 @@ const DARK_GREY: Color32 = Color32::from_rgb(64, 64, 64);
 const PFP_SIZE: f32 = 36.0;
 const PFP_CORNER_RADIUS: f32 = 2.0;
 const PFP_ELEMENT_SIZE: f32 = PFP_SIZE + PFP_CORNER_RADIUS * 2.0;
-const FRIEND_HIGHLIGHT_ROUNDING: Rounding = Rounding {
-    nw: 6.0,
-    ne: 4.0,
-    sw: 6.0,
-    se: 4.0,
+const FRIEND_HIGHLIGHT_ROUNDING: CornerRadius = CornerRadius {
+    nw: 6,
+    ne: 4,
+    sw: 6,
+    se: 4,
 }; // the status border is flawed somehow, this "fixes" it slightly more than if i didn't
 const ITEM_SPACING: Vec2 = vec2(5.0, 5.0);
 
@@ -104,27 +106,27 @@ pub fn friends_view(app: &mut MaximaEguiApp, ui: &mut Ui) {
           ui.visuals_mut().widgets.inactive.expansion = 0.0;
           ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
           ui.visuals_mut().widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
-          ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0, Color32::WHITE);
-          ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0, DARK_GREY);
-          ui.visuals_mut().widgets.inactive.rounding = Rounding::same(2.0);
+          ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0_f32, Color32::WHITE);
+          ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0_f32, DARK_GREY);
+          ui.visuals_mut().widgets.inactive.corner_radius = CornerRadius::same(2);
 
           ui.visuals_mut().widgets.active.bg_fill = Color32::TRANSPARENT;
           ui.visuals_mut().widgets.active.weak_bg_fill = Color32::TRANSPARENT;
-          ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.0, Color32::WHITE);
-          ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(2.0, DARK_GREY);
-          ui.visuals_mut().widgets.active.rounding = Rounding::same(2.0);
+          ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.0_f32, Color32::WHITE);
+          ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(2.0_f32, DARK_GREY);
+          ui.visuals_mut().widgets.active.corner_radius = CornerRadius::same(2);
 
           ui.visuals_mut().widgets.hovered.bg_fill = Color32::TRANSPARENT;
           ui.visuals_mut().widgets.hovered.weak_bg_fill = Color32::TRANSPARENT;
-          ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0, F9B233);
-          ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(2.0, F9B233);
-          ui.visuals_mut().widgets.hovered.rounding = Rounding::same(2.0);
+          ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0_f32, F9B233);
+          ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(2.0_f32, F9B233);
+          ui.visuals_mut().widgets.hovered.corner_radius = CornerRadius::same(2);
 
           ui.visuals_mut().widgets.open.bg_fill = DARK_GREY;
           ui.visuals_mut().widgets.open.weak_bg_fill = DARK_GREY;
-          ui.visuals_mut().widgets.open.fg_stroke = Stroke::new(2.0, Color32::WHITE);
-          ui.visuals_mut().widgets.open.bg_stroke = Stroke::new(2.0, DARK_GREY);
-          ui.visuals_mut().widgets.open.rounding = Rounding::same(2.0);
+          ui.visuals_mut().widgets.open.fg_stroke = Stroke::new(2.0_f32, Color32::WHITE);
+          ui.visuals_mut().widgets.open.bg_stroke = Stroke::new(2.0_f32, DARK_GREY);
+          ui.visuals_mut().widgets.open.corner_radius = CornerRadius::same(2);
 
           if ui.add_sized(
             [ui.available_width(), 20.0],
@@ -188,9 +190,9 @@ pub fn friends_view(app: &mut MaximaEguiApp, ui: &mut Ui) {
 
       // scrollbar
       ui.style_mut().visuals.widgets.inactive.bg_fill = Color32::WHITE;
-      ui.style_mut().visuals.widgets.inactive.rounding = Rounding::same(4.0);
-      ui.style_mut().visuals.widgets.active.rounding = Rounding::same(4.0);
-      ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(4.0);
+      ui.style_mut().visuals.widgets.inactive.corner_radius = CornerRadius::same(4);
+      ui.style_mut().visuals.widgets.active.corner_radius = CornerRadius::same(4);
+      ui.style_mut().visuals.widgets.hovered.corner_radius = CornerRadius::same(4);
       ui.style_mut().spacing.scroll.floating = false;
       let clip_rect = ui.available_rect_before_wrap().clone();
       egui::ScrollArea::new([false,friend_rect_hovered])
@@ -299,7 +301,13 @@ pub fn friends_view(app: &mut MaximaEguiApp, ui: &mut Ui) {
               main_painter.image(app.img_cache.placeholder_avatar.id(), pfp_rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             }
 
-            main_painter.rect(outline_rect, Rounding::same(4.0), Color32::TRANSPARENT, Stroke::new(2.0, friend_color));
+            main_painter.rect(
+              outline_rect,
+              CornerRadius::same(4),
+              Color32::TRANSPARENT,
+              Stroke::new(2.0_f32, friend_color),
+              StrokeKind::Outside,
+            );
 
             let text_col = if main_res.is_pointer_button_down_on() || main_res.hovered() || buttons {
               Color32::BLACK

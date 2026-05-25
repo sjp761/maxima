@@ -4,8 +4,8 @@ use crate::{
     InstallModalState, MaximaEguiApp, PageType, PopupModal,
 };
 use egui::{
-    pos2, vec2, Color32, Margin, Mesh, Pos2, Rect, RichText, Rounding, ScrollArea, Shape, Stroke,
-    Ui, Widget,
+    pos2, vec2, Color32, CornerRadius, Margin, Mesh, Pos2, Rect, RichText, ScrollArea, Shape,
+    Stroke, Ui, Widget,
 };
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
@@ -41,7 +41,7 @@ fn skeleton_text_block(ui: &mut egui::Ui, width: f32, height: f32) {
     let mut skeleton_rect = ui.available_rect_before_wrap();
     skeleton_rect.set_width(width);
     skeleton_rect.set_height(height);
-    ui.painter().rect_filled(skeleton_rect, Rounding::same(2.0), SKELETON_TEXT_COLOR);
+    ui.painter().rect_filled(skeleton_rect, CornerRadius::same(2), SKELETON_TEXT_COLOR);
     ui.allocate_space(vec2(width, height));
 }
 
@@ -49,16 +49,16 @@ fn skeleton_text_block1(ui: &mut egui::Ui, width: f32, width1: f32, height: f32)
     let mut rect = ui.available_rect_before_wrap();
     rect.set_width(width);
     rect.set_height(height);
-    ui.painter().rect_filled(rect, Rounding::same(2.0), SKELETON_INFO_COLOR);
+    ui.painter().rect_filled(rect, CornerRadius::same(2), SKELETON_INFO_COLOR);
     rect.min.x = rect.max.x + ui.spacing().item_spacing.x;
     rect.set_width(width1);
-    ui.painter().rect_filled(rect, Rounding::same(2.0), SKELETON_TEXT_COLOR);
+    ui.painter().rect_filled(rect, CornerRadius::same(2), SKELETON_TEXT_COLOR);
     ui.allocate_space(vec2(width + width1 + ui.spacing().item_spacing.x, height));
 }
 
 fn game_view_action_button(text: String, ui: &mut Ui) -> bool {
     egui::Button::new(egui::RichText::new(text).size(20.0).color(Color32::WHITE))
-        .rounding(Rounding::same(2.0))
+        .corner_radius(CornerRadius::same(2))
         .min_size(vec2(50.0, 40.0))
         .ui(ui)
         .clicked()
@@ -67,7 +67,7 @@ fn game_view_action_button(text: String, ui: &mut Ui) -> bool {
 fn game_view_action_buttons(app: &mut MaximaEguiApp, game: &GameInfo, ui: &mut Ui) {
     let localization = &app.locale.localization.games_view.main;
     let buttons_frame = egui::Frame::default()
-        .outer_margin(Margin::symmetric(0.0, 8.0))
+        .outer_margin(Margin::symmetric(0, 8))
         .fill(Color32::TRANSPARENT);
     buttons_frame.show(ui, |buttons| {
         puffin::profile_scope!("action buttons");
@@ -239,9 +239,9 @@ pub fn game_view_details_panel(app: &mut MaximaEguiApp, ui: &mut Ui) {
     ui.vertical(|ui| {
         // scrollbar
         ui.style_mut().visuals.widgets.inactive.bg_fill = Color32::WHITE;
-        ui.style_mut().visuals.widgets.inactive.rounding = Rounding::same(4.0);
-        ui.style_mut().visuals.widgets.active.rounding = Rounding::same(4.0);
-        ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(4.0);
+        ui.style_mut().visuals.widgets.inactive.corner_radius = CornerRadius::same(4);
+        ui.style_mut().visuals.widgets.active.corner_radius = CornerRadius::same(4);
+        ui.style_mut().visuals.widgets.hovered.corner_radius = CornerRadius::same(4);
 
         let mut logo_transition_frac = 0.0;
         ScrollArea::vertical()
@@ -278,7 +278,8 @@ pub fn game_view_details_panel(app: &mut MaximaEguiApp, ui: &mut Ui) {
                         );
                     }
                 } else {
-                    ui.painter().rect_filled(hero_rect, Rounding::same(0.0), Color32::TRANSPARENT);
+                    ui.painter()
+                        .rect_filled(hero_rect, CornerRadius::ZERO, Color32::TRANSPARENT);
                 }
 
                 if hero_vis_frac < 1.0
@@ -308,26 +309,27 @@ pub fn game_view_details_panel(app: &mut MaximaEguiApp, ui: &mut Ui) {
                 }
 
                 let avoid_scrollbar_margin = Margin {
-                    left: 0.0,
-                    right: ui.style().spacing.scroll.bar_width
-                        + ui.style().spacing.scroll.bar_inner_margin,
-                    top: 0.0,
-                    bottom: 0.0,
+                    left: 0,
+                    right: (ui.style().spacing.scroll.bar_width
+                        + ui.style().spacing.scroll.bar_inner_margin)
+                        .clamp(0.0, i8::MAX as f32) as i8,
+                    top: 0,
+                    bottom: 0,
                 };
 
-                let mut bar_rounding = Rounding::same(3.0);
-                bar_rounding.nw = 0.0;
-                bar_rounding.ne = 0.0;
+                let mut bar_rounding = CornerRadius::same(3);
+                bar_rounding.nw = 0;
+                bar_rounding.ne = 0;
                 let play_bar_frame = egui::Frame::default()
                     .outer_margin(avoid_scrollbar_margin)
-                    .rounding(Rounding::ZERO);
+                    .corner_radius(CornerRadius::ZERO);
                 play_bar_frame.show(ui, |ui| {
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 0.0;
                         let stats_frame = egui::Frame::default()
                             .fill(Color32::WHITE)
-                            .rounding(bar_rounding)
-                            .inner_margin(Margin::same(4.0));
+                            .corner_radius(bar_rounding)
+                            .inner_margin(Margin::same(4));
                         stats_frame.show(ui, |stats| {
                             puffin::profile_scope!("stats");
                             stats.horizontal(|stats| {
@@ -368,7 +370,7 @@ pub fn game_view_details_panel(app: &mut MaximaEguiApp, ui: &mut Ui) {
                                     skeleton_rect.set_width(126.0);
                                     stats.painter().rect_filled(
                                         skeleton_rect,
-                                        Rounding::same(2.0),
+                                        CornerRadius::same(2),
                                         SKELETON_TEXT_COLOR,
                                     );
                                     stats.allocate_space(vec2(126.0, 0.0));
@@ -377,7 +379,7 @@ pub fn game_view_details_panel(app: &mut MaximaEguiApp, ui: &mut Ui) {
                                     skeleton_rect.set_width(126.0);
                                     stats.painter().rect_filled(
                                         skeleton_rect,
-                                        Rounding::same(2.0),
+                                        CornerRadius::same(2),
                                         SKELETON_TEXT_COLOR,
                                     );
                                 }
@@ -403,7 +405,7 @@ pub fn game_view_details_panel(app: &mut MaximaEguiApp, ui: &mut Ui) {
                                 dlc.allocate_exact_size(vec2(400.0, 200.0), egui::Sense::click());
                             dlc.painter().rect_filled(
                                 rect,
-                                Rounding::same(4.0),
+                                CornerRadius::same(4),
                                 Color32::from_black_alpha(128),
                             );
                             dlc.allocate_ui_at_rect(rect, |dlc| {
@@ -497,27 +499,29 @@ fn show_game_list_buttons(app: &mut MaximaEguiApp, ui: &mut Ui) {
             filter_chunk.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
             filter_chunk.visuals_mut().widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
             filter_chunk.visuals_mut().widgets.inactive.fg_stroke =
-                Stroke::new(2.0, Color32::WHITE);
-            filter_chunk.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0, DARK_GREY);
-            filter_chunk.visuals_mut().widgets.inactive.rounding = Rounding::same(2.0);
+                Stroke::new(2.0_f32, Color32::WHITE);
+            filter_chunk.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0_f32, DARK_GREY);
+            filter_chunk.visuals_mut().widgets.inactive.corner_radius = CornerRadius::same(2);
 
             filter_chunk.visuals_mut().widgets.active.bg_fill = Color32::TRANSPARENT;
             filter_chunk.visuals_mut().widgets.active.weak_bg_fill = Color32::TRANSPARENT;
-            filter_chunk.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.0, Color32::WHITE);
-            filter_chunk.visuals_mut().widgets.active.bg_stroke = Stroke::new(2.0, DARK_GREY);
-            filter_chunk.visuals_mut().widgets.active.rounding = Rounding::same(2.0);
+            filter_chunk.visuals_mut().widgets.active.fg_stroke =
+                Stroke::new(2.0_f32, Color32::WHITE);
+            filter_chunk.visuals_mut().widgets.active.bg_stroke = Stroke::new(2.0_f32, DARK_GREY);
+            filter_chunk.visuals_mut().widgets.active.corner_radius = CornerRadius::same(2);
 
             filter_chunk.visuals_mut().widgets.hovered.bg_fill = Color32::TRANSPARENT;
             filter_chunk.visuals_mut().widgets.hovered.weak_bg_fill = Color32::TRANSPARENT;
-            filter_chunk.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0, F9B233);
-            filter_chunk.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(2.0, F9B233);
-            filter_chunk.visuals_mut().widgets.hovered.rounding = Rounding::same(2.0);
+            filter_chunk.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0_f32, F9B233);
+            filter_chunk.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(2.0_f32, F9B233);
+            filter_chunk.visuals_mut().widgets.hovered.corner_radius = CornerRadius::same(2);
 
             filter_chunk.visuals_mut().widgets.open.bg_fill = DARK_GREY;
             filter_chunk.visuals_mut().widgets.open.weak_bg_fill = DARK_GREY;
-            filter_chunk.visuals_mut().widgets.open.fg_stroke = Stroke::new(2.0, Color32::WHITE);
-            filter_chunk.visuals_mut().widgets.open.bg_stroke = Stroke::new(2.0, DARK_GREY);
-            filter_chunk.visuals_mut().widgets.open.rounding = Rounding::same(2.0);
+            filter_chunk.visuals_mut().widgets.open.fg_stroke =
+                Stroke::new(2.0_f32, Color32::WHITE);
+            filter_chunk.visuals_mut().widgets.open.bg_stroke = Stroke::new(2.0_f32, DARK_GREY);
+            filter_chunk.visuals_mut().widgets.open.corner_radius = CornerRadius::same(2);
 
             filter_chunk.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
 
@@ -555,9 +559,9 @@ fn show_game_list_buttons(app: &mut MaximaEguiApp, ui: &mut Ui) {
 
         // scrollbar
         ui.style_mut().visuals.widgets.inactive.bg_fill = Color32::WHITE;
-        ui.style_mut().visuals.widgets.inactive.rounding = Rounding::same(4.0);
-        ui.style_mut().visuals.widgets.active.rounding = Rounding::same(4.0);
-        ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(4.0);
+        ui.style_mut().visuals.widgets.inactive.corner_radius = CornerRadius::same(4);
+        ui.style_mut().visuals.widgets.active.corner_radius = CornerRadius::same(4);
+        ui.style_mut().visuals.widgets.hovered.corner_radius = CornerRadius::same(4);
 
         egui::ScrollArea::vertical()
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
@@ -602,14 +606,14 @@ fn show_game_list_buttons(app: &mut MaximaEguiApp, ui: &mut Ui) {
                             style.visuals.widgets.inactive.weak_bg_fill =
                                 F9B233.gamma_multiply(0.8);
                             style.visuals.widgets.inactive.fg_stroke =
-                                Stroke::new(2.0, Color32::BLACK);
+                                Stroke::new(2.0_f32, Color32::BLACK);
                         } else {
                             style.visuals.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
                             style.visuals.widgets.inactive.fg_stroke = {
                                 if game.installed {
-                                    Stroke::new(1.0, Color32::WHITE)
+                                    Stroke::new(1.0_f32, Color32::WHITE)
                                 } else {
-                                    Stroke::new(1.0, Color32::GRAY)
+                                    Stroke::new(1.0_f32, Color32::GRAY)
                                 }
                             };
                         }
@@ -641,7 +645,7 @@ fn show_game_list_buttons(app: &mut MaximaEguiApp, ui: &mut Ui) {
                                 (egui::TextureId::Managed(0), vec2(0.0, 0.0)),
                                 name,
                             )
-                            .rounding(Rounding::same(0.0)),
+                            .corner_radius(CornerRadius::ZERO),
                         );
                         list_response
                             .context_menu(|ui| game_list_button_context_menu(app, game, ui));
