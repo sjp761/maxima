@@ -10,22 +10,22 @@ tokio = { version = "1.52.3", features = [ "full", "rt", "rt-multi-thread", "tim
 serde = { version = "1.0.228", features = [ "derive" ] }
 serde_json = "1.0.150"
 paste = "1.0.15"
-reqwest = { version = "0.11.27", features = ["stream", "rustls-tls"], default-features = false }
-base64 = "0.21.7"
+reqwest = { version = "0.13.3", features = ["stream", "rustls"], default-features = false }
+base64 = "0.22.1"
 log = "0.4.29"
 regex = "1.12.3"
-directories = "5.0.1"
+directories = "6.0.0"
 structured-logger = "1.0.5"
 actix-web = "4.13.0"
-sha2 = "0.10.9"
-derive_more = "0.99.20"
+sha2 = "0.11.0"
+derive_more = "2.1.1"
 hex = "0.4.3"
 thiserror = "2.0.18"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = [ "memoryapi", "handleapi", "synchapi", "wincon", "consoleapi" ] }
-winreg = "0.50.0"
-windows-service = "0.6.0"
+winreg = "0.56.0"
+windows-service = "0.8.1"
 
 [build-dependencies]
 maxima-resources = { path = "../maxima-resources" }

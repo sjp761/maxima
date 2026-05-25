@@ -23,59 +23,59 @@ tokio = { version = "1.52.3", features = [
 moka = { version = "0.12.15", features = ["sync"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-quick-xml = { version = "0.30.0", features = ["serialize"] }
+quick-xml = { version = "0.40.1", features = ["serialize"] }
 paste = "1.0.15"
 hex = "0.4.3"
 lazy_static = "1.5.0"
-reqwest = { version = "0.11.27", features = ["stream", "rustls-tls", "gzip", "json"], default-features = false }
-base64 = "0.21.7"
+reqwest = { version = "0.13.3", features = ["stream", "rustls", "gzip", "json", "form", "query"], default-features = false }
+base64 = "0.22.1"
 base62 = "2.2.4"
 log = "0.4.29"
-enable-ansi-support = "0.2.1"
+enable-ansi-support = "0.3.1"
 chrono = "0.4.44"
 regex = "1.12.3"
-directories = "5.0.1"
+directories = "6.0.0"
 open = "5.3.5"
 querystring = "1.1.0"
-ureq = { version = "2.12.1", features = ["tls"] }
-sysinfo = "0.29.11"
-strum_macros = "0.25.3"
+ureq = { version = "3.2.1" }
+sysinfo = "0.36.1"
+strum_macros = "0.28.0"
 sha2-const = "0.1.2"
 tar = "0.4"
-flate2 = { version = "=1.0.28", default-features = false, features = ["zlib-default"] }
+flate2 = { version = "=1.1.10", default-features = false, features = ["zlib-default"] }
 xz2 = "0.1.7"
 zstd = "0.13.3"
-toml = "0.8.23"
+toml = "1.0.7"
 bytebuffer = "2.3.0"
-derive-getters = "0.3.0"
-derive_builder = "0.12.0"
+derive-getters = "0.5.0"
+derive_builder = "0.20.2"
 mac_address = "1.1.8"
 filetime = "0.2.29"
 rand = "0.9.4"
 ring = "0.17.14"
 futures = "0.3.32"
-prost = "0.12.6"
+prost = "0.14.1"
 encoding = "0.2.33"
-async-compression = { version = "0.4.5", features = ["tokio", "deflate"] }
+async-compression = { version = "0.4.36", features = ["tokio", "deflate"] }
 tokio-util = { version = "0.7.18", features = ["io", "compat"] }
 uuid = "1.20.0"
-tokio-rustls = "0.23.4"
-rustls = "0.20.9"
-webpki-roots = "0.22.6"
+tokio-rustls = "0.26.4"
+rustls = "0.23.40"
+webpki-roots = "1.0.7"
 aes = "0.8.4"
 ecb = { version = "0.1.2", features = ["std"] }
 cbc = { version = "0.1.2", features = ["std"] }
 glob = "0.3.3"
-md5 = "0.7.0"
+md5 = "0.8.0"
 bytes = "1.11.1"
 async-trait = "0.1.89"
 crc32fast = "1.5.0"
 async-recursion = "1.1.1"
 pelite = "0.10.0"
-gethostname = "0.5.0"
+gethostname = "1.1.0"
 thiserror = "2.0.18"
 url = "2.5.8"
-http = "0.2.12"
+http = "1.4.0"
 globset = "0.4"
 
 [target.'cfg(windows)'.dependencies]
@@ -91,13 +91,19 @@ winapi = { version = "0.3.9", features = [
     "iphlpapi",
     "tcpmib",
     "winsvc",
-    "impl-default"
+    "impl-default",
+    "shellapi",
+    "sddl",
+    "errhandlingapi",
+    "libloaderapi",
+    "winbase",
+    "winreg"
 ] }
-winreg = "0.51.0"
-windows-service = "0.6.0"
+winreg = "0.56.0"
+windows-service = "0.8.1"
 is_elevated = "0.1.2"
 widestring = "1.2.1"
-wmi = "0.13.4"
+wmi = "0.18.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation-sys = "0.8"
@@ -105,7 +111,7 @@ io-kit-sys = "0.5.0"
 which = "8.0.2"
 
 [build-dependencies]
-prost-build = "0.12.6"
+prost-build = "0.14.1"
 
 [lib]
 name = "maxima"

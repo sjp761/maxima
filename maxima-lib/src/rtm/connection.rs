@@ -13,7 +13,7 @@ use prost::{
     bytes::{Buf, BufMut, BytesMut},
     Message,
 };
-use rustls::{ClientConfig, OwnedTrustAnchor};
+use rustls::{ClientConfig, pki_types::{ServerName, TrustAnchor}};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -92,25 +92,24 @@ impl RtmConnectionManager {
         request_rx: &mut mpsc::Receiver<RtmRequest>,
         update_presence_tx: &mut mpsc::Sender<communication_v1::Body>,
     ) -> Result<(), Box<dyn Error>> {
-        let anchors = TLS_SERVER_ROOTS.0.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        });
+        let anchors: Vec<_>  = TLS_SERVER_ROOTS.iter().map(|ta| {
+           TrustAnchor {
+                subject: ta.subject.clone(),
+                subject_public_key_info: ta.subject_public_key_info.clone(),
+                name_constraints: ta.name_constraints.clone(),
+            }
+        }).collect();
 
         let mut store = rustls::RootCertStore::empty();
-        store.add_server_trust_anchors(anchors);
+        store.roots = anchors;
 
         let config = ClientConfig::builder()
-            .with_safe_defaults()
             .with_root_certificates(store)
             .with_no_client_auth();
 
         let connector = TlsConnector::from(Arc::new(config));
 
-        let domain = rustls::ServerName::try_from(RTM_DOMAIN)?;
+        let domain = ServerName::try_from(RTM_DOMAIN)?;
         let mut tls_stream = connector.connect(domain, stream).await?;
 
         let mut pending_responses: HashMap<String, oneshot::Sender<Communication>> = HashMap::new();
