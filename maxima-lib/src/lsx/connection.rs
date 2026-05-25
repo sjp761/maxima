@@ -55,7 +55,7 @@ use crate::{
 pub enum LSXConnectionError {
     #[error(transparent)]
     XmlDe(#[from] DeError),
-     #[error(transparent)]
+    #[error(transparent)]
     XmlSe(#[from] SeError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -219,7 +219,8 @@ impl Connection {
                     let filename = PathBuf::from(
                         process.cmd()[0]
                             .to_owned()
-                            .into_string().unwrap()
+                            .into_string()
+                            .unwrap()
                             .replace("Z:", "")
                             .replace('\\', "/"),
                     )

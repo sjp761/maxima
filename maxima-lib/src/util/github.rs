@@ -51,7 +51,7 @@ pub fn fetch_github_release(
         author, repository, version
     );
 
-    let res  = ureq::get(&url)
+    let res = ureq::get(&url)
         .header("User-Agent", "ArmchairDevelopers/Maxima")
         .call()?;
     if res.status() != StatusCode::OK {
@@ -73,7 +73,9 @@ pub fn github_download_asset(asset: &GithubAsset, path: &PathBuf) -> Result<(), 
 
     let mut downloaded_content: Vec<u8> = vec![];
     let mut body = res.into_body();
-    body.as_reader().take(asset.size).read_to_end(&mut downloaded_content)?;
+    body.as_reader()
+        .take(asset.size)
+        .read_to_end(&mut downloaded_content)?;
 
     std::fs::write(path, downloaded_content)?;
     Ok(())

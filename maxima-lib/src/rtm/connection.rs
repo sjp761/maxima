@@ -13,7 +13,10 @@ use prost::{
     bytes::{Buf, BufMut, BytesMut},
     Message,
 };
-use rustls::{ClientConfig, pki_types::{ServerName, TrustAnchor}};
+use rustls::{
+    pki_types::{ServerName, TrustAnchor},
+    ClientConfig,
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -92,13 +95,14 @@ impl RtmConnectionManager {
         request_rx: &mut mpsc::Receiver<RtmRequest>,
         update_presence_tx: &mut mpsc::Sender<communication_v1::Body>,
     ) -> Result<(), Box<dyn Error>> {
-        let anchors: Vec<_>  = TLS_SERVER_ROOTS.iter().map(|ta| {
-           TrustAnchor {
+        let anchors: Vec<_> = TLS_SERVER_ROOTS
+            .iter()
+            .map(|ta| TrustAnchor {
                 subject: ta.subject.clone(),
                 subject_public_key_info: ta.subject_public_key_info.clone(),
                 name_constraints: ta.name_constraints.clone(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let mut store = rustls::RootCertStore::empty();
         store.roots = anchors;
