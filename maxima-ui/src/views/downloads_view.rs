@@ -1,7 +1,4 @@
-use egui::{
-    pos2, vec2, Align2, Color32, CornerRadius, FontId, Mesh, Rect, Shape, Stroke, StrokeKind, Ui,
-    Widget,
-};
+use egui::{pos2, vec2, Align2, Color32, FontId, Mesh, Rect, Rounding, Shape, Stroke, Ui, Widget};
 use humansize::DECIMAL;
 
 use crate::{MaximaEguiApp, APP_MARGIN};
@@ -35,23 +32,19 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
             max: ui.cursor().min + container_size,
         };
 
-        let corner_radius = 8;
+        let corner_radius = 8.0;
 
-        ui.painter().rect_filled(rect, CornerRadius::same(corner_radius), Color32::BLACK);
+        ui.painter().rect_filled(rect, Rounding::same(corner_radius), Color32::BLACK);
 
-        let img_rounding = CornerRadius {
+        let img_rounding = Rounding {
             nw: corner_radius,
-            ne: 0,
+            ne: 0.0,
             sw: corner_radius,
-            se: 0,
+            se: 0.0,
         };
         let img_response = if let Some(img) = hero {
             let img_size = vec2((160.0 / img.size_vec2().y) * img.size_vec2().x, 160.0);
-            ui.add(
-                egui::Image::new((img.id(), img_size))
-                    .corner_radius(img_rounding)
-                    .max_size(img_size),
-            )
+            ui.add(egui::Image::new((img.id(), img_size)).rounding(img_rounding).max_size(img_size))
         } else {
             let response = ui.allocate_response(vec2(284.0, 16.0), egui::Sense::click());
             ui.painter().rect_filled(response.rect, img_rounding, Color32::GRAY);
@@ -91,10 +84,9 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
 
         ui.painter().rect(
             rect,
-            CornerRadius::same(corner_radius),
+            Rounding::same(corner_radius),
             Color32::TRANSPARENT,
-            Stroke::new(2.0_f32, Color32::WHITE),
-            StrokeKind::Outside,
+            Stroke::new(2.0, Color32::WHITE),
         );
 
         ui.painter().text(
@@ -111,21 +103,20 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
         let button_size = 40.0;
         let right_button_rect = Rect {
             min: pos2(
-                rect.max.x - ((corner_radius as f32 - 1.0) + button_size),
-                rect.min.y + (corner_radius as f32 - 1.0),
+                rect.max.x - ((corner_radius - 1.0) + button_size),
+                rect.min.y + (corner_radius - 1.0),
             ),
             max: pos2(
-                rect.max.x - (corner_radius as f32 - 1.0),
-                rect.min.y + (corner_radius as f32 - 1.0) + button_size,
+                rect.max.x - (corner_radius - 1.0),
+                rect.min.y + (corner_radius - 1.0) + button_size,
             ),
         };
-        let left_button_rect =
-            right_button_rect.translate(vec2(0.0, button_size + corner_radius as f32));
+        let left_button_rect = right_button_rect.translate(vec2(0.0, button_size + corner_radius));
 
         if is_current {
             let progress_bar_rect = Rect {
                 min: img_response.rect.max + vec2(0.0, -18.0),
-                max: rect.max - vec2(corner_radius as f32, corner_radius as f32),
+                max: rect.max - vec2(corner_radius, corner_radius),
             };
 
             let progress_bar_progress = Rect {
@@ -140,11 +131,11 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
 
             ui.painter().rect_filled(
                 progress_bar_rect,
-                CornerRadius::ZERO,
+                Rounding::same(0.0),
                 Color32::from_white_alpha(60),
             );
 
-            ui.painter().rect_filled(progress_bar_progress, CornerRadius::ZERO, Color32::WHITE);
+            ui.painter().rect_filled(progress_bar_progress, Rounding::same(0.0), Color32::WHITE);
 
             ui.painter().text(
                 progress_bar_rect.min - vec2(0.0, 8.0),
@@ -175,7 +166,7 @@ fn render_queued(app: &mut MaximaEguiApp, ui: &mut Ui, game: &QueuedDownload, is
             }
         } else {
             ui.painter().text(
-                img_response.rect.max + vec2(18.0, -(corner_radius as f32)),
+                img_response.rect.max + vec2(18.0, -corner_radius),
                 Align2::LEFT_BOTTOM,
                 "Queued",
                 FontId::proportional(22.0),

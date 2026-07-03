@@ -188,7 +188,7 @@ pub(crate) async fn install_runtime(
     };
 
     let res = match ureq::get(&runtime.url)
-        .header("User-Agent", "ArmchairDevelopers/Maxima")
+        .set("User-Agent", "ArmchairDevelopers/Maxima")
         .call()
     {
         Err(err) => return Err(NativeError::Download(DownloadError::Request1(err))),
@@ -199,9 +199,8 @@ pub(crate) async fn install_runtime(
         return Err(NativeError::Download(DownloadError::Http(key.to_string())));
     }
 
-    let mut downloaded_content: Vec<u8> = vec![];
-    let mut body = res.into_body();
-    body.as_reader().read_to_end(&mut downloaded_content)?;
+    let mut body: Vec<u8> = vec![];
+    res.into_reader().read_to_end(&mut body)?;
 
     if path.exists() {
         remove_dir_all(&path)?;
@@ -210,9 +209,9 @@ pub(crate) async fn install_runtime(
     create_dir_all(&path)?;
 
     let data: Box<dyn std::io::Read> = if runtime.url.ends_with(".xz") {
-        Box::new(XzDecoder::new(&downloaded_content[..]))
+        Box::new(XzDecoder::new(&body[..]))
     } else {
-        Box::new(&downloaded_content[..])
+        Box::new(&body[..])
     };
 
     let archive = Archive::new(data);

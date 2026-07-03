@@ -5,9 +5,8 @@ use egui::{
     pos2,
     style::{ScrollStyle, Spacing},
     style::{WidgetVisuals, Widgets},
-    vec2, Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Layout,
-    Margin, Rect, Response, Stroke, StrokeKind, Style, TextureId, Ui, Vec2, ViewportBuilder,
-    Visuals, Widget,
+    vec2, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, Layout, Margin, Rect,
+    Response, Rounding, Stroke, Style, TextureId, Ui, Vec2, ViewportBuilder, Visuals, Widget,
 };
 use log::error;
 use maxima::{core::library::OwnedOffer, util::log::init_logger};
@@ -389,32 +388,32 @@ impl MaximaEguiApp {
                         weak_bg_fill: F9B233,
                         bg_fill: F9B233,
                         bg_stroke: Stroke::NONE,
-                        fg_stroke: Stroke::new(1.0_f32, Color32::BLACK),
-                        corner_radius: CornerRadius::ZERO,
+                        fg_stroke: Stroke::new(1.0, Color32::BLACK),
+                        rounding: Rounding::ZERO,
                         expansion: -1.0,
                     },
                     inactive: WidgetVisuals {
                         weak_bg_fill: Color32::TRANSPARENT,
                         bg_fill: Color32::BLACK,
-                        bg_stroke: Stroke::new(2.0_f32, Color32::WHITE),
-                        fg_stroke: Stroke::new(1.5_f32, Color32::WHITE),
-                        corner_radius: CornerRadius::same(2),
+                        bg_stroke: Stroke::new(2.0, Color32::WHITE),
+                        fg_stroke: Stroke::new(1.5, Color32::WHITE),
+                        rounding: Rounding::same(2.0),
                         expansion: -2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: WIDGET_HOVER.linear_multiply(0.6),
                         bg_fill: WIDGET_HOVER.linear_multiply(0.6),
                         bg_stroke: Stroke::NONE,
-                        fg_stroke: Stroke::new(2.0_f32, WIDGET_HOVER.linear_multiply(0.6)),
-                        corner_radius: CornerRadius::ZERO,
+                        fg_stroke: Stroke::new(2.0, WIDGET_HOVER.linear_multiply(0.6)),
+                        rounding: Rounding::ZERO,
                         expansion: 0.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: WIDGET_HOVER.linear_multiply(0.0),
                         bg_fill: WIDGET_HOVER.linear_multiply(0.0),
                         bg_stroke: Stroke::NONE,
-                        fg_stroke: Stroke::new(2.0_f32, WIDGET_HOVER.linear_multiply(0.0)),
-                        corner_radius: CornerRadius::ZERO,
+                        fg_stroke: Stroke::new(2.0, WIDGET_HOVER.linear_multiply(0.0)),
+                        rounding: Rounding::ZERO,
                         expansion: 0.0,
                     },
                     ..Default::default()
@@ -428,7 +427,7 @@ impl MaximaEguiApp {
 
         fonts.font_data.insert(
             "ibm_plex".to_owned(),
-            FontData::from_static(include_bytes!("../fonts/IBMPlexSans-Regular.ttf")).into(),
+            FontData::from_static(include_bytes!("../fonts/IBMPlexSans-Regular.ttf")),
         );
 
         fonts
@@ -504,11 +503,11 @@ pub fn tab_bar_button(ui: &mut Ui, res: Response) {
     ui.painter().vline(
         res2.min.x + 2.0,
         RangeInclusive::new(res2.min.y, res2.max.y),
-        Stroke::new(2.0_f32, ACCENT_COLOR),
+        Stroke::new(2.0, ACCENT_COLOR),
     );
     ui.painter().rect_filled(
         res2,
-        CornerRadius::ZERO,
+        Rounding::ZERO,
         if res.hovered() {
             ACCENT_COLOR
         } else {
@@ -531,13 +530,13 @@ fn custom_window_frame(
 
     let panel_frame = egui::Frame {
         fill: Color32::RED,
-        corner_radius: CornerRadius::ZERO,
+        rounding: 0.0.into(),
         stroke: Stroke::NONE,
         outer_margin: Margin {
-            left: APP_MARGIN.x as i8,
-            right: APP_MARGIN.x as i8,
-            top: (APP_MARGIN.y + if !enabled { APP_MARGIN.y * 3.0 } else { 0.0 }) as i8,
-            bottom: APP_MARGIN.y as i8,
+            left: APP_MARGIN.x,
+            right: APP_MARGIN.x,
+            top: APP_MARGIN.y + if !enabled { APP_MARGIN.y * 3.0 } else { 0.0 },
+            bottom: APP_MARGIN.y,
         },
         ..Default::default()
     };
@@ -551,7 +550,7 @@ fn custom_window_frame(
                     APP_MARGIN.y * 3.0,
                 ),
             };
-            ui.painter().rect_filled(warning_rect, CornerRadius::ZERO, Color32::RED);
+            ui.painter().rect_filled(warning_rect, Rounding::same(0.0), Color32::RED);
             ui.painter().text(
                 warning_rect.center(),
                 Align2::CENTER_CENTER,
@@ -567,32 +566,32 @@ fn custom_window_frame(
 /// Wrapper/helper for the tab buttons in the top left of the app
 fn tab_button(ui: &mut Ui, edit_var: &mut PageType, page: PageType, label: &str) {
     puffin::profile_function!();
-    ui.style_mut().visuals.widgets.inactive.corner_radius = CornerRadius::ZERO;
-    ui.style_mut().visuals.widgets.active.corner_radius = CornerRadius::ZERO;
-    ui.style_mut().visuals.widgets.hovered.corner_radius = CornerRadius::ZERO;
+    ui.style_mut().visuals.widgets.inactive.rounding = Rounding::ZERO;
+    ui.style_mut().visuals.widgets.active.rounding = Rounding::ZERO;
+    ui.style_mut().visuals.widgets.hovered.rounding = Rounding::ZERO;
     ui.style_mut().visuals.widgets.inactive.expansion = -1.0;
     ui.style_mut().visuals.widgets.active.expansion = -1.0;
     ui.style_mut().visuals.widgets.hovered.expansion = -1.0;
 
     if edit_var == &page {
         ui.style_mut().visuals.widgets.inactive.weak_bg_fill = Color32::WHITE;
-        ui.style_mut().visuals.widgets.inactive.fg_stroke = Stroke::new(2.0_f32, Color32::BLACK);
+        ui.style_mut().visuals.widgets.inactive.fg_stroke = Stroke::new(2.0, Color32::BLACK);
         ui.style_mut().visuals.widgets.inactive.bg_stroke = Stroke::NONE;
         ui.style_mut().visuals.widgets.active.weak_bg_fill = Color32::WHITE;
-        ui.style_mut().visuals.widgets.active.fg_stroke = Stroke::new(2.0_f32, Color32::BLACK);
+        ui.style_mut().visuals.widgets.active.fg_stroke = Stroke::new(2.0, Color32::BLACK);
         ui.style_mut().visuals.widgets.active.bg_stroke = Stroke::NONE;
         ui.style_mut().visuals.widgets.hovered.weak_bg_fill = Color32::WHITE;
-        ui.style_mut().visuals.widgets.hovered.fg_stroke = Stroke::new(2.0_f32, Color32::BLACK);
+        ui.style_mut().visuals.widgets.hovered.fg_stroke = Stroke::new(2.0, Color32::BLACK);
         ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::NONE;
     } else {
         ui.style_mut().visuals.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
-        ui.style_mut().visuals.widgets.inactive.fg_stroke = Stroke::new(2.0_f32, Color32::WHITE);
+        ui.style_mut().visuals.widgets.inactive.fg_stroke = Stroke::new(2.0, Color32::WHITE);
         ui.style_mut().visuals.widgets.inactive.bg_stroke = Stroke::NONE;
         ui.style_mut().visuals.widgets.active.weak_bg_fill = Color32::TRANSPARENT;
-        ui.style_mut().visuals.widgets.active.fg_stroke = Stroke::new(2.0_f32, F9B233);
+        ui.style_mut().visuals.widgets.active.fg_stroke = Stroke::new(2.0, F9B233);
         ui.style_mut().visuals.widgets.active.bg_stroke = Stroke::NONE;
         ui.style_mut().visuals.widgets.hovered.weak_bg_fill = Color32::TRANSPARENT;
-        ui.style_mut().visuals.widgets.hovered.fg_stroke = Stroke::new(2.0_f32, F9B233);
+        ui.style_mut().visuals.widgets.hovered.fg_stroke = Stroke::new(2.0, F9B233);
         ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::NONE;
     }
     let text = egui::RichText::new(label.to_uppercase()).size(16.0);
@@ -635,15 +634,15 @@ impl MaximaEguiApp {
     fn tab_bar(&mut self, header: &mut Ui) {
         puffin::profile_function!();
         let navbar = egui::Frame::default()
-            .stroke(Stroke::new(2.0_f32, Color32::WHITE))
-            .inner_margin(Margin::same(0))
-            .outer_margin(Margin::same(2))
-            .corner_radius(CornerRadius::same(4));
+            .stroke(Stroke::new(2.0, Color32::WHITE))
+            .inner_margin(Margin::same(0.0))
+            .outer_margin(Margin::same(2.0))
+            .rounding(Rounding::same(4.0));
         navbar.show(header, |ui| {
             ui.horizontal(|ui| {
                 let loc = &self.locale.localization.menubar;
                 ui.spacing_mut().item_spacing.x = 0.0;
-                ui.style_mut().visuals.widgets.inactive.corner_radius = CornerRadius::ZERO;
+                ui.style_mut().visuals.widgets.inactive.rounding = Rounding::ZERO;
                 tab_button(ui, &mut self.page_view, PageType::Games, &loc.games);
                 tab_button(ui, &mut self.page_view, PageType::Store, &loc.store);
                 tab_button(ui, &mut self.page_view, PageType::Settings, &loc.settings);
@@ -678,10 +677,9 @@ impl MaximaEguiApp {
             });
             rtl.painter().rect(
                 img_response.rect.expand(1.0),
-                CornerRadius::same(4),
+                Rounding::same(4.0),
                 Color32::TRANSPARENT,
                 stroke,
-                StrokeKind::Outside,
             );
             let point = img_response.rect.left_center() + vec2(-rtl.spacing().item_spacing.x, 2.0);
 
@@ -782,13 +780,10 @@ impl MaximaEguiApp {
             ui.allocate_ui_at_rect(app_rect, |contents| {
                     egui::Frame::default()
                     .fill(Color32::from_black_alpha(200))
-                    .outer_margin(Margin::symmetric(
-                        ((app_rect.width() - 600.0) / 2.0).clamp(0.0, i8::MAX as f32) as i8,
-                        ((app_rect.height() - 400.0) / 2.0).clamp(0.0, i8::MAX as f32) as i8,
-                    ))
-                        .inner_margin(Margin::same(12))
-                        .corner_radius(CornerRadius::same(8))
-                    .stroke(Stroke::new(4.0_f32, Color32::WHITE))
+                    .outer_margin(Margin::symmetric((app_rect.width() - 600.0) / 2.0, (app_rect.height() - 400.0) / 2.0))
+                    .inner_margin(Margin::same(12.0))
+                    .rounding(Rounding::same(8.0))
+                    .stroke(Stroke::new(4.0, Color32::WHITE))
                     .show(contents, |ui| {
                         ui.style_mut().spacing.interact_size = vec2(100.0, 30.0);
                         ui.spacing_mut().icon_width = 30.0;
@@ -921,9 +916,9 @@ impl MaximaEguiApp {
                                 ui.add_enabled_ui(!self.installer_state.locating, |ui| {
                                     let size = vec2(500.0 - (24.0 + ui.style().spacing.item_spacing.x*2.0), 30.0);
                                     ui.horizontal(|ui| {
-                                        ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::new(2.0_f32, F9B233);
+                                        ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::new(2.0, F9B233);
                                         ui.style_mut().visuals.widgets.hovered.expansion = -2.0;
-                                        ui.style_mut().visuals.widgets.hovered.corner_radius = CornerRadius::same(2);
+                                        ui.style_mut().visuals.widgets.hovered.rounding = Rounding::same(2.0);
                                         ui.add_sized(size, egui::TextEdit::singleline(&mut self.installer_state.install_folder).vertical_align(egui::Align::Center));
                                     });
                                     let path = PathBuf::from(self.installer_state.install_folder.clone());

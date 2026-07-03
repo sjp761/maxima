@@ -71,8 +71,6 @@ use crate::{
     util::native::{maxima_dir, NativeError},
 };
 
-use rustls::crypto;
-
 #[derive(Clone, IntoStaticStr)]
 pub enum MaximaEvent {
     /// PID, Request Type
@@ -149,8 +147,6 @@ impl Maxima {
     pub async fn new_with_options(
         options: MaximaOptions,
     ) -> Result<LockedMaxima, MaximaCreationError> {
-        let _ = crypto::CryptoProvider::install_default(crypto::ring::default_provider());
-
         let lsx_port = if let Ok(lsx_port) = env::var("MAXIMA_LSX_PORT") {
             lsx_port.parse::<u16>()?
         } else {

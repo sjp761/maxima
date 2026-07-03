@@ -13,7 +13,7 @@ use prost::{
     bytes::{Buf, BufMut, BytesMut},
     Message,
 };
-use rustls::{pki_types::ServerName, ClientConfig};
+use rustls::{ClientConfig, OwnedTrustAnchor};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -92,16 +92,25 @@ impl RtmConnectionManager {
         request_rx: &mut mpsc::Receiver<RtmRequest>,
         update_presence_tx: &mut mpsc::Sender<communication_v1::Body>,
     ) -> Result<(), Box<dyn Error>> {
+        let anchors = TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        });
+
         let mut store = rustls::RootCertStore::empty();
-        store.roots = TLS_SERVER_ROOTS.to_vec();
+        store.add_server_trust_anchors(anchors);
 
         let config = ClientConfig::builder()
+            .with_safe_defaults()
             .with_root_certificates(store)
             .with_no_client_auth();
 
         let connector = TlsConnector::from(Arc::new(config));
 
-        let domain = ServerName::try_from(RTM_DOMAIN)?;
+        let domain = rustls::ServerName::try_from(RTM_DOMAIN)?;
         let mut tls_stream = connector.connect(domain, stream).await?;
 
         let mut pending_responses: HashMap<String, oneshot::Sender<Communication>> = HashMap::new();

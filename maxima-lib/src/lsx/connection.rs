@@ -1,10 +1,10 @@
 use derive_getters::Getters;
 use lazy_static::lazy_static;
 use log::{debug, error, warn};
-use quick_xml::{DeError, SeError};
+use quick_xml::DeError;
 use regex::Regex;
 use std::{io::ErrorKind, path::PathBuf, sync::Arc};
-use sysinfo::{Pid, System};
+use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
@@ -54,9 +54,7 @@ use crate::{
 #[derive(Error, Debug)]
 pub enum LSXConnectionError {
     #[error(transparent)]
-    XmlDe(#[from] DeError),
-    #[error(transparent)]
-    XmlSe(#[from] SeError),
+    Xml(#[from] DeError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -143,7 +141,7 @@ pub fn get_os_pid(context: &ActiveGameContext) -> Result<u32, NativeError> {
             continue;
         }
 
-        let mut cmd = process.cmd()[0].to_owned().into_string().unwrap();
+        let mut cmd = process.cmd()[0].to_owned();
 
         // Wine path handling
         if cfg!(unix) && cmd.starts_with("Z:") {
@@ -155,8 +153,7 @@ pub fn get_os_pid(context: &ActiveGameContext) -> Result<u32, NativeError> {
         }
 
         for ele in process.environ() {
-            let ele = ele.clone().into_string().unwrap();
-            let (key, value) = ele.split_once('=').unwrap_or((&ele, ""));
+            let (key, value) = ele.split_once('=').unwrap_or((ele, ""));
             if key != "MXLaunchId" || value != context.launch_id() {
                 continue;
             }
@@ -219,8 +216,6 @@ impl Connection {
                     let filename = PathBuf::from(
                         process.cmd()[0]
                             .to_owned()
-                            .into_string()
-                            .unwrap()
                             .replace("Z:", "")
                             .replace('\\', "/"),
                     )

@@ -130,6 +130,7 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let result = startup().await;
+
     if let Some(e) = result.err() {
         match std::env::var("RUST_BACKTRACE") {
             Ok(_) => error!("{}:\n{}", e, e.backtrace().to_string()),

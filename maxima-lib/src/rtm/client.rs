@@ -235,7 +235,7 @@ impl RtmClient {
         }).await?;
 
         for ele in res.connected_sessions {
-            let platform = PlatformV1::try_from(ele.platform).map_err(|_| RtmError::Login)?;
+            let platform = PlatformV1::try_from(ele.platform)?;
             if platform != PlatformV1::Pc {
                 continue;
             }
