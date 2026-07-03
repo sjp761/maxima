@@ -103,7 +103,7 @@ pub fn check_desktop_icon() -> Result<(), DesktopError> {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
 pub fn check_desktop_icon() -> Result<(), DesktopError> {
     Ok(())
 }

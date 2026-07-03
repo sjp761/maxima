@@ -178,7 +178,7 @@ pub async fn get_wine_pid(
     Ok(0)
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub async fn get_wine_pid(
     launch_id: &str,
     name: &str,

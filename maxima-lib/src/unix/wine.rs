@@ -114,7 +114,6 @@ pub fn script_path() -> Result<PathBuf, NativeError> {
     }
 }
 
-#[cfg(target_os = "linux")]
 fn versions() -> Result<Versions, NativeError> {
     let file = maxima_dir()?.join(VERSION_FILE);
     if !file.exists() {
@@ -125,7 +124,6 @@ fn versions() -> Result<Versions, NativeError> {
     Ok(toml::from_str(&data).unwrap_or_default())
 }
 
-#[cfg(target_os = "linux")]
 fn set_versions(versions: Versions) -> Result<(), NativeError> {
     let file = maxima_dir()?.join(VERSION_FILE);
     std::fs::write(file, toml::to_string(&versions)?)?;
@@ -143,7 +141,6 @@ pub(crate) async fn get_lutris_runtimes() -> Result<Vec<LutrisRuntime>, WineErro
     Ok(data)
 }
 
-#[cfg(target_os = "linux")]
 pub(crate) async fn check_runtime_validity(
     key: &str,
     runtimes: &[LutrisRuntime],
@@ -167,7 +164,6 @@ pub(crate) async fn check_runtime_validity(
     Ok(runtime_version.is_some_and(|r| &r.created_at == version))
 }
 
-#[cfg(target_os = "linux")]
 pub(crate) async fn install_runtime(
     key: &str,
     runtimes: &[LutrisRuntime],
@@ -299,80 +295,6 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     Ok(output_str.to_string())
 }
 
-#[cfg(target_os = "macos")]
-pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
-    arg: T,
-    args: Option<I>,
-    cwd: Option<PathBuf>,
-    want_output: bool,
-    _command_type: CommandType,
-    slug: Option<&str>,
-) -> Result<String, NativeError> {
-    let wine_prefix_path = wine_prefix_dir(slug).unwrap();
-
-    info!("Wine Prefix: {:?}", wine_prefix_path);
-
-    let mut binding = Command::new(find_wine_command());
-    let mut child = binding
-        .env("WINEPREFIX", wine_prefix_path)
-        .env("WINEDEBUG", "fixme-all")
-        .arg(arg);
-
-    if let Some(arguments) = args {
-        child = child.args(arguments);
-    }
-
-    if let Some(cwd) = cwd {
-        child.current_dir(cwd);
-    }
-
-    let status: ExitStatus;
-    let mut output_str = String::new();
-
-    info!("Running command: {:?}", child);
-    if want_output {
-        let output = child
-            .stdout(Stdio::piped())
-            .spawn()?
-            .wait_with_output()
-            .await?;
-        output_str = String::from_utf8_lossy(&output.stdout).to_string();
-        status = output.status;
-    } else {
-        status = child.spawn()?.wait().await?;
-    };
-
-    if !status.success() {
-        return Err(NativeError::Wine(WineError::Command {
-            output: output_str,
-            exit: status,
-        }));
-    }
-
-    Ok(output_str.to_string())
-}
-
-#[cfg(target_os = "macos")]
-pub fn find_wine_command() -> String {
-    let maxima_wine_command = std::env::var("MAXIMA_WINE_COMMAND").ok();
-    if let Some(path) = maxima_wine_command {
-        let path = PathBuf::from(&path);
-        if path.exists() {
-            return path.to_str().unwrap_or("wine").to_string();
-        }
-    }
-
-    if let Ok(path) = which::which("wine") {
-        return path.to_str().unwrap_or("wine").to_string();
-    }
-    if let Ok(path) = which::which("wine64") {
-        return path.to_str().unwrap_or("wine").to_string();
-    }
-
-    "wine".to_string()
-}
-
-#[cfg(target_os = "linux")]
 fn extract_archive<R: Read + Sized>(
     dir: PathBuf,
     mut archive: Archive<R>,
@@ -514,7 +436,6 @@ pub async fn invalidate_mx_wine_registry() {
     MX_WINE_REGISTRY.lock().await.clear();
 }
 
-#[cfg(target_os = "linux")]
 fn normalize_key(key: &str) -> String {
     let lower_key = key.to_lowercase();
     if lower_key.starts_with("hkey_local_machine\\") {
