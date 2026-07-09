@@ -503,12 +503,6 @@ impl BridgeThread {
                         continue;
                     };
 
-                    #[cfg(unix)]
-                    let wine_prefix = wine_prefix; // We handle empty cases in the UI, so we can just pass it through here
-
-                    #[cfg(windows)]
-                    let wine_prefix = None;
-
                     let game = QueuedGameBuilder::default()
                         .offer_id(offer.clone())
                         .build_id(build.build_id().to_owned())

@@ -961,25 +961,25 @@ impl MaximaEguiApp {
                                             egui::Label::new(egui::RichText::new(format!("{}",
                                                 path.join(slug).display())).color(Color32::WHITE)).selectable(false).ui(folder_hint);
                                         });
-                                        #[cfg(unix)]
-                                        {
-                                            let effective_prefix = if self.installer_state.wine_prefix.is_empty() {
-                                                maxima::util::native::maxima_dir()
-                                                    .ok()
-                                                    .map(|d| d.join("wine/prefixes").join(slug))
-                                                    .map(|p| p.display().to_string())
-                                                    .unwrap_or_default()
-                                            } else {
-                                                self.installer_state.wine_prefix.clone()
-                                            };
-                                            ui.horizontal_wrapped(|prefix_hint| {
-                                                egui::Label::new("Wine prefix:").selectable(false).ui(prefix_hint);
-                                                egui::Label::new(egui::RichText::new(&effective_prefix).color(Color32::WHITE)).selectable(false).ui(prefix_hint);
-                                            });
-                                        }
                                         if !valid {
                                             egui::Label::new(egui::RichText::new(&self.locale.localization.modals.game_install.fresh_path_invalid).color(Color32::RED)).ui(ui);
                                         }
+                                    }
+                                    #[cfg(unix)]
+                                    {
+                                        let effective_prefix = if self.installer_state.wine_prefix.is_empty() {
+                                            maxima::util::native::maxima_dir()
+                                                .ok()
+                                                .map(|d| d.join("wine/prefixes").join(slug))
+                                                .map(|p| p.display().to_string())
+                                                .unwrap_or_default()
+                                        } else {
+                                            self.installer_state.wine_prefix.clone()
+                                        };
+                                        ui.horizontal_wrapped(|prefix_hint| {
+                                            egui::Label::new("Wine prefix:").selectable(false).ui(prefix_hint);
+                                            egui::Label::new(egui::RichText::new(&effective_prefix).color(Color32::WHITE)).selectable(false).ui(prefix_hint);
+                                        });
                                     }
                                 });
 
