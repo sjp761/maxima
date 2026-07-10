@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::ffi::OsString;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::{
@@ -84,11 +85,11 @@ pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
     Ok(prefix_path)
 }
 
-pub fn proton_dir() -> Result<PathBuf, NativeError> {
+pub fn proton_dir() -> Result<OsString, NativeError> {
     if let Ok(path) = env::var("MAXIMA_PROTON_PATH") {
         let path = PathBuf::from(path);
         if path.exists() {
-            return Ok(path);
+            return Ok(path.into());
         } else {
             warn!(
                 "MAXIMA_PROTON_PATH is set to {} but it doesn't exist",
@@ -96,7 +97,7 @@ pub fn proton_dir() -> Result<PathBuf, NativeError> {
             );
         }
     }
-    Ok(maxima_dir()?.join("wine/proton"))
+    Ok("GE-Proton".into())
 }
 
 pub fn wine_dir() -> Result<PathBuf, NativeError> {
