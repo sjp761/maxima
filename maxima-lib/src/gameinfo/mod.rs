@@ -65,7 +65,6 @@ impl GameInstallInfo {
         self.wine_prefix.clone()
     }
 
-    // TODO: Maybe we can just query the slug by the filename of the path? Look into this later
     pub fn save_to_json(&self, slug: &str) {
         if let Ok(json) = serde_json::to_string_pretty(self) {
             let mut path = maxima_dir();

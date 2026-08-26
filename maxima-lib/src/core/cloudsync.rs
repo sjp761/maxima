@@ -107,7 +107,7 @@ fn home_dir(_slug: Option<&str>) -> Result<PathBuf, NativeError> {
 #[cfg(unix)]
 fn home_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
     use crate::unix::wine::wine_prefix_dir;
-    Ok(wine_prefix_dir(slug)
+    Ok(wine_prefix_dir(slug.unwrap())
         .unwrap()
         .join("drive_c/users/steamuser"))
 }

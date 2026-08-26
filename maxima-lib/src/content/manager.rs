@@ -216,7 +216,7 @@ impl GameDownloader {
         let notify_done = notify.clone();
 
         let slug = self.slug.clone();
-        let game_install_info = GameInstallInfo::new(self.path.clone(), self.wine_prefix.clone());
+        let wine_prefix = self.wine_prefix.clone();
         tokio::spawn(async move {
             let dl = GameDownloader::start_downloads(
                 downloader_arc,
@@ -226,7 +226,7 @@ impl GameDownloader {
                 notify,
                 output_dir,
                 slug,
-                game_install_info,
+                wine_prefix,
             )
             .await;
             if let Err(err) = dl {
@@ -262,9 +262,9 @@ impl GameDownloader {
         cancel_token: CancellationToken,
         completed_bytes: Arc<AtomicUsize>,
         notify: Arc<Notify>,
-        output_dir: PathBuf,
+        output_dir: PathBuf, // Install dir
         slug: String,
-        game_install_info: GameInstallInfo,
+        wine_prefix_path: Option<PathBuf>,
     ) -> Result<(), DownloaderError> {
         let mut handles = Vec::with_capacity(entries.len());
 
@@ -308,10 +308,9 @@ impl GameDownloader {
             return Ok(());
         }
 
-        handle_touchup_request(&output_dir, &slug).await?; // output dir is install path
+        handle_touchup_request(&output_dir, None, &slug).await?;
 
         info!("Installation finished!");
-        game_install_info.save_to_json(&slug);
         completed_bytes.fetch_add(1, Ordering::SeqCst);
         notify.notify_one();
         Ok(())

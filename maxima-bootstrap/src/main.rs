@@ -125,6 +125,8 @@ async fn platform_launch(args: BootstrapLaunchArgs) -> Result<(), NativeError> {
 async fn platform_launch(args: BootstrapLaunchArgs) -> Result<(), NativeError> {
     use maxima::unix::wine::CommandType;
     use maxima::unix::wine::run_wine_command;
+use maxima::unix::wine::wine_prefix_dir;
+
 
     run_wine_command(
         args.path.into(),
@@ -132,7 +134,7 @@ async fn platform_launch(args: BootstrapLaunchArgs) -> Result<(), NativeError> {
         None,
         false,
         CommandType::WaitForExitAndRun,
-        Some(&args.slug),
+        &wine_prefix_dir(&args.slug).unwrap(),
     )
     .await?;
 

@@ -476,14 +476,14 @@ impl HardwareInfo {
 }
 
 #[cfg(unix)]
-fn get_root_creation_str(slug: Option<&str>) -> String {
+fn get_root_creation_str(slug: Option<&str>) -> String { //Option for slug incase of PCSign
     use crate::unix::wine::wine_prefix_dir;
     use chrono::{DateTime, TimeZone};
     use std::{fs, os::unix::fs::MetadataExt};
 
     let date_str = String::from("1970010100:00:00.000000000+0000");
     let wine_prefix = match slug {
-        Some(slug) => wine_prefix_dir(Some(slug)).unwrap(),
+        Some(slug) => wine_prefix_dir(slug).unwrap(),
         None => return date_str,
     };
     let date_str = match fs::metadata(wine_prefix.join("pfx").join("drive_c")) {

@@ -532,7 +532,7 @@ impl BridgeThread {
                             Ok(manifest) => {
                                 let should_force_touchup = manifest.needs_touchup_on_locate();
                                 if should_force_touchup {
-                                    match handle_touchup_request(&path, &slug).await {
+                                    match handle_touchup_request(&path, wine_prefix, &slug).await {
                                         Ok(()) => InteractThreadLocateGameResponse::Success,
                                         Err(err) => {
                                             warn!("Touchup failed during locate, treating as success: {}", err);
@@ -555,9 +555,6 @@ impl BridgeThread {
                             .send(MaximaLibResponse::LocateGameResponse(response))
                             .ok();
                         info!("finished locating");
-                        let game_install_info =
-                            GameInstallInfo::new(PathBuf::from(path.clone()), wine_prefix);
-                        game_install_info.save_to_json(&slug);
                         ctx.request_repaint();
                         Ok(())
                     }

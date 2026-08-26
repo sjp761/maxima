@@ -252,7 +252,7 @@ pub async fn start_game(
     };
 
     #[cfg(unix)]
-    mx_linux_setup(slug.as_deref()).await?;
+    mx_linux_setup(slug.as_deref().unwrap()).await?;
 
     match mode {
         LaunchMode::Offline(_) => {}
@@ -432,7 +432,7 @@ async fn request_opaque_ooa_token(access_token: &str) -> Result<String, AuthErro
 }
 
 #[cfg(unix)]
-pub async fn mx_linux_setup(slug: Option<&str>) -> Result<(), NativeError> {
+pub async fn mx_linux_setup(slug: &str) -> Result<(), NativeError> {
     use crate::unix::wine::{
         check_runtime_validity, get_lutris_runtimes, install_runtime, setup_wine_registry,
         wine_prefix_dir,

@@ -5,8 +5,7 @@ use serde::Serialize;
 use std::sync::LazyLock;
 
 use crate::{
-    unix::wine::{CommandType, run_wine_command},
-    util::native::{NativeError, SafeParent, SafeStr, module_path},
+    unix::wine::{CommandType, run_wine_command, wine_prefix_dir}, util::native::{NativeError, SafeParent, SafeStr, module_path},
 };
 
 static PID_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
@@ -37,6 +36,7 @@ pub async fn wine_get_pid(
         name: name.to_owned(),
     };
 
+    let wine_prefix_path = wine_prefix_dir(slug.unwrap())?;
     let b64 = general_purpose::STANDARD.encode(serde_json::to_string(&launch_args)?);
     let output = run_wine_command(
         module_path()?
@@ -48,7 +48,7 @@ pub async fn wine_get_pid(
         None,
         true,
         CommandType::RunInPrefix,
-        slug,
+        &wine_prefix_path,
     )
     .await?;
 
@@ -92,7 +92,7 @@ pub async fn request_library_injection(
         None,
         false,
         CommandType::RunInPrefix,
-        slug,
+        &wine_prefix_dir(slug.unwrap()).unwrap(),
     )
     .await?;
 

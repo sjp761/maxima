@@ -109,6 +109,12 @@ impl<W: AsyncWrite> RestorableDecoder for RestorableDeflateDecoder<W> {
         }
     }
 
+    #[cfg(unix)]
+    fn restore_state(&mut self) -> Result<(u64, u64), DecoderRestoreError> {
+        return Err(DecoderRestoreError::CacheEmpty);
+    }
+
+    #[cfg(windows)]
     fn restore_state(&mut self) -> Result<(u64, u64), DecoderRestoreError> {
         if !self.file_path.exists() || std::fs::metadata(self.file_path.clone()).unwrap().len() == 0
         {
@@ -151,6 +157,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for RestorableDeflateDecoder<W> {
             self.update_bytes_written(*n);
         }
 
+        #[cfg(windows)]
         if self.should_save {
             if let Poll::Ready(Ok(())) = Pin::new(&mut self.inner).poll_flush(cx) {
                 debug!("save interval reached, serializing state...");

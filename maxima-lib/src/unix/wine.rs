@@ -76,8 +76,8 @@ struct Versions {
 }
 
 /// Returns internal proton pfx path
-pub fn wine_prefix_dir(slug: Option<&str>) -> Result<PathBuf, NativeError> {
-    let game_install_info = load_game_info_from_json(slug.unwrap()).unwrap();
+pub fn wine_prefix_dir(slug: &str) -> Result<PathBuf, NativeError> {
+    let game_install_info = load_game_info_from_json(slug).unwrap();
     let prefix_path = game_install_info.wine_prefix().unwrap();
 
     if !prefix_path.exists() {}
@@ -114,7 +114,7 @@ pub fn eac_dir() -> Result<PathBuf, NativeError> {
     Ok(maxima_dir()?.join("wine/eac_runtime"))
 }
 
-pub fn script_path() -> Result<PathBuf, NativeError> {
+pub fn umu_script_path() -> Result<PathBuf, NativeError> {
     match env::var("MAXIMA_UMU_LOCATION") {
         Ok(path) => Ok(PathBuf::from(path)),
         Err(_) => Ok(maxima_dir()?.join("wine/umu/umu-run")),
@@ -236,17 +236,16 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     cwd: Option<PathBuf>,
     want_output: bool,
     command_type: CommandType,
-    slug: Option<&str>,
+    proton_prefix_path: &PathBuf,
 ) -> Result<String, NativeError> {
     let proton_path = proton_dir()?;
-    let proton_prefix_path = wine_prefix_dir(slug).unwrap();
     let eac_path = eac_dir()?;
-    let script_path = script_path()?;
+    let umu_script_path = umu_script_path()?;
 
     info!("Wine Prefix: {:?}", proton_prefix_path);
 
     // Create command with all necessary wine env variables
-    let mut binding = Command::new(script_path.clone());
+    let mut binding = Command::new(umu_script_path.clone());
     let mut child = binding
         .env("WINEPREFIX", proton_prefix_path)
         .env("GAMEID", "umu-0")
@@ -333,7 +332,7 @@ fn extract_archive<R: Read + Sized>(
     Ok(())
 }
 
-pub async fn setup_wine_registry(slug: Option<&str>) -> Result<(), NativeError> {
+pub async fn setup_wine_registry(slug: &str) -> Result<(), NativeError> {
     let mut reg_content = "Windows Registry Editor Version 5.00\n\n".to_string();
     // This supports text values only at the moment
     // if you need a dword - implement it
@@ -384,7 +383,7 @@ pub async fn setup_wine_registry(slug: Option<&str>) -> Result<(), NativeError> 
         None,
         false,
         CommandType::Run,
-        slug,
+        &wine_prefix_dir(slug).unwrap(),
     )
     .await?;
 
@@ -432,7 +431,7 @@ async fn parse_wine_registry(file_path: &str) -> WineRegistry {
     registry_map.clone()
 }
 
-pub async fn parse_mx_wine_registry(slug: Option<&str>) -> Result<WineRegistry, NativeError> {
+pub async fn parse_mx_wine_registry(slug: &str) -> Result<WineRegistry, NativeError> {
     let path = wine_prefix_dir(slug)
         .unwrap()
         .join("pfx")

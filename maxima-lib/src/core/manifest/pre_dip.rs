@@ -249,7 +249,7 @@ impl PreDiPManifest {
     pub async fn run_touchup(
         &self,
         install_path: &PathBuf,
-        slug: &str,
+        wine_prefix_path: Option<PathBuf>,
     ) -> Result<(), ManifestError> {
         use crate::unix::{
             fs::case_insensitive_path,
@@ -263,15 +263,7 @@ impl PreDiPManifest {
 
         let path = install_path.join(remove_leading_slash(&self.executable.filePath));
         let path = case_insensitive_path(path).to_string_lossy().to_string();
-        run_wine_command(
-            path.into(),
-            Some(args),
-            None,
-            true,
-            CommandType::Run,
-            Some(slug),
-        )
-        .await?;
+        run_wine_command(path.into(), Some(args), None, true, CommandType::Run, &wine_prefix_path.unwrap()).await?;
 
         invalidate_mx_wine_registry().await;
         Ok(())
@@ -281,7 +273,7 @@ impl PreDiPManifest {
     pub async fn run_touchup(
         &self,
         install_path: &PathBuf,
-        _slug: &str,
+        _wine_prefix_path: Option<PathBuf>,
     ) -> Result<(), ManifestError> {
         use crate::util::native::NativeError;
         use tokio::process::Command;
