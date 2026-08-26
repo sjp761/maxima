@@ -808,7 +808,7 @@ async fn list_games(maxima_arc: LockedMaxima) -> Result<()> {
 
 async fn locate_game(_maxima_arc: LockedMaxima, install_path: &str, slug: &str) -> Result<()> {
     let path: PathBuf = PathBuf::from(install_path);
-    handle_touchup_request(&path, None, slug).await?;
+    handle_touchup_request(path, None, slug).await?;
     info!("Installed!");
     Ok(())
 }

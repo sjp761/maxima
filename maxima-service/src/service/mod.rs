@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc as std_mpsc;
 use std::thread;
 use std::time::Duration;
@@ -291,7 +291,7 @@ async fn req_touchup(body: web::Bytes) -> Result<HttpResponse, ServerError> {
         Path::new(&request.output_dir).join(maxima::core::manifest::MANIFEST_RELATIVE_PATH),
     )
     .await?;
-    manifest.run_touchup(Path::new(&request.output_dir), None).await?;
+    manifest.run_touchup(&PathBuf::from(request.output_dir), None).await?;
 
     Ok(HttpResponse::Ok().body("Done"))
 }

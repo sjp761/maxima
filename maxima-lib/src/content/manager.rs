@@ -308,7 +308,7 @@ impl GameDownloader {
             return Ok(());
         }
 
-        handle_touchup_request(&output_dir, None, &slug).await?;
+        handle_touchup_request(output_dir, None, &slug).await?;
 
         info!("Installation finished!");
         completed_bytes.fetch_add(1, Ordering::SeqCst);

@@ -526,13 +526,13 @@ impl BridgeThread {
                             path.pop();
                         }
 
-                         let path = PathBuf::from(path);
+                        let path = PathBuf::from(path);
                         let manifest_path = path.join(MANIFEST_RELATIVE_PATH);
                         let response = match manifest::load_manifest_from_disk(manifest_path.clone()).await {
                             Ok(manifest) => {
                                 let should_force_touchup = manifest.needs_touchup_on_locate();
                                 if should_force_touchup {
-                                    match handle_touchup_request(&path, wine_prefix, &slug).await {
+                                    match handle_touchup_request(path, wine_prefix, &slug).await {
                                         Ok(()) => InteractThreadLocateGameResponse::Success,
                                         Err(err) => {
                                             warn!("Touchup failed during locate, treating as success: {}", err);
@@ -540,6 +540,13 @@ impl BridgeThread {
                                         }
                                     }
                                 } else {
+                                     #[cfg(windows)]
+                                    let game_install_info = GameInstallInfo::new(path, None);
+
+                                    #[cfg(unix)]
+                                    let game_install_info = GameInstallInfo::new(path, wine_prefix);
+
+                                    game_install_info.save_to_json(&slug);
                                     InteractThreadLocateGameResponse::Success
                                 }
                             }

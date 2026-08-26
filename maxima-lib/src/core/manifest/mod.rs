@@ -37,16 +37,15 @@ pub const MANIFEST_RELATIVE_PATH: &str = "__Installer/installerdata.xml";
 
 #[async_trait::async_trait]
 pub trait GameManifest: Send + std::fmt::Debug {
-    async fn run_touchup(&self, install_path: &Path, wine_prefix_path: Option<PathBuf>) -> Result<(), ManifestError>;
+    async fn run_touchup(&self, install_path: &PathBuf, wine_prefix_path: Option<PathBuf>) -> Result<(), ManifestError>;
     fn execute_path(&self, trial: bool) -> Option<String>;
     fn version(&self) -> Option<String>;
     fn needs_touchup_on_locate(&self) -> bool;
 }
 #[async_trait::async_trait]
 impl GameManifest for DiPManifest {
-    async fn run_touchup(&self, install_path: &Path, wine_prefix_path: Option<PathBuf>) -> Result<(), ManifestError> {
-        let install_path = install_path.to_path_buf();
-        self.run_touchup(&install_path, wine_prefix_path).await
+    async fn run_touchup(&self, install_path: &PathBuf, wine_prefix_path: Option<PathBuf>) -> Result<(), ManifestError> {
+        self.run_touchup(install_path, wine_prefix_path).await
     }
 
     fn execute_path(&self, trial: bool) -> Option<String> {
@@ -68,9 +67,8 @@ impl GameManifest for DiPManifest {
 
 #[async_trait::async_trait]
 impl GameManifest for PreDiPManifest {
-    async fn run_touchup(&self, install_path: &Path, wine_prefix_path: Option<PathBuf>) -> Result<(), ManifestError> {
-        let install_path = install_path.to_path_buf();
-        self.run_touchup(&install_path, wine_prefix_path).await
+    async fn run_touchup(&self, install_path: &PathBuf, wine_prefix_path: Option<PathBuf>) -> Result<(), ManifestError> {
+        self.run_touchup(install_path, wine_prefix_path).await
     }
 
     fn execute_path(&self, _: bool) -> Option<String> {
@@ -126,7 +124,7 @@ pub async fn load_manifest_from_disk(
 // 2 different thing for windows and unix as only windows needs elevation,
 
 #[cfg(windows)]
-pub async fn handle_touchup_request(install_path: &Path, _wine_prefix_path: Option<PathBuf>, slug: &str) -> Result<(), ManifestError> {
+pub async fn handle_touchup_request(install_path: PathBuf, _wine_prefix_path: Option<PathBuf>, slug: &str) -> Result<(), ManifestError> {
     use crate::{core::background_service::{BACKGROUND_SERVICE_PORT, ServiceTouchupRequest}, gameinfo::GameInstallInfo};
 
     let client = reqwest::Client::new();
@@ -140,18 +138,18 @@ pub async fn handle_touchup_request(install_path: &Path, _wine_prefix_path: Opti
         })
         .send()
         .await?;
-    let game_install_info = GameInstallInfo::new(install_path.to_path_buf(), None);
+    let game_install_info = GameInstallInfo::new(install_path, None);
     game_install_info.save_to_json(slug);
     Ok(())
 }
 
 #[cfg(unix)]
-pub async fn handle_touchup_request(install_path: &Path, wine_prefix_path: Option<PathBuf>, slug: &str) -> Result<(), ManifestError> {
+pub async fn handle_touchup_request(install_path: PathBuf, wine_prefix_path: Option<PathBuf>, slug: &str) -> Result<(), ManifestError> {
     use crate::gameinfo::GameInstallInfo;
 
-    let manifest = load_manifest_from_disk(Path::new(install_path).join(MANIFEST_RELATIVE_PATH)).await.unwrap();
-    manifest.run_touchup(Path::new(install_path), wine_prefix_path.clone()).await?;
-    let game_install_info = GameInstallInfo::new(install_path.to_path_buf(), wine_prefix_path);
+    let manifest = load_manifest_from_disk(install_path.join(MANIFEST_RELATIVE_PATH)).await.unwrap();
+    manifest.run_touchup(&install_path, wine_prefix_path.clone()).await?;
+    let game_install_info = GameInstallInfo::new(install_path, wine_prefix_path);
     game_install_info.save_to_json(slug);
     Ok(())
 }
