@@ -2,7 +2,7 @@ use log::{debug, info};
 
 use crate::{
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{LSXChallengeAccepted, LSXChallengeResponse, LSXResponseType},
     },
@@ -11,10 +11,10 @@ use crate::{
 };
 
 pub async fn handle_challenge_response(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     message: LSXChallengeResponse,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
-    let valid = check_challenge_response(&message.attr_response, state.read().await.challenge());
+    let valid = check_challenge_response(&message.attr_response, state.challenge());
     if !valid {
         return Err(LSXRequestError::InvalidChallengeResponse);
     }
@@ -33,7 +33,7 @@ pub async fn handle_challenge_response(
     );
 
     let encryption_key = make_lsx_key(seed);
-    state.write().await.enable_encryption(encryption_key);
+    state.enable_encryption(encryption_key);
 
     debug!(
         "Encryption key: {}, version: {}",

@@ -429,9 +429,14 @@ impl Maxima {
         self.lsx_port = port;
     }
 
-    /// Tracks how many LSX clients are currently connected.
-    pub(super) fn set_lsx_connections(&mut self, connections: u16) {
-        self.lsx_connections = connections;
+    pub fn inc_connected_lsx(&mut self) {
+        self.lsx_connections += 1;
+    }
+
+    pub fn dec_connected_lsx(&mut self) {
+        if self.lsx_connections > 0 {
+            self.lsx_connections -= 1;
+        }
     }
 
     pub fn set_player_started(&mut self) {

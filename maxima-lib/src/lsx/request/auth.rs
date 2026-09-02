@@ -3,7 +3,7 @@ use log::{error, info};
 use crate::{
     core::auth::{context::AuthContext, nucleus_auth_exchange},
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{LSXAuthCode, LSXGetAuthCode, LSXResponseType},
     },
@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub async fn handle_auth_code_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     request: LSXGetAuthCode,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let client_id = request.attr_ClientId;
@@ -19,7 +19,7 @@ pub async fn handle_auth_code_request(
 
     let mut context = AuthContext::new()?;
 
-    let access_token = state.write().await.access_token().await?;
+    let access_token = state.access_token();
     context.set_access_token(&access_token);
 
     let auth_res = nucleus_auth_exchange(&context, &client_id, "code").await;

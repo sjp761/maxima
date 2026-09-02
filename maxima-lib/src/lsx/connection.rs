@@ -1,12 +1,10 @@
 use derive_getters::Getters;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use quick_xml::DeError;
 use rand::rand_core::Rng;
 use regex::Regex;
 use std::{
-    io::{ErrorKind, Read, Write},
-    path::PathBuf,
-    sync::{Arc, LazyLock},
+    io::{ErrorKind}, path::PathBuf, sync::{LazyLock},
 };
 use sysinfo::{Pid, System};
 use thiserror::Error;
@@ -15,6 +13,7 @@ use tokio::{
     io::AsyncWriteExt,
     sync::{MutexGuard, RwLock},
 };
+use tokio::sync::mpsc::Sender;
 
 use super::{
     request::{
@@ -106,16 +105,12 @@ pub enum EncryptionState {
 
 #[derive(Getters)]
 pub struct ConnectionState {
-    #[getter(skip)]
     maxima: LockedMaxima,
+    access_token: String,
     challenge: String,
     encryption: EncryptionState,
     pid: u32,
-    /// Message responses that are waiting to be sent
-    queued_messages: Vec<String>,
 }
-
-pub type LockedConnectionState = Arc<RwLock<ConnectionState>>;
 
 impl ConnectionState {
     /// Enable encryption on the packet after next
@@ -123,30 +118,6 @@ impl ConnectionState {
         self.encryption = EncryptionState::Ready(encryption_key);
     }
 
-    pub async fn maxima(&mut self) -> MutexGuard<'_, Maxima> {
-        self.maxima.lock().await
-    }
-
-    pub fn maxima_arc(&self) -> LockedMaxima {
-        self.maxima.clone()
-    }
-
-    pub async fn access_token(&mut self) -> Result<String, TokenError> {
-        self.maxima().await.access_token().await
-    }
-
-    pub fn queue_message(&mut self, message: LSX) -> Result<(), LSXConnectionError> {
-        let mut str = quick_xml::se::to_string(&message)?;
-        debug!("Queuing LSX Message: {}", str);
-
-        if let EncryptionState::Enabled(key) = self.encryption {
-            str = simple_encrypt(str.as_bytes(), &key)
-        };
-
-        str += "\0";
-        self.queued_messages.push(str);
-        Ok(())
-    }
 }
 
 pub fn get_os_pid(context: &ActiveGameContext) -> Result<u32, NativeError> {
@@ -204,15 +175,16 @@ pub async fn get_wine_pid(
 }
 
 pub struct Connection {
-    maxima: LockedMaxima,
     stream: TcpStream,
-    state: LockedConnectionState,
+    state: ConnectionState,
+    tx: Sender<String>,
 }
 
 impl Connection {
     pub async fn new(
         maxima_arc: LockedMaxima,
         mut stream: TcpStream,
+        tx: Sender<String>,
     ) -> Result<Self, LSXConnectionError> {
         stream.set_nodelay(true)?;
 
@@ -269,44 +241,57 @@ impl Connection {
 
         drop(maxima);
 
-        let state = Arc::new(RwLock::new(ConnectionState {
+        let state = ConnectionState {
             maxima: maxima_arc.clone(),
+            access_token: maxima_arc.lock().await.access_token().await.unwrap(),
             challenge,
             encryption: EncryptionState::Disabled,
             pid: pid.unwrap_or(0),
-            queued_messages: Vec::new(),
-        }));
+        };
 
         Ok(Self {
-            maxima: maxima_arc,
             stream,
             state,
+            tx,
         })
-    }
-
-    // State
-
-    pub async fn maxima(&self) -> MutexGuard<'_, Maxima> {
-        self.maxima.lock().await
     }
 
     // Initialization
 
-    pub async fn send_challenge(&mut self) -> Result<(), LSXConnectionError> {
+    pub async fn queue_challenge(&mut self) -> Result<(), LSXConnectionError> {
         let challenge = create_lsx_message(LSXMessageType::Event(LSXEvent {
             sender: CORE_SENDER.to_string(),
             value: LSXEventType::Challenge(LSXChallenge {
                 attr_build: CHALLENGE_BUILD.to_string(),
-                attr_key: self.state.read().await.challenge.to_owned(),
+                attr_key: self.state.challenge.to_owned(),
                 attr_version: CHALLENGE_VERSION.to_string(),
             }),
         }));
 
-        self.state.write().await.queue_message(challenge)?;
+        self.queue_message(challenge).await?;
         Ok(())
     }
 
-    pub async fn listen(&mut self) -> Result<(), LSXConnectionError> {
+    pub async fn write_message(&mut self, message: String) -> Result<(), LSXConnectionError> {
+        self.stream.write_all(message.as_bytes()).await?;
+        let _ = self.stream.flush().await;
+        Ok(())
+    }
+
+    pub async fn queue_message(&mut self, message: LSX) -> Result<(), LSXConnectionError> {
+        let mut str = quick_xml::se::to_string(&message)?;
+        debug!("Queuing LSX Message: {}", str);
+
+        if let EncryptionState::Enabled(key) = self.state.encryption {
+            str = simple_encrypt(str.as_bytes(), &key)
+        };
+
+        str += "\0"; // Sent strings need to be null terminated
+        let _ = self.tx.send(str).await;
+        Ok(())
+    }
+
+    pub async fn read_incoming_messages(&mut self) -> Result<(), LSXConnectionError> {
         self.stream.readable().await?;
         let mut buffer = [0; 1024 * 8];
         let n = match self.stream.try_read(&mut buffer) {
@@ -316,19 +301,15 @@ impl Connection {
             Err(e) => return Err(e.into()),
         };
 
-        let state = self.state.write().await;
-
         let trimmed_buffer = &buffer[..(n - 1)];
-        let message = if let EncryptionState::Enabled(key) = state.encryption {
+        let message = if let EncryptionState::Enabled(key) = self.state.encryption {
             simple_decrypt(trimmed_buffer, &key)
         } else {
             String::from_utf8_lossy(trimmed_buffer).trim().to_owned()
         };
 
-        drop(state);
-
         for mat in LSX_PATTERN.find_iter(message.as_str()) {
-            if let Err(err) = self.process_message(mat.as_str()).await {
+            if let Err(err) = self.process_incoming_message(mat.as_str()).await {
                 error!("Failed to process message: {}", err);
             }
         }
@@ -336,25 +317,9 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn process_queue(&mut self) -> Result<(), LSXConnectionError> {
-        let mut state = self.state.write().await;
-        for message in &state.queued_messages {
-            if let Err(err) = self.stream.write(message.as_bytes()).await {
-                error!("Failed to send LSX message: {}", err);
-            }
-        }
-
-        if !state.queued_messages.is_empty() {
-            self.stream.flush().await?;
-        }
-
-        state.queued_messages.clear();
-        Ok(())
-    }
-
     // Message Processing
 
-    async fn process_message(&mut self, message: &str) -> Result<(), LSXConnectionError> {
+    async fn process_incoming_message(&mut self, message: &str) -> Result<(), LSXConnectionError> {
         debug!("Received LSX Message: {}", message);
 
         let mut message = message.to_string();
@@ -362,51 +327,37 @@ impl Connection {
         message = message.replace(r#"version="" "#, "");
         let lsx_message: LSX = quick_xml::de::from_str(message.as_str())?;
 
-        let state = self.state.clone();
-
         let reply = match lsx_message.value {
             LSXMessageType::Request(msg) => {
-                Connection::process_request_message(&self.state, msg).await?
+                self.process_request_message(msg).await?
             }
-            LSXMessageType::Event(msg) => {
-                Connection::process_event_message(&self.state, msg).await?
+            LSXMessageType::Event(_) => {
+                None // Blank for now
             }
             LSXMessageType::Response(_) => {
-                warn!("Unexpected LSX Response message received, ignoring");
+                warn!("Unexpected LSX Response message received, ignoring (server message type sent to server)");
                 None
             }
         };
 
         if let Some(reply) = reply {
-            self.state
-                .write()
-                .await
-                .queue_message(LSX { value: reply })?;
+            self.queue_message(LSX { value: reply }).await?;
         }
 
-        let mut state = self.state.write().await;
-        if let EncryptionState::Ready(key) = state.encryption {
-            state.encryption = EncryptionState::Enabled(key);
+        if let EncryptionState::Ready(key) = &self.state.encryption {
+            self.state.encryption = EncryptionState::Enabled(*key);
         }
 
         Ok(())
     }
 
-    async fn process_event_message(
-        _: &LockedConnectionState,
-        _: LSXEvent,
-    ) -> Result<Option<LSXMessageType>, LSXConnectionError> {
-        Ok(None)
-    }
-
     async fn process_request_message(
-        state: &LockedConnectionState,
+        &mut self,
         message: LSXRequest,
     ) -> Result<Option<LSXMessageType>, LSXConnectionError> {
         {
             let (maxima_arc, pid) = {
-                let s = state.read().await;
-                (s.maxima_arc(), *s.pid())
+                (self.state.maxima.clone(), *self.state.pid())
             };
 
             maxima_arc
@@ -416,7 +367,8 @@ impl Connection {
         }
 
         let result = lsx_message_matcher!(
-            state.clone(), message.value, LSXRequestType;
+            
+            &mut self.state, message.value, LSXRequestType;
 
             ChallengeResponse handle_challenge_response,
             GetBlockList handle_get_block_list_request,

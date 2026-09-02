@@ -4,7 +4,7 @@ use std::env;
 use crate::{
     core::{auth::hardware::HardwareInfo, launch::LaunchMode},
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{LSXRequestLicense, LSXRequestLicenseResponse, LSXResponseType},
     },
@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub async fn handle_license_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     request: LSXRequestLicense,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     info!("Requesting OOA License and Denuvo Token");
@@ -22,8 +22,7 @@ pub async fn handle_license_request(
         return make_lsx_handler_response!(Response, RequestLicenseResponse, { attr_License: token.to_owned() });
     }
 
-    let arc = state.write().await.maxima_arc();
-    let mut maxima = arc.lock().await;
+    let mut maxima = state.maxima().lock().await;
 
     let playing = maxima.playing().as_ref().unwrap();
     let content_id = playing.content_id().to_owned();

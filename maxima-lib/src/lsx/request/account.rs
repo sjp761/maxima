@@ -1,10 +1,10 @@
+use crate::lsx::connection::ConnectionState;
 use crate::{
     core::service_layer::{
         SERVICE_REQUEST_SDKENTITLEMENTS, ServiceEntitlement, ServiceSdkEntitlementsRequestBuilder,
         ServiceSdkEntitlementsResult,
     },
     lsx::{
-        connection::LockedConnectionState,
         request::LSXRequestError,
         types::{
             LSXEntitlement, LSXQueryEntitlements, LSXQueryEntitlementsResponse, LSXResponseType,
@@ -14,10 +14,10 @@ use crate::{
 };
 
 pub async fn handle_query_entitlements_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     request: LSXQueryEntitlements,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
-    let maxima = state.write().await.maxima_arc();
+    let maxima = state.maxima().clone();
     let maxima = maxima.lock().await;
     let service_layer = maxima.service_layer();
 

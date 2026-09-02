@@ -3,7 +3,7 @@ use crate::{
         SERVICE_REQUEST_ADDONSEARCH, ServiceAddonSearchRequestBuilder, ServiceAddonSearchResultRoot,
     },
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{LSXOffer, LSXQueryOffers, LSXQueryOffersResponse, LSXResponseType},
     },
@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub async fn handle_query_offers_request(
-    conn: LockedConnectionState,
+    conn: &mut ConnectionState,
     request: LSXQueryOffers,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let mut rtn: Vec<LSXOffer> = Vec::new();
@@ -22,8 +22,7 @@ pub async fn handle_query_offers_request(
         String::new()
     };
 
-    let mut conn = conn.write().await;
-    let maxima = conn.maxima().await;
+    let maxima = conn.maxima().lock().await;
     let offers: ServiceAddonSearchResultRoot = maxima
         .service_layer()
         .request(

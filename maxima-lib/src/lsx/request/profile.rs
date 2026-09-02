@@ -6,7 +6,7 @@ use crate::core::service_layer::{
 };
 use crate::{
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{
             LSXBlockedUser, LSXErrorSuccess, LSXFriend, LSXFriendState, LSXGetBlockList,
@@ -22,11 +22,10 @@ use crate::{
 };
 
 pub async fn handle_profile_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     _: LSXGetProfile,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
-    let arc = state.write().await.maxima_arc();
-    let maxima = arc.lock().await;
+    let maxima = state.maxima().lock().await;
 
     let user = maxima.local_user().await?;
     let path = platform_path(maxima.avatar_image(user.id(), 208, 208).await?);
@@ -56,7 +55,7 @@ pub async fn handle_profile_request(
 }
 
 pub async fn handle_presence_request(
-    _: LockedConnectionState,
+    _: &mut ConnectionState,
     _: LSXGetPresence,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     return make_lsx_handler_response!(Response, GetPresenceResponse, {
@@ -74,7 +73,7 @@ pub async fn handle_presence_request(
 }
 
 pub async fn handle_set_presence_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     request: LSXSetPresence,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     info!(
@@ -86,8 +85,7 @@ pub async fn handle_set_presence_request(
             .unwrap_or(String::new())
     );
 
-    let arc = state.write().await.maxima_arc();
-    let mut maxima = arc.lock().await;
+    let mut maxima = state.maxima().lock().await;
 
     let playing = maxima.playing().as_ref().unwrap();
     if playing.mode().is_online_offline() {
@@ -113,13 +111,12 @@ pub async fn handle_set_presence_request(
 }
 
 pub async fn handle_query_presence_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     request: LSXQueryPresence,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let mut friends = Vec::new();
 
-    let mut state = state.write().await;
-    let mut maxima = state.maxima().await;
+    let mut maxima = state.maxima().lock().await;
     let presence_store = maxima.rtm().presence_store().lock().await;
 
     for user in request.Users {
@@ -155,11 +152,10 @@ pub async fn handle_query_presence_request(
 }
 
 pub async fn handle_query_friends_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     _: LSXQueryFriends,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
-    let mut state = state.write().await;
-    let mut maxima = state.maxima().await;
+    let mut maxima = state.maxima().lock().await;
 
     let friends = maxima.friends(0).await?;
     let presence_store = maxima.rtm().presence_store().lock().await;
@@ -218,13 +214,12 @@ pub async fn handle_query_friends_request(
 }
 
 pub async fn handle_get_block_list_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     _: LSXGetBlockList,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let mut list: Vec<LSXBlockedUser> = Vec::new();
 
-    let mut maxima = state.write().await;
-    let maxima = maxima.maxima().await;
+    let maxima = state.maxima().lock().await;
     let friends: ServiceFriends = maxima
         .service_layer()
         .request(
@@ -254,13 +249,12 @@ pub async fn handle_get_block_list_request(
 }
 
 pub async fn handle_query_image_request(
-    state: LockedConnectionState,
+    state: &mut ConnectionState,
     request: LSXQueryImage,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let parts = request.attr_ImageId.split(":").collect::<Vec<_>>();
 
-    let arc = state.write().await.maxima_arc();
-    let maxima = arc.lock().await;
+    let maxima = state.maxima().lock().await;
 
     let path = platform_path(
         maxima

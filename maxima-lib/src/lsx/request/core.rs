@@ -1,7 +1,7 @@
 use crate::{
     core::settings::MaximaSetting,
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{
             LSXGetInternetConnectedState, LSXGetSetting, LSXGetSettingResponse,
@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub async fn handle_settings_request(
-    _: LockedConnectionState,
+    _: &mut ConnectionState,
     request: LSXGetSetting,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let setting = match request.attr_SettingId {
@@ -25,7 +25,7 @@ pub async fn handle_settings_request(
 }
 
 pub async fn handle_connectivity_request(
-    _: LockedConnectionState,
+    _: &mut ConnectionState,
     _: LSXGetInternetConnectedState,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     // TODO Actually check this
@@ -33,7 +33,7 @@ pub async fn handle_connectivity_request(
 }
 
 pub async fn handle_set_downloader_util_request(
-    _: LockedConnectionState,
+    _: &mut ConnectionState,
     _: LSXSetDownloaderUtilization,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     // TODO Actually set this

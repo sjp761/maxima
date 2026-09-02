@@ -1,6 +1,6 @@
 use crate::{
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{LSXGetVoipStatus, LSXGetVoipStatusResponse, LSXResponseType},
     },
@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub async fn handle_voip_status_request(
-    _: LockedConnectionState,
+    _: &mut ConnectionState,
     _: LSXGetVoipStatus,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     return make_lsx_handler_response!(Response, GetVoipStatusResponse, { attr_Available: false, attr_Active: false });

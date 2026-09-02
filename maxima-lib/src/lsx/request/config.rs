@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use crate::{
     lsx::{
-        connection::LockedConnectionState,
+        connection::ConnectionState,
         request::LSXRequestError,
         types::{LSXGetConfig, LSXGetConfigResponse, LSXResponseType, LSXService},
     },
@@ -49,7 +49,7 @@ static SERVICES: LazyLock<Vec<LSXService>> = LazyLock::new(|| {
 });
 
 pub async fn handle_config_request(
-    _: LockedConnectionState,
+    _: &mut ConnectionState,
     _: LSXGetConfig,
 ) -> Result<Option<LSXResponseType>, LSXRequestError> {
     let services = &SERVICES;
