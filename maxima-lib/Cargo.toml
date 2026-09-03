@@ -104,6 +104,9 @@ is_elevated = { workspace = true }
 widestring = "1.2.1"
 wmi = "0.18.4"
 
+[target.'cfg(unix)'.dependencies]
+which = "8.0"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 smbios-lib = "0.9.4"
 

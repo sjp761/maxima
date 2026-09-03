@@ -333,13 +333,11 @@ impl ZipDownloader {
             }
         };
 
-        let content_length = data.content_length().unwrap_or(0); // Because data gets moved with bytes_stream()
-        let stream = ByteCountingStream::new(data.bytes_stream());
+        let stream = ByteCountingStream::new(data.bytes_stream(), progress_callback);
         let mut stream_reader = BufReader::new(stream.into_async_read().compat());
 
         tokio::io::copy(&mut stream_reader, &mut writer).await?;
         writer.shutdown().await?; // flush decoder + BufWriter to disk
-        progress_callback(content_length as usize);
         Ok(compressed_offset)
     }
 }
@@ -347,16 +345,18 @@ impl ZipDownloader {
 struct ByteCountingStream<S> {
     inner: S,
     byte_count: usize,
+    progress_callback: ProgressCallback,
 }
 
 impl<S> ByteCountingStream<S>
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>>,
 {
-    fn new(inner: S) -> Self {
+    fn new(inner: S, progress_callback: ProgressCallback) -> Self {
         Self {
             inner,
             byte_count: 0,
+            progress_callback,
         }
     }
 }
@@ -377,6 +377,7 @@ where
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
         match self.inner.poll_next_unpin(cx) {
             Poll::Ready(Some(Ok(chunk))) => {
+                (self.progress_callback)(chunk.len());
                 self.byte_count += chunk.len();
                 Poll::Ready(Some(Ok(chunk)))
             }

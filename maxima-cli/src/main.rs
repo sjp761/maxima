@@ -397,18 +397,13 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
             .map(|g| g.name())
             .collect::<Vec<String>>();
 
-        let name = tokio::task::spawn_blocking(move || {
-            Select::new("What game would you like to install?", owned_games_strs).prompt()
-        })
-        .await??;
+        let name = Select::new("What game would you like to install?", owned_games_strs).prompt()?;
 
         owned_games.iter().find(|g| g.name() == name).unwrap()
     };
 
     let offer_id = game.base_offer().offer_id().to_owned();
     let slug = game.base_offer().slug().to_owned();
-
-    let mut maxima = maxima_arc.lock().await;
 
     let builds = maxima
         .content_manager()
