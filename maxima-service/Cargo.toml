@@ -7,17 +7,11 @@ edition = { workspace = true }
 [dependencies]
 maxima-lib = { path = "../maxima-lib" }
 tokio = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
-reqwest = { workspace = true }
-base64 = { workspace = true }
 log = { workspace = true }
-regex = { workspace = true }
-directories = { workspace = true }
 structured-logger = "1.0.5"
 actix-web = "4.15.0"
 sha2 = "0.11.0"
-derive_more = "2.1.1"
 hex = { workspace = true }
 thiserror = { workspace = true }
 
@@ -27,7 +21,6 @@ windows-sys = { workspace = true, features = [
     "Win32_System_Threading",
     "Win32_System_ProcessStatus",
 ] }
-winreg = { workspace = true }
 windows-service = { workspace = true }
 
 [build-dependencies]

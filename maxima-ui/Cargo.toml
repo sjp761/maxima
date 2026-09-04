@@ -6,7 +6,6 @@ edition = "2024"
 
 [dependencies]
 maxima-lib = { path = "../maxima-lib" }
-windows-sys = { workspace = true, features = [ "Win32_System_ProcessStatus", "Win32_Networking_WinInet" ] }
 anyhow = { workspace = true }
 clap = { workspace = true }
 eframe = { version = "0.36.1", default-features = false, features = [ "persistence", "glow", "wayland", "x11" ] }
@@ -27,7 +26,6 @@ sys-locale = "0.3.2"
 humansize = { version = "2.1.3", features = ["no_alloc"] }
 fuzzy-matcher = "0.3.7"
 thiserror = { workspace = true }
-winit = { version = "0.30.13", features = ["default"] }
 
 [target.'cfg(windows)'.dependencies]
 is_elevated = { workspace = true }

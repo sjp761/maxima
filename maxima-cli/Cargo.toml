@@ -8,20 +8,13 @@ edition = { workspace = true }
 maxima-lib = { path = "../maxima-lib" }
 clap = { workspace = true }
 tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 anyhow = { workspace = true }
-base64 = { workspace = true }
 log = { workspace = true }
 regex = { workspace = true }
 inquire = { workspace = true }
-futures = { workspace = true }
-reqwest = { workspace = true }
 rustls = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { workspace = true }
-winreg = { workspace = true }
 is_elevated = { workspace = true }
 
 [build-dependencies]
