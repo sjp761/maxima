@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "eadp/social/presence/v1/presence_messages.proto";
+
+package eadp.social.presence.v1;
+
+service PresenceService {
+  rpc CreatePresenceSession (CreatePresenceSessionRequest) returns (CreatePresenceSessionResponse);
+  rpc ConnectToPresenceSession (ConnectToPresenceSessionRequest) returns (stream ConnectToPresenceSessionResponse);
+  rpc SubscribeToFriendsPresence (SubscribeToFriendsPresenceRequest) returns (SubscribeToFriendsPresenceResponse);
+  rpc PartialUpdatePresenceSession (PartialUpdatePresenceSessionRequest) returns (PartialUpdatePresenceSessionResponse);
+}

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package eadp.common.v1;
+
+message PlayerNetworkId {
+  string id = 1;
+}
+
+message ProductId {
+  string id = 1;
+}
+
+message DevicePlatformId {
+  string id = 1;
+}

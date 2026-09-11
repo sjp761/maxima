@@ -711,7 +711,7 @@ async fn test_rtm_connection(maxima_arc: LockedMaxima) -> Result<()> {
     let players: Vec<String> = friends.iter().map(|f| f.id().to_owned()).collect();
     info!("Subscribed to {} players", players.len());
 
-    rtm.subscribe_all().await?;
+    rtm.subscribe().await?;
     drop(maxima);
 
     loop {
@@ -844,11 +844,7 @@ async fn start_game(
         if login.is_none() {
             maxima.rtm().login().await?;
 
-            let friends = maxima.friends(0).await?;
-            let players: Vec<String> = friends.iter().map(|f| f.id().to_owned()).collect();
-            info!("Subscribed to {} players", players.len());
-
-            maxima.rtm().subscribe_all().await?;
+            maxima.rtm().subscribe().await?;
         }
     }
 

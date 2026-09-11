@@ -288,27 +288,9 @@ impl RtmClient {
         .await
     }
 
-    /// Subscribe to a list of user IDs' presences
-    pub async fn subscribe(
-        &mut self,
-        _persona: Vec<String>,
-        players: &[String],
-    ) -> Result<(), RtmError> {
-        send_and_forget_rtm_request!(self.conn_man, PresenceSubscribe, PresenceSubscribeV1, {
-            persona_id: vec![],
-            players: players.iter().map(|id| Player{ player_id: id.to_owned(), product_id: String::from("origin"), }).collect()
-        })
-        .await
-    }
-
-    pub async fn subscribe_all(&mut self) -> Result<(), RtmError> {
-        send_and_forget_rtm_request!(
-            self.conn_man,
-            PresenceSubscribeAllFriendsV1,
-            PresenceSubscribeAllFriendsV1,
-            {}
-        )
-        .await
+    /// Subscribe to all friends
+    pub async fn subscribe(&mut self) -> Result<(), RtmError> {
+        send_and_forget_rtm_request!(self.conn_man, PresenceSubscribeAllFriendsV1, PresenceSubscribeAllFriendsV1, {}).await
     }
 
     pub async fn session_cleanup(&mut self, session_key: &str) -> Result<(), RtmError> {

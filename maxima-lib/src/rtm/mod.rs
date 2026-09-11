@@ -1,3 +1,8 @@
+/// RTM, short for real-time messaging *was* what EAD used for presence, invites, chat, and almost everything, well, real-time.
+/// It has largely been replaced with a gRPC based solution, which you can find in src/social.
+///
+/// RTM is being kept around, for the time being, as a legacy support thing, since a few services still use it.
+
 pub mod proto {
     include!(concat!(env!("OUT_DIR"), "/antelope.rtm.rs"));
 }
@@ -21,6 +26,8 @@ pub enum RtmError {
     Send(#[from] tokio::sync::mpsc::error::SendError<connection::RtmRequest>),
     #[error(transparent)]
     Token(#[from] crate::core::auth::storage::TokenError),
+    #[error(transparent)]
+    UnknownEnum(#[from] prost::UnknownEnumValue),
 
     #[error("RTM error ({code}/{msg}: {body:?})", code = .0.error_message, msg = .0.error_message, body = .0.body)]
     V1(proto::ErrorV1),

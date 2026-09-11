@@ -371,7 +371,7 @@ pub fn set_up_registry() -> Result<(), RegistryError> {
     let bootstrap_path = &bootstrap_path()?.safe_str()?.to_string();
 
     // Hijack Qt's protocol for our login redirection
-    register_custom_protocol("qrc", "Maxima Launcher", bootstrap_path)?;
+    register_custom_protocol("qrc", "Maxima Auth Handler", bootstrap_path)?;
 
     Ok(())
 }

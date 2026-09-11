@@ -68,7 +68,7 @@ pub fn check_desktop_icon() -> Result<(), DesktopError> {
 
     let mut parts = HashMap::<&str, String>::new();
     parts.insert("Type", "Application".to_owned());
-    parts.insert("Name", "Maxima Launcher".to_owned());
+    parts.insert("Name", "Maxima Auth Handler".to_owned());
     parts.insert("Exec", format!("{} %u", binary.as_path().to_string_lossy()));
     parts.insert("Icon", "maxima".to_owned());
     parts.insert("NoDisplay", "true".to_owned());

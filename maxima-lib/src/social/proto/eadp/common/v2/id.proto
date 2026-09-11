@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package eadp.common.v2;
+
+message PlayerId {
+  string id = 1;
+}

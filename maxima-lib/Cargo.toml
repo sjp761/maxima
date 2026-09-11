@@ -71,6 +71,9 @@ libz-sys = "1.1.29"
 anyhow = { workspace = true }
 dirs = "6.0.0"
 async-compression = { version = "0.4.42", features = ["tokio", "deflate"] }
+tonic = { version = "0.14.6", features = ["tls-webpki-roots"]}
+prost-types = "0.14"
+querystring = "1.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
@@ -105,6 +108,7 @@ smbios-lib = "0.9.4"
 
 [build-dependencies]
 prost-build = "0.14.4"
+tonic-prost-build = "0.14.6"
 
 [lib]
 name = "maxima"

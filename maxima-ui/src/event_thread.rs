@@ -12,11 +12,12 @@ use maxima::core::{
         SERVICE_REQUEST_GETMYFRIENDS, ServiceFriends, ServiceGetMyFriendsRequestBuilder,
     },
 };
+use maxima::social::client::{SocialClient, SocialEvent, SocialRequest, UserPresence};
 
 // TODO(headassbtw): integrate this into the enum too (out of scope for the PR i wrote this in)
 pub struct EventThreadFriendStatusResponse {
     pub id: String,
-    pub presence: maxima::rtm::client::RichPresence,
+    pub presence: UserPresence,
 }
 
 pub enum MaximaEventResponse {
@@ -77,54 +78,36 @@ impl EventThread {
         let rtm = maxima.rtm();
         rtm.login().await?;
 
-        let players: Vec<String> =
-            friends.friends().items().iter().map(|f| f.id().to_owned()).collect();
-        info!("Subscribed to {} players", players.len());
+        rtm.subscribe().await?;
 
-        rtm.subscribe(persona_id, &players).await?;
+        let mut social_rx = maxima.social().subscribe().await;
+
         drop(maxima);
 
-        let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(30));
-        heartbeat_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        'outer: loop {
+            let mut maxima = maxima_arc.lock().await;
+            maxima.rtm().heartbeat().await?;
+            drop(maxima);
 
-        // Presence polling interval — separate from heartbeat
-        let mut presence_interval = tokio::time::interval(Duration::from_millis(500));
-        presence_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-        loop {
-            tokio::select! {
-                _ = heartbeat_interval.tick() => {
-                    let mut maxima = maxima_arc.lock().await;
-                    if let Err(e) = maxima.rtm().heartbeat().await {
-                        error!("RTM heartbeat failed: {e}");
+            if let Ok(event) = social_rx.try_recv() {
+                match event {
+                    SocialEvent::FriendPresence { id, presence } => {
+                        let _ = rtm_responder.send(MaximaEventResponse::FriendStatusResponse(
+                            EventThreadFriendStatusResponse { id, presence },
+                        ));
                     }
-                }
-
-                _ = presence_interval.tick() => {
-                    let mut maxima = maxima_arc.lock().await;
-                    let store = maxima.rtm().presence_store().lock().await;
-                    for entry in store.iter() {
-                        let _ = rtm_responder
-                            .send(MaximaEventResponse::FriendStatusResponse(
-                                EventThreadFriendStatusResponse {
-                                    id: entry.0.to_string(),
-                                    presence: entry.1,
-                                },
-                            ))
-                            .ok();
-                    }
-                    if store.entry_count() > 0 {
-                        ctx.request_repaint();
-                    }
-                }
-
-                request = rtm_cmd_listener.recv() => {
-                    match request {
-                        Some(MaximaEventRequest::ShutdownRequest) | None => return Ok(()),
-                        Some(MaximaEventRequest::SubscribeToFriendPresence) => {}
-                    }
+                    SocialEvent::Error(_) => {}
                 }
             }
+
+            match rtm_cmd_listener.try_recv() {
+                Ok(MaximaEventRequest::SubscribeToFriendPresence) => {}
+                Ok(MaximaEventRequest::ShutdownRequest) |
+                Err(TryRecvError::Disconnected) => break 'outer Ok(()),
+                Err(TryRecvError::Empty) => {}
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
     }
 }

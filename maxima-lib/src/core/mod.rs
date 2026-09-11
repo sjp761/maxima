@@ -64,8 +64,9 @@ use self::{
 use crate::{
     content::manager::{ContentManager, ContentManagerError},
     lsx::{self, service::LSXServerError, types::LSXRequestType},
-    rtm::client::{BasicPresence, RtmClient},
-    util::native::{NativeError, maxima_dir},
+    rtm::client::RtmClient,
+    social::client::{SocialClient, SocialRequest, UserPresence, UserPresenceBasic},
+    util::native::{maxima_dir, NativeError},
 };
 
 #[derive(Clone, IntoStaticStr)]
@@ -103,6 +104,9 @@ pub struct Maxima {
 
     #[getter(skip)]
     rtm: RtmClient,
+
+    #[getter(skip)]
+    social: SocialClient,
 
     #[getter(skip)]
     request_cache: DynamicCache<String>,
@@ -146,6 +150,9 @@ impl Maxima {
     pub async fn new_with_options(
         options: MaximaOptions,
     ) -> Result<LockedMaxima, MaximaCreationError> {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .unwrap(); // TODO(headassbtw) error handling
         let lsx_port = if let Ok(lsx_port) = env::var("MAXIMA_LSX_PORT") {
             lsx_port.parse::<u16>()?
         } else {
@@ -213,7 +220,9 @@ impl Maxima {
             lsx_connections: 0,
             cloud_sync: CloudSyncClient::new(auth_storage.clone()),
             content_manager: ContentManager::new(auth_storage.clone(), false).await?,
-            rtm: RtmClient::new(auth_storage),
+            // TODO(headassbtw): delay these so they don't choke without initial login
+            rtm: RtmClient::new(auth_storage.clone()),
+            social: SocialClient::new(auth_storage),
             request_cache,
             dummy_local_user,
             pending_events: Vec::new(),
@@ -424,7 +433,10 @@ impl Maxima {
         &mut self.rtm
     }
 
-    /// Sets the port the LSX server listens on.
+    pub fn social(&mut self) -> &mut SocialClient {
+        &mut self.social
+    }
+
     pub fn set_lsx_port(&mut self, port: u16) {
         self.lsx_port = port;
     }
@@ -493,11 +505,8 @@ impl Maxima {
             }
         }
 
-        // We need to store your BasicPresence somewhere
-        self.rtm
-            .set_presence(BasicPresence::Online, "", "")
-            .await
-            .ok();
+        let _ = self.social.tx.send(SocialRequest::UpdatePresence(UserPresence::online()));
+
         self.playing = None;
     }
 

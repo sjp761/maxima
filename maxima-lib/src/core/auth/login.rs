@@ -31,25 +31,17 @@ pub async fn begin_oauth_login_flow<'a>(context: &mut AuthContext<'a>) -> Result
             None => continue,
         };
 
-        let path_and_query = captures.get(2).ok_or(AuthError::Query)?.as_str();
+        let path_and_query = captures.get(2).ok_or_else(|| { AuthError::Query })?.as_str();
         if path_and_query.starts_with("/auth") {
             let query = path_and_query
                 .split_once("?")
                 .map(|(_, qs)| qs.trim())
-                .map(|qs| {
-                    let normalized = form_urlencoded::Serializer::new(String::new())
-                        .extend_pairs(form_urlencoded::parse(qs.as_bytes()))
-                        .finish();
-
-                    form_urlencoded::parse(normalized.as_bytes())
-                        .into_owned()
-                        .collect::<Vec<(String, String)>>()
-                })
-                .ok_or(AuthError::Query)?;
+                .map(querystring::querify)
+                .ok_or_else(|| { AuthError::Query })?;
 
             for (key, value) in query {
                 if key == "code" {
-                    context.set_code(value.as_str());
+                    context.set_code(value);
                     return Ok(());
                 }
             }

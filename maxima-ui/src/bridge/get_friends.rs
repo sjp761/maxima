@@ -1,13 +1,15 @@
-use egui::Context;
-use log::debug;
-use maxima::{core::LockedMaxima, rtm::client::BasicPresence};
-use tokio::sync::mpsc::UnboundedSender;
 
+use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     bridge_thread::{BackendError, InteractThreadFriendListResponse, MaximaLibResponse},
     ui_image::UIImageCacheLoaderCommand,
     views::friends_view::UIFriend,
 };
+use egui::Context;
+use log::debug;
+use maxima::core::LockedMaxima;
+use maxima::social::client::UserPresenceBasic;
+use std::sync::mpsc::Sender;
 
 pub async fn get_friends_request(
     maxima_arc: LockedMaxima,
@@ -33,7 +35,7 @@ pub async fn get_friends_request(
         let friend_info = UIFriend {
             name: friend.display_name().to_string(),
             id: friend.id().to_string(),
-            online: BasicPresence::Offline,
+            online: UserPresenceBasic::Offline,
             game: None,
             game_presence: None,
         };

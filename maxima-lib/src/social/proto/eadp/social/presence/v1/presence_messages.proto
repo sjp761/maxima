@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+import "eadp/common/v1/id.proto";
+import "eadp/common/v2/id.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+package eadp.social.presence.v1;
+
+message Value {
+  oneof value {
+    string stringValue = 1;
+    string localizedStringValue = 2;
+    sint64 integerValue = 3;
+    float floatValue = 4;
+    google.protobuf.Timestamp timestampValue = 5;
+    google.protobuf.Duration durationValue = 6;
+  }
+}
+
+message PresenceSessionToken {
+  bytes token = 1;
+}
+
+message CreatePresenceSessionResponse {
+  string presenceSessionId = 1;
+  PresenceSessionToken presenceSessionToken = 2;
+}
+
+message ClientInfo {
+  eadp.common.v1.PlayerNetworkId playerNetworkId = 1;
+  eadp.common.v1.ProductId productId = 2;
+  eadp.common.v1.DevicePlatformId devicePlatformId = 3;
+  string locale = 4;
+}
+
+message CreatePresenceSessionRequest {
+  ClientInfo clientInfo = 1;
+}
+
+message SubscribeToFriendsPresenceRequest {
+  PresenceSessionToken presenceSessionToken = 1;
+}
+
+message SubscribeToFriendsPresenceResponse { }
+
+message PresenceUpdate {
+  message PropertiesEnt {
+    string key = 1;
+    Value value = 2;
+  }
+
+  bool appearOffline = 1;
+
+  repeated PropertiesEnt properties = 2;
+}
+
+message ConnectToPresenceSessionRequest {
+  PresenceSessionToken presenceSessionToken = 1;
+  repeated PresenceUpdate presence = 2;
+}
+
+message PresenceSessionNotification {
+  message PropertiesEnt {
+    string key = 1;
+    Value value = 2;
+  }
+
+  string presenceSessionId = 1;
+  bool online = 2;
+  google.protobuf.Timestamp updateTimestamp = 3;
+  ClientInfo client = 4;
+  string activityDescription = 5;
+  string activityDetails = 6;
+  repeated PropertiesEnt properties = 7;
+  bool lookingForMore = 8;
+  bool joinable = 9;
+  repeated uint32 inputTypes = 10;
+  repeated string gameJoinTokenTypes = 11;
+  google.protobuf.Timestamp onlineTimestamp = 12;
+  bool updated = 13;
+}
+
+message PresenceNotification {
+  eadp.common.v2.PlayerId playerId = 1;
+  bool playerOnline = 2;
+  google.protobuf.Timestamp lastSeenOnline = 3;
+  PresenceSessionNotification sessionNotification = 4;
+}
+
+message ConnectToPresenceSessionResponse {
+  PresenceNotification presenceNotification = 1;
+}
+
+message PartialUpdatePresenceSessionRequest {
+  PresenceSessionToken presenceSessionToken = 1;
+  PresenceUpdate presenceUpdate = 2;
+}
+
+message PartialUpdatePresenceSessionResponse {
+
+}

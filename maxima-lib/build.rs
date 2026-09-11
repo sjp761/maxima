@@ -10,5 +10,12 @@ fn main() -> std::io::Result<()> {
             "src/rtm/proto/antelope_common.proto",
         ],
         &["src/rtm/proto/"],
-    )
+    )?;
+    tonic_prost_build::configure().build_client(true).compile_protos(
+        &[
+            "src/social/proto/eadp/social/presence/v1/presence_service.proto",
+        ],
+        &["src/social/proto/"],
+    )?;
+    Ok(())
 }

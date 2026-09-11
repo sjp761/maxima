@@ -57,8 +57,7 @@ pub enum AuthError {
     #[error(transparent)]
     PCSign(#[from] HardwareHashError),
     #[error(transparent)]
-    HeaderStr(#[from] http::header::ToStrError),
-
+    HeaderStrHttp(#[from] http::header::ToStrError),
     #[error("no token was provided")]
     NoToken,
     #[error("failed to find auth code")]

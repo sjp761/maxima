@@ -16,6 +16,8 @@ use crate::{
     ui_image::UIImageCacheLoaderCommand,
     views::friends_view::UIFriend,
 };
+use maxima::social::client::{SocialClient, SocialRequest};
+use maxima::social::SocialError;
 use maxima::{
     content::manager::{
         ContentManager, ContentManagerError, QueuedGameBuilder, QueuedGameBuilderError,
@@ -144,6 +146,12 @@ pub enum BackendError {
     RegistryError(#[from] RegistryError),
     #[error(transparent)]
     Rtm(#[from] RtmError),
+    #[error(transparent)]
+    SocialClient(#[from] SocialError),
+    #[error(transparent)]
+    SendResponse(#[from] SendError<MaximaLibResponse>),
+    #[error(transparent)]
+    SendImageCacheLoaderCommand(#[from] SendError<UIImageCacheLoaderCommand>),
     #[error(transparent)]
     ServiceGameImagesRequestBuilder(#[from] ServiceGameImagesRequestBuilderError),
     #[error(transparent)]

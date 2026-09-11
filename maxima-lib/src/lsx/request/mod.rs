@@ -38,6 +38,8 @@ pub enum LSXRequestError {
     #[error(transparent)]
     ECommerce(#[from] crate::core::ecommerce::ECommerceError),
 
+    #[error("a user the game expected to be on your friends list was not")]
+    UserNotOnFriendsList,
     #[error("invalid LSX challenge response")]
     InvalidChallengeResponse,
     #[error("unknown LSX encryption version ({0})")]

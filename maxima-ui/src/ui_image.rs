@@ -255,6 +255,7 @@ impl UIImageCache {
                         cache.lock().unwrap().insert(needle, None);
                     }
                 },
+                _ => {}
             }
         }
         info!("Shutting down image loader thread");
