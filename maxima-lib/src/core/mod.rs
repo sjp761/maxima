@@ -150,9 +150,6 @@ impl Maxima {
     pub async fn new_with_options(
         options: MaximaOptions,
     ) -> Result<LockedMaxima, MaximaCreationError> {
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .unwrap(); // TODO(headassbtw) error handling
         let lsx_port = if let Ok(lsx_port) = env::var("MAXIMA_LSX_PORT") {
             lsx_port.parse::<u16>()?
         } else {

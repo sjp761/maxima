@@ -5,6 +5,7 @@ use thiserror::Error;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc::error::SendError;
 
 use crate::{
     GameDetails, GameInfo, GameSettings,

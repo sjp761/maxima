@@ -1,4 +1,5 @@
 use derive_getters::Getters;
+use futures::future::BoxFuture;
 use log::{debug, error, warn};
 use quick_xml::DeError;
 use rand::rand_core::Rng;
@@ -338,54 +339,56 @@ impl Connection {
         Ok(())
     }
 
-    async fn process_request_message(
-        &mut self,
+    fn process_request_message<'a>(
+        &'a mut self,
         message: LSXRequest,
-    ) -> Result<Option<LSXMessageType>, LSXConnectionError> {
-        {
-            let (maxima_arc, pid) = { (self.state.maxima.clone(), *self.state.pid()) };
+    ) -> BoxFuture<'a, Result<Option<LSXMessageType>, LSXConnectionError>> {
+        Box::pin(async move {
+            {
+                let (maxima_arc, pid) = { (self.state.maxima.clone(), *self.state.pid()) };
 
-            maxima_arc
-                .lock()
-                .await
-                .call_event(MaximaEvent::ReceivedLSXRequest(pid, message.value.clone()));
-        }
+                maxima_arc
+                    .lock()
+                    .await
+                    .call_event(MaximaEvent::ReceivedLSXRequest(pid, message.value.clone()));
+            }
 
-        let result = lsx_message_matcher!(
+            let result = lsx_message_matcher!(
 
-            &mut self.state, message.value, LSXRequestType;
+                &mut self.state, message.value, LSXRequestType;
 
-            ChallengeResponse handle_challenge_response,
-            GetBlockList handle_get_block_list_request,
-            GetConfig handle_config_request,
-            GetProfile handle_profile_request,
-            GetSetting handle_settings_request,
-            RequestLicense handle_license_request,
-            GetGameInfo handle_game_info_request,
-            GetAllGameInfo handle_all_game_info_request,
-            GetInternetConnectedState handle_connectivity_request,
-            IsProgressiveInstallationAvailable handle_pi_availability_request,
-            AreChunksInstalled handle_pi_installed_chunks_request,
-            GetAuthCode handle_auth_code_request,
-            GetPresence handle_presence_request,
-            SetPresence handle_set_presence_request,
-            QueryOffers handle_query_offers_request,
-            QueryPresence handle_query_presence_request,
-            QueryFriends handle_query_friends_request,
-            QueryEntitlements handle_query_entitlements_request,
-            QueryImage handle_query_image_request,
-            GetVoipStatus handle_voip_status_request,
-            ShowIGOWindow handle_show_igo_window_request,
-            SetDownloaderUtilization handle_set_downloader_util_request,
-        );
+                ChallengeResponse handle_challenge_response,
+                GetBlockList handle_get_block_list_request,
+                GetConfig handle_config_request,
+                GetProfile handle_profile_request,
+                GetSetting handle_settings_request,
+                RequestLicense handle_license_request,
+                GetGameInfo handle_game_info_request,
+                GetAllGameInfo handle_all_game_info_request,
+                GetInternetConnectedState handle_connectivity_request,
+                IsProgressiveInstallationAvailable handle_pi_availability_request,
+                AreChunksInstalled handle_pi_installed_chunks_request,
+                GetAuthCode handle_auth_code_request,
+                GetPresence handle_presence_request,
+                SetPresence handle_set_presence_request,
+                QueryOffers handle_query_offers_request,
+                QueryPresence handle_query_presence_request,
+                QueryFriends handle_query_friends_request,
+                QueryEntitlements handle_query_entitlements_request,
+                QueryImage handle_query_image_request,
+                GetVoipStatus handle_voip_status_request,
+                ShowIGOWindow handle_show_igo_window_request,
+                SetDownloaderUtilization handle_set_downloader_util_request,
+            );
 
-        Ok(match result {
-            Some(result) => Some(LSXMessageType::Response(LSXResponse {
-                sender: message.recipient,
-                id: message.id,
-                value: result,
-            })),
-            None => None,
+            Ok(match result {
+                Some(result) => Some(LSXMessageType::Response(LSXResponse {
+                    sender: message.recipient,
+                    id: message.id,
+                    value: result,
+                })),
+                None => None,
+            })
         })
     }
 }

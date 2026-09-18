@@ -3,6 +3,7 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     time::Duration,
 };
+use tokio::sync::mpsc::error::TryRecvError;
 
 use crate::bridge_thread::BackendError;
 use log::{error, info};
