@@ -58,9 +58,3 @@ pub async fn begin_oauth_login_flow<'a>(context: &mut AuthContext<'a>) -> Result
         }
     }
 }
-
-// Use the OOA API to retrieve an access token without a captcha
-#[deprecated(note = "This method of login was patched and this function will be removed soon")]
-pub async fn manual_login(_persona: &str, _password: &str) -> Result<String, AuthError> {
-    unimplemented!();
-}

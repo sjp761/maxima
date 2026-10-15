@@ -28,14 +28,13 @@ use maxima::{
     core::{
         LockedMaxima, Maxima, MaximaEvent, MaximaOptionsBuilder,
         auth::{
-            TokenResponse,
-            context::AuthContext,
-            login::{begin_oauth_login_flow, manual_login},
+            TokenResponse, context::AuthContext, login::begin_oauth_login_flow,
             nucleus_auth_exchange, nucleus_token_exchange,
         },
         clients::JUNO_PC_CLIENT_ID,
         cloudsync::CloudSyncLockMode,
         launch::{self, LaunchMode, LaunchOptions},
+        library::OwnedTitle,
         service_layer::{
             SERVICE_REQUEST_GETBASICPLAYER, SERVICE_REQUEST_GETLEGACYCATALOGDEFS,
             ServiceGetBasicPlayerRequestBuilder, ServiceGetLegacyCatalogDefsRequestBuilder,
@@ -174,16 +173,7 @@ pub async fn login_flow(login_override: Option<String>) -> Result<TokenResponse>
     let mut auth_context = AuthContext::new()?;
 
     if let Some(access_token) = &login_override {
-        let access_token = if let Some(captures) = MANUAL_LOGIN_PATTERN.captures(access_token) {
-            let persona = &captures[1];
-            let password = &captures[2];
-
-            manual_login(persona, password).await?
-        } else {
-            access_token.to_owned()
-        };
-
-        auth_context.set_access_token(&access_token);
+        auth_context.set_access_token(access_token);
         let code = nucleus_auth_exchange(&auth_context, JUNO_PC_CLIENT_ID, "code").await?;
         auth_context.set_code(&code);
     } else {
@@ -346,58 +336,31 @@ async fn run_interactive(maxima_arc: LockedMaxima) -> Result<()> {
 }
 
 async fn interactive_start_game(maxima_arc: LockedMaxima) -> Result<()> {
-    let mut maxima = maxima_arc.lock().await;
-    let mut owned_games = Vec::new();
-    let owned_games_strs = {
-        for game in maxima.mut_library().games().await? {
-            if !game.base_offer().is_installed().await {
-                continue;
-            }
-            owned_games.push(game);
-        }
+    let game = select_owned_game(
+        maxima_arc.clone(),
+        "What game would you like to play?",
+        Some(true),
+    )
+    .await?;
 
-        owned_games
-            .iter()
-            .map(|g| g.name())
-            .collect::<Vec<String>>()
-    };
-
-    let name = Select::new("What game would you like to play?", owned_games_strs).prompt()?;
-    let game = owned_games.iter().find(|g| g.name() == name).unwrap();
-
-    let offer_id = game.base_offer().offer_id().to_owned().clone();
-    let slug = game.base_offer().slug().to_owned().clone();
-    drop(maxima); // To unlock before starting the game, since start_game will also need to lock
+    let offer_id = game.base_offer().offer_id().clone();
+    let slug = game.base_offer().slug().clone();
     start_game(&offer_id, &slug, None, Vec::new(), None, maxima_arc.clone()).await?;
 
     Ok(())
 }
 
 async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
+    let game = select_owned_game(
+        maxima_arc.clone(),
+        "What game would you like to install?",
+        Some(false),
+    )
+    .await?;
     let mut maxima = maxima_arc.lock().await;
-    let mut owned_games = Vec::new();
 
-    let game = {
-        for game in maxima.mut_library().games().await? {
-            if game.base_offer().is_installed().await {
-                continue;
-            }
-            owned_games.push(game);
-        }
-
-        let owned_games_strs = owned_games
-            .iter()
-            .map(|g| g.name())
-            .collect::<Vec<String>>();
-
-        let name =
-            Select::new("What game would you like to install?", owned_games_strs).prompt()?;
-
-        owned_games.iter().find(|g| g.name() == name).unwrap()
-    };
-
-    let offer_id = game.base_offer().offer_id().to_owned();
-    let slug = game.base_offer().slug().to_owned();
+    let offer_id = game.base_offer().offer_id().clone();
+    let slug = game.base_offer().slug().clone();
 
     let builds = maxima
         .content_manager()
@@ -405,12 +368,9 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
         .available_builds(&offer_id)
         .await?;
 
-    let available_live_build = builds.live_build();
-    if available_live_build.is_none() {
+    let Some(build) = builds.live_build() else {
         bail!("Couldn't find a suitable game build");
-    }
-
-    let build = available_live_build.unwrap();
+    };
     info!("Installing game build {}", build);
 
     let path = PathBuf::from(
@@ -514,12 +474,9 @@ async fn download_specific_file(
 
     let content_service = ContentService::new(maxima.auth_storage().clone());
     let builds = content_service.available_builds(offer).await?;
-    let build = builds.builds.iter().find(|b| b.build_id() == build_id);
-    if build.is_none() {
+    let Some(build) = builds.builds.iter().find(|b| b.build_id() == build_id) else {
         bail!("Couldn't find the game build {}", build_id);
-    }
-
-    let build = build.unwrap();
+    };
     info!("Downloading file from game build {}", build);
 
     let url = content_service
@@ -555,23 +512,44 @@ async fn download_specific_file(
     Ok(())
 }
 
-async fn generate_download_links(maxima_arc: LockedMaxima) -> Result<()> {
+async fn select_owned_game(
+    maxima_arc: LockedMaxima,
+    prompt: &str,
+    installed: Option<bool>,
+) -> Result<OwnedTitle> {
     let mut maxima = maxima_arc.lock().await;
+    let mut games = Vec::new();
+    for game in maxima.mut_library().games().await? {
+        if let Some(installed) = installed {
+            if game.base_offer().is_installed().await != installed {
+                continue;
+            }
+        }
+        games.push(game.clone());
+    }
+
+    let names = games
+        .iter()
+        .map(|game| game.name())
+        .collect::<Vec<String>>();
+    let name = Select::new(prompt, names).prompt()?;
+
+    Ok(games
+        .into_iter()
+        .find(|game| game.name() == name)
+        .expect("selected game should exist"))
+}
+
+async fn generate_download_links(maxima_arc: LockedMaxima) -> Result<()> {
+    let game = select_owned_game(
+        maxima_arc.clone(),
+        "What game would you like to list builds for?",
+        None,
+    )
+    .await?;
+    let maxima = maxima_arc.lock().await;
 
     let content_service = ContentService::new(maxima.auth_storage().clone());
-
-    let owned_games = maxima.mut_library().games().await?;
-    let owned_games_strs = owned_games
-        .iter()
-        .map(|g| g.name())
-        .collect::<Vec<String>>();
-
-    let name = Select::new(
-        "What game would you like to list builds for?",
-        owned_games_strs,
-    )
-    .prompt()?;
-    let game = owned_games.iter().find(|g| g.name() == name).unwrap();
 
     info!("Working...");
 
