@@ -421,36 +421,36 @@ async fn interactive_install_game(maxima_arc: LockedMaxima) -> Result<()> {
     let mut saw_downloader = false;
 
     loop {
-        let mut maxima = maxima_arc.lock().await;
+        {
+            let mut maxima = maxima_arc.lock().await;
 
-        for event in maxima.consume_pending_events() {
-            let MaximaEvent::ReceivedLSXRequest(_, _) = event else {
-                continue;
-            };
-            debug!("Received LSX request event");
-        }
+            for event in maxima.consume_pending_events() {
+                let MaximaEvent::ReceivedLSXRequest(_, _) = event else {
+                    continue;
+                };
+                debug!("Received LSX request event");
+            }
 
-        maxima.update().await;
+            maxima.update().await;
 
-        if let Some(downloader) = maxima.content_manager().current() {
-            saw_downloader = true;
-            idle_ticks = 0;
-            info!(
-                "Downloading: {:.1}%/100%, {} bytes out of {}",
-                downloader.percentage_done(),
-                downloader.completed_bytes(),
-                downloader.bytes_total()
-            );
-        } else if saw_downloader {
-            break;
-        } else {
-            idle_ticks += 1;
-            if idle_ticks >= IDLE_TICK_LIMIT {
-                bail!("Installer produced no download activity");
+            if let Some(downloader) = maxima.content_manager().current() {
+                saw_downloader = true;
+                idle_ticks = 0;
+                info!(
+                    "Downloading: {:.1}%/100%, {} bytes out of {}",
+                    downloader.percentage_done(),
+                    downloader.completed_bytes(),
+                    downloader.bytes_total()
+                );
+            } else if saw_downloader {
+                break;
+            } else {
+                idle_ticks += 1;
+                if idle_ticks >= IDLE_TICK_LIMIT {
+                    bail!("Installer produced no download activity");
+                }
             }
         }
-
-        drop(maxima);
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 
@@ -678,25 +678,27 @@ async fn get_game_by_slug(_maxima_arc: LockedMaxima, _slug: &str) -> Result<()> 
 }
 
 async fn test_rtm_connection(maxima_arc: LockedMaxima) -> Result<()> {
-    let mut maxima = maxima_arc.lock().await;
-    let friends = maxima.friends(0).await?;
+    let friends = {
+        let mut maxima = maxima_arc.lock().await;
+        let friends = maxima.friends(0).await?;
 
-    let rtm = maxima.rtm();
-    rtm.login().await?;
-    rtm.set_presence(BasicPresence::Online, "Test", "Origin.OFR.50.0002148")
-        .await?;
+        let rtm = maxima.rtm();
+        rtm.login().await?;
+        rtm.set_presence(BasicPresence::Online, "Test", "Origin.OFR.50.0002148")
+            .await?;
 
-    let players: Vec<String> = friends.iter().map(|f| f.id().to_owned()).collect();
-    info!("Subscribed to {} players", players.len());
+        let players: Vec<String> = friends.iter().map(|f| f.id().to_owned()).collect();
+        info!("Subscribed to {} players", players.len());
 
-    rtm.subscribe_all().await?;
-    drop(maxima);
+        rtm.subscribe_all().await?;
+
+        friends
+    };
 
     loop {
-        let mut maxima = maxima_arc.lock().await;
-        maxima.rtm().heartbeat().await?;
-
         {
+            let mut maxima = maxima_arc.lock().await;
+            maxima.rtm().heartbeat().await?;
             let store = maxima.rtm().presence_store().lock().await;
             for (id, presence) in store.iter() {
                 let name = friends
@@ -713,9 +715,6 @@ async fn test_rtm_connection(maxima_arc: LockedMaxima) -> Result<()> {
                 );
             }
         }
-
-        drop(maxima);
-
         tokio::time::sleep(std::time::Duration::from_secs(30)).await;
     }
 }
@@ -856,21 +855,20 @@ async fn start_game(
     }
 
     loop {
-        let mut maxima = maxima_arc.lock().await;
+        {
+            let mut maxima = maxima_arc.lock().await;
+            for event in maxima.consume_pending_events() {
+                let MaximaEvent::ReceivedLSXRequest(_, _) = event else {
+                    continue;
+                };
+                debug!("Received LSX request event");
+            }
 
-        for event in maxima.consume_pending_events() {
-            let MaximaEvent::ReceivedLSXRequest(_, _) = event else {
-                continue;
-            };
-            debug!("Received LSX request event");
+            maxima.update().await;
+            if maxima.playing().is_none() {
+                break;
+            }
         }
-
-        maxima.update().await;
-        if maxima.playing().is_none() {
-            break;
-        }
-
-        drop(maxima);
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 
