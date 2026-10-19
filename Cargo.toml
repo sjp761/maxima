@@ -12,18 +12,18 @@ members = [
 
 [workspace.dependencies]
 # Common Workspace Dependencies for all Maxima libs
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "time", "net", "sync", "macros", "fs", "process"] }
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "time", "net", "sync", "macros", "fs", "process"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-rustls = { version = "0.23.43", features = ["aws-lc-rs"] }
-reqwest = { version = "0.13.4", features = ["stream", "rustls"], default-features = false }
+serde_json = "1.0.154"
+rustls = { version = "0.23.46", features = ["aws-lc-rs"] }
+reqwest = { version = "0.13.5", features = ["stream", "rustls"], default-features = false }
 base64 = "0.23.1"
-thiserror = "2.0.20"
+thiserror = "2.0.21"
 anyhow = "1.0.104"
 log = "0.4.34"
 regex = "1.13.1"
 futures = "0.3.34"
-clap = { version = "4.6.6", features = ["derive"] }
+clap = { version = "4.6.7", features = ["derive"] }
 inquire = "0.9.4"
 strum = { version = "0.28.0", features = ["derive"] }
 strum_macros = "0.28.0"
@@ -38,8 +38,8 @@ windows-service = "0.8.1"
 is_elevated = "0.1.2"
 
 [patch.crates-io]
-async-compression = { git = "https://github.com/sjp761/async-compression.git", rev = "a226c72f754f942ad187cc65cb1f03df5ae26b7b", version = "0.4.42" }
-flate2 = { git = "https://github.com/sjp761/flate2-rs.git", rev = "45fc9f6a56a97513b285029fee14213a2d0fe2e5", version = "1.1.10" }
+async-compression = { git = "https://github.com/sjp761/async-compression.git", rev = "0ea9771229f9dcf04fc045cdf494bfb3b01dd2eb", version = "0.4.51" }
+flate2 = { git = "https://github.com/sjp761/flate2-rs.git", rev = "3dc0e2d34c1b99d3fa1d1a31a608101ef8c76ee7", version = "1.1.10" }
 
 [workspace.package]
 version = "0.1.0"

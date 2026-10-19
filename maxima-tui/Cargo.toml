@@ -6,12 +6,10 @@ edition = { workspace = true }
 
 [dependencies]
 maxima-lib = { path = "../maxima-lib" }
-clap = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
 regex = { workspace = true }
-inquire = { workspace = true }
 ratatui = "0.30.2"
 strum = { workspace = true }
 color-eyre = "0.6.5"
