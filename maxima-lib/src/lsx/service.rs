@@ -28,6 +28,7 @@ pub async fn start_server(port: u16, maxima: LockedMaxima) -> Result<(), LSXServ
 
         info!("New LSX connection: {:?}", addr);
         let (tx, rx) = tokio::sync::mpsc::channel(100);
+        let maxima = maxima.clone();
         let mut conn = match Connection::new(maxima.clone(), socket, tx).await {
             Ok(c) => c,
             Err(err) => {
@@ -38,13 +39,13 @@ pub async fn start_server(port: u16, maxima: LockedMaxima) -> Result<(), LSXServ
 
         conn.queue_challenge().await?;
 
-        let mut maxima = maxima.lock().await;
-        maxima.inc_connected_lsx();
-        maxima.set_player_started();
-        drop(maxima);
+        let mut maxima_locked = maxima.lock().await;
+        maxima_locked.inc_connected_lsx();
+        maxima_locked.set_player_started();
+        drop(maxima_locked);
 
         tokio::spawn(async move {
-            if let Err(err) = handle_client(conn, rx).await {
+            if let Err(err) = handle_client(conn, rx, maxima.clone()).await {
                 warn!("LSX connection error: {}", err);
             }
         });
@@ -54,6 +55,7 @@ pub async fn start_server(port: u16, maxima: LockedMaxima) -> Result<(), LSXServ
 pub async fn handle_client(
     mut conn: Connection,
     mut rx: Receiver<String>,
+    maxima: LockedMaxima,
 ) -> Result<(), LSXServerError> {
     loop {
         tokio::select! {
@@ -62,6 +64,7 @@ pub async fn handle_client(
                     Ok(_) => continue,
                     Err(err) => {
                         warn!("LSX connection error: {}", err);
+                        maxima.lock().await.dec_connected_lsx();
                         return Err(LSXServerError::Conn(err));
                     }
                 }
@@ -69,6 +72,7 @@ pub async fn handle_client(
             Some(msg) = rx.recv() => {
                 if let Err(err) = conn.write_message(msg).await {
                     warn!("LSX connection error: {}", err);
+                    maxima.lock().await.dec_connected_lsx();
                     return Err(LSXServerError::Conn(err));
                 }
             },

@@ -8,9 +8,9 @@ edition = "2024"
 maxima-lib = { path = "../maxima-lib" }
 anyhow = { workspace = true }
 clap = { workspace = true }
-eframe = { version = "0.37.0", default-features = false, features = [ "persistence", "glow", "wayland", "x11" ] }
-egui = "0.37.0"
-egui_extras = {version = "0.37.0", features = [ "svg", "all_loaders" ] }
+eframe = { version = "0.36", default-features = false, features = [ "persistence", "glow", "wayland", "x11" ] }
+egui = "0.36"
+egui_extras = {version = "0.36", features = [ "svg", "all_loaders" ] }
 image = { version = "0.25.10", features = [ "png", "jpeg" ] }
 reqwest = { workspace = true }
 serde = { workspace = true }
