@@ -204,6 +204,7 @@ async fn read_reg_key(path: &str, _slug: Option<&str>) -> Result<Option<String>,
     Ok(None)
 }
 
+// Path looks like [HKEY_LOCAL_MACHINE\SOFTWARE\BioWare\Mass Effect Legendary Edition\Install Dir]Game\Launcher\MassEffectLauncher.exe
 pub async fn parse_registry_path_json(
     key: &str,
     slug: Option<&str>,
@@ -211,9 +212,8 @@ pub async fn parse_registry_path_json(
     let game_install_info =
         load_game_info_from_json(slug.unwrap()).map_err(|_| RegistryError::InvalidInstallKey)?;
     let idx = key.rfind(']');
-    // Path looks like [HKEY_LOCAL_MACHINE\SOFTWARE\BioWare\Mass Effect Legendary Edition\Install Dir]Game\Launcher\MassEffectLauncher.exe (note this could be something other than the exe like the manifest)
     // Extract everything after the last ] and append it to the install path
-    let after_bracket = &key[(idx.unwrap() + 1)..];
+    let after_bracket = &key[(idx.unwrap() + 1)..].replace("\\", "/");
     let path = game_install_info.path().join(after_bracket);
     #[cfg(unix)]
     let path = case_insensitive_path(path);

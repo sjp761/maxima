@@ -230,15 +230,7 @@ pub async fn start_game(
     };
 
     let dir = path.safe_parent()?.safe_str()?;
-
-    #[cfg(unix)]
-    let path = case_insensitive_path(path.clone());
-
     let path = path.safe_str()?;
-
-    #[cfg(unix)]
-    let path = path.replace("\\", "/");
-
     info!("Game path: {}", path);
 
     let slug = if let LaunchMode::Online(ref _offer_id) = mode {
@@ -340,7 +332,7 @@ pub async fn start_game(
     let launch_id = Uuid::new_v4().to_string();
 
     child
-        .current_dir(PathBuf::from(dir))
+        .current_dir(PathBuf::from(path).safe_parent()?)
         .env("MXLaunchId", &launch_id)
         .env("EAAuthCode", "unavailable")
         .env("EAEgsProxyIpcPort", "0")
@@ -395,7 +387,7 @@ pub async fn start_game(
 
     maxima.playing = Some(ActiveGameContext::new(
         &launch_id,
-        dir,
+        &dir,
         options.cloud_saves,
         &content_id,
         offer,

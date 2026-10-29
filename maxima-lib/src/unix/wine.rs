@@ -28,10 +28,6 @@ use crate::{
     util::native::{DownloadError, NativeError, SafeParent, SafeStr, WineError, maxima_dir},
 };
 
-static PROTON_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"GE-Proton\d+-\d+\.tar\.gz").expect("proton pattern regex should be valid")
-});
-
 // A Proton verb to use
 pub enum CommandType {
     // Set the prefix up and runs the command
@@ -86,13 +82,13 @@ pub fn wine_prefix_dir(slug: &str) -> Result<PathBuf, NativeError> {
 }
 
 pub fn proton_dir() -> Result<OsString, NativeError> {
-    if let Ok(path) = env::var("MAXIMA_PROTON_PATH") {
+    if let Ok(path) = env::var("MAXIMA_UMU_PROTONPATH") {
         let path = PathBuf::from(path);
         if path.exists() {
             return Ok(path.into());
         } else {
             warn!(
-                "MAXIMA_PROTON_PATH is set to {} but it doesn't exist",
+                "MAXIMA_UMU_PROTONPATH is set to {} but it doesn't exist",
                 path.display()
             );
         }
@@ -116,6 +112,13 @@ pub fn umu_script_path() -> Result<PathBuf, NativeError> {
     } else {
         Ok(maxima_dir()?.join("wine/umu/umu-run"))
     }
+}
+
+fn umu_gameid() -> Result<String, NativeError> {
+    if let Ok(gameid) = env::var("MAXIMA_UMU_GAMEID") {
+        return Ok(gameid);
+    }
+    Ok("umu-0".to_string())
 }
 
 fn versions() -> Result<Versions, NativeError> {
@@ -235,8 +238,6 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     command_type: CommandType,
     proton_prefix_path: &PathBuf,
 ) -> Result<String, NativeError> {
-    let proton_path = proton_dir()?;
-    let eac_path = eac_dir()?;
     let umu_script_path = umu_script_path()?;
 
     info!("Wine Prefix: {:?}", proton_prefix_path);
@@ -245,23 +246,15 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
     let mut binding = Command::new(umu_script_path.clone());
     let mut child = binding
         .env("WINEPREFIX", proton_prefix_path)
-        .env("GAMEID", "umu-0")
+        .env("GAMEID", umu_gameid()?)
         .env("PROTON_VERB", &command_type.to_string())
-        .env("PROTONPATH", proton_path)
+        .env("PROTONPATH", proton_dir()?)
         .env("STORE", "ea")
-        .env("PROTON_EAC_RUNTIME", eac_path)
+        .env("PROTON_EAC_RUNTIME", eac_dir()?)
         .env("UMU_ZENITY", "1")
         .env("WINEDEBUG", "fixme-all")
         .env("LD_PRELOAD", "") // Fixes some log errors for some games
         .arg(&arg);
-
-    if env::var("MAXIMA_NORTHSTAR").is_ok() {
-        // wsock32 is used as a proxy for Northstar (Titanfall 2). TODO: provide user-facing option for this!
-        child = child.env(
-            "WINEDLLOVERRIDES",
-            "CryptBase,wsock32,bcrypt,dxgi,d3d11,d3d12,d3d12core=n,b;winemenubuilder.exe=d",
-        );
-    }
 
     if let Some(arguments) = args {
         child = child.args(arguments);
@@ -269,12 +262,6 @@ pub async fn run_wine_command<I: IntoIterator<Item = T>, T: AsRef<OsStr>>(
 
     if let Some(cwd) = cwd {
         child.current_dir(cwd);
-    } else if arg.to_string_lossy().contains("/") {
-        // Some games (like Mass Effect LE) require the working directory to be set to the game directory, other it crashes
-        let mut cwd_dir = PathBuf::from(arg.clone());
-        cwd_dir.pop();
-        info!("Setting current working directory to: {:?}", cwd_dir);
-        child.current_dir(cwd_dir);
     }
 
     let status: ExitStatus;

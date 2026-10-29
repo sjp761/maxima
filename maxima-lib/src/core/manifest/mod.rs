@@ -175,9 +175,12 @@ pub async fn handle_touchup_request(
     let manifest = load_manifest_from_disk(install_path.join(MANIFEST_RELATIVE_PATH))
         .await
         .unwrap();
-    manifest
+    let result = manifest
         .run_touchup(&install_path, wine_prefix_path.clone())
-        .await?;
+        .await;
+    if std::env::var("MAXIMA_FORCE_INSTALL").is_err() { // Added for GardenGate Author
+        result?;
+    }
     let game_install_info = GameInstallInfo::new(install_path, wine_prefix_path);
     game_install_info.save_to_json(slug);
     Ok(())
