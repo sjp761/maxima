@@ -343,6 +343,10 @@ pub async fn setup_wine_registry(slug: &str) -> Result<(), NativeError> {
                 ("ClientPath", "C:/Windows/System32/conhost.exe"),
             ],
         ),
+        (
+            "HKEY_LOCAL_MACHINE\\Software\\Wow6432Node\\Origin",
+            &[("ClientPath", "C:/Windows/System32/conhost.exe")],
+        ),
     ];
 
     for (key, values) in entries.into_iter() {
